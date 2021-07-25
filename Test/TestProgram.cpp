@@ -12,13 +12,15 @@ void encrypt(unsigned char *dest, char *src){
     }
 }
 
+
 //flag{s1mpl3_11vm_d3m0}
 int main(){
     printf("Please input your flag: ");
     scanf("%s", input);
     unsigned char dest[100] = {0};
     encrypt(dest, input);
-    if(!strcmp((char*)dest, enc)){
+    bool result = strlen(input) == 22 && !strcmp((char*)dest, enc);
+    if(result){
         printf("Congratulations~\n");
     }else{
         printf("Sorry try again.\n");
