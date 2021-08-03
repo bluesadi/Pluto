@@ -1,5 +1,5 @@
 # OLLVM++
-## Tested Environment
+## Environment
 - Ubuntu 18.04.5 LTS
 - LLVM 12.0.1
 - Clang 12.0.1
