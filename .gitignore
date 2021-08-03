@@ -1,5 +1,2 @@
 .vscode
-Test/TestProgram.ll
-Test/TestProgram_opt.ll
-Test/TestProgram
-Transforms/build
+Build/*

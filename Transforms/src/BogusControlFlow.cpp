@@ -6,6 +6,7 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
+#include "SplitBasicBlock.h"
 #include <vector>
 #include <cstdlib>
 #include <ctime>
@@ -13,7 +14,7 @@ using std::vector;
 using namespace llvm;
 
 // 混淆次数，混淆次数越多混淆结果越复杂
-static cl::opt<int> ObfuTime("obfu_time", cl::init(1), cl::desc("Obfuscate <obfu_time> time(s)."));
+static cl::opt<int> obfuTimes("bcf_loop", cl::init(1), cl::desc("Obfuscate a function <bcf_loop> time(s)."));
 
 namespace{
     class BogusControlFlow : public FunctionPass {
@@ -23,19 +24,32 @@ namespace{
 
             bool runOnFunction(Function &F);
 
+            // 创建基本块 BB 的变异基本块
+            // 第一步：克隆基本块BB
+            // 第二步：向克隆出的基本块中的若干指令中的操作数进行修改，并添加无用指令，得到变异基本块
+            // 注意变异基本块与原基本块不是等价的！！！
             BasicBlock* createAlteredBasicBlock(BasicBlock *BB);
 
+            // 对基本块 BB 进行混淆
             void bogus(BasicBlock *BB);
 
+            // 使基本块发生变异：
+            // 1. 对基本块中的若干指令中的操作数进行修改
+            // 2. 向基本块中添加无用指令
             BasicBlock* alterBB(BasicBlock *BB);
 
+            // 创建代表一个永真式的 ICmpInst*
+            // 该永真式为：y < 10 || x * (x + 1) % 2 == 0
+            // 其中 x, y 为恒为0的全局变量
             Value* createTrueCondition(Instruction *term);
     };
 
 }
 
 bool BogusControlFlow::runOnFunction(Function &F){
-    for(int i = 0;i < ObfuTime;i ++){
+    FunctionPass *pass = createSplitBasicBlockPass();
+    pass->runOnFunction(F);
+    for(int i = 0;i < obfuTimes;i ++){
         vector<BasicBlock*> origBB;
         for(BasicBlock &BB : F){
             origBB.push_back(&BB);
@@ -47,10 +61,6 @@ bool BogusControlFlow::runOnFunction(Function &F){
     return true;
 }
 
-// 创建基本块 BB 的变异基本块
-// 第一步：克隆基本块BB
-// 第二步：向克隆出的基本块中的若干指令中的操作数进行修改，并添加无用指令，得到变异基本块
-// 注意变异基本块与原基本块不是等价的！！！
 BasicBlock* BogusControlFlow::createAlteredBasicBlock(BasicBlock *BB){
     ValueToValueMapTy VMap;
     BasicBlock * alteredBB = CloneBasicBlock(BB, VMap, BB->getName() + ".clone", BB->getParent());
@@ -74,9 +84,6 @@ BasicBlock* BogusControlFlow::createAlteredBasicBlock(BasicBlock *BB){
     return alteredBB;
 }
 
-// 使基本块发生变异：
-// 1. 对基本块中的若干指令中的操作数进行修改
-// 2. 向基本块中添加无用指令
 BasicBlock* BogusControlFlow::alterBB(BasicBlock *BB){
     srand(time(NULL));
     for(Instruction &I : *BB){
@@ -198,9 +205,6 @@ BasicBlock* BogusControlFlow::alterBB(BasicBlock *BB){
     }
 }
 
-// 创建一个永真式 ICmpInst*
-// 该永真式为：y < 10 || x * (x + 1) % 2 == 0
-// 其中 x, y 为恒为0的全局变量
 Value* BogusControlFlow::createTrueCondition(Instruction *term){
     Module *M = term->getModule();
     IntegerType *i32 = Type::getInt32Ty(M->getContext());
@@ -220,7 +224,6 @@ Value* BogusControlFlow::createTrueCondition(Instruction *term){
     return BinaryOperator::CreateOr(cond1, cond2, "", term);
 }
 
-// 对单个基本块执行虚假控制流混淆
 void BogusControlFlow::bogus(BasicBlock *entryBB){
     BasicBlock *bodyBB = entryBB->splitBasicBlock(entryBB->getFirstNonPHIOrDbgOrLifetime());
     BasicBlock *endBB = bodyBB->splitBasicBlock(bodyBB->getTerminator());
@@ -236,4 +239,4 @@ void BogusControlFlow::bogus(BasicBlock *entryBB){
 }
 
 char BogusControlFlow::ID = 0;
-static RegisterPass<BogusControlFlow> X("boguscf", "Inserting bogus control flow.");
+static RegisterPass<BogusControlFlow> X("bcf", "Add bogus control flow to a function.");

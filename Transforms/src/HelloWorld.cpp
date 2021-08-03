@@ -11,12 +11,16 @@ namespace {
             static char ID;
             HelloWorld() : FunctionPass(ID) {}
 
-            bool runOnFunction(Function &F){
-                outs() << "Hello, " << F.getName() << "\n";
-            }
+            bool runOnFunction(Function &F);
     };
     
 }
 
+// runOnFunction 函数实现
+bool HelloWorld::runOnFunction(Function &F){
+	outs() << "Hello, " << F.getName() << "\n";
+}
+
 char HelloWorld::ID = 0;
-static RegisterPass<HelloWorld> X("hello", "Say hello to each function.");
+// 注册该 HelloWorld Pass
+static RegisterPass<HelloWorld> X("hlw", "My first line of LLVM Pass.");
