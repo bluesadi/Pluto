@@ -1,5 +1,5 @@
 # OLLVM++
-## Support Obfuscation
+## Supported Obfuscations
 - Control Flow Flattening
 - Bogus Control Flow
 - Instruction Substitution
