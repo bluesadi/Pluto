@@ -41,7 +41,7 @@ namespace{
             // 创建代表一个永真式的 ICmpInst*
             // 该永真式为：y < 10 || x * (x + 1) % 2 == 0
             // 其中 x, y 为恒为0的全局变量
-            Value* createTrueCondition(Instruction *term);
+            Value* createBogusCondition(Instruction *term);
     };
 
 }
@@ -64,6 +64,7 @@ bool BogusControlFlow::runOnFunction(Function &F){
 BasicBlock* BogusControlFlow::createAlteredBasicBlock(BasicBlock *BB){
     ValueToValueMapTy VMap;
     BasicBlock * alteredBB = CloneBasicBlock(BB, VMap, BB->getName() + ".clone", BB->getParent());
+    // 对克隆基本块的引用进行修复
     for(Instruction &I : *alteredBB){
         for(int i = 0;i < I.getNumOperands();i ++){
             Value *V = MapValue(I.getOperand(i), VMap);
@@ -71,15 +72,8 @@ BasicBlock* BogusControlFlow::createAlteredBasicBlock(BasicBlock *BB){
                 I.setOperand(i, V);
             }
         }
-        if (PHINode *PN = dyn_cast<PHINode>(&I)) {
-            for (int i = 0; i < PN->getNumIncomingValues();i ++) {
-                Value *v = MapValue(PN->getIncomingBlock(i), VMap, RF_None, 0);
-                if (v != 0){
-                    PN->setIncomingBlock(i, cast<BasicBlock>(v));
-                }
-            }
-        }
     }
+    // 对克隆的基本块进行变异（加入垃圾代码，修改指令操作符等等）
     alterBB(alteredBB);
     return alteredBB;
 }
@@ -205,38 +199,51 @@ BasicBlock* BogusControlFlow::alterBB(BasicBlock *BB){
     }
 }
 
-Value* BogusControlFlow::createTrueCondition(Instruction *term){
+#define CONST(T,V) ConstantInt::get(T, V, false)
+
+
+Value* BogusControlFlow::createBogusCondition(Instruction *term){
+    // if((y < 10 || x * (x + 1) % 2 == 0))
+    // 等价于 if(true)
     Module *M = term->getModule();
     IntegerType *i32 = Type::getInt32Ty(M->getContext());
-    ConstantInt *C10 = ConstantInt::get(i32, 10, false);
-    ConstantInt *C2 = ConstantInt::get(i32, 2, false);
-    ConstantInt *C1 = ConstantInt::get(i32, 1, false);
-    ConstantInt *C0 = ConstantInt::get(i32, 0, false);
-    GlobalVariable *xptr = new GlobalVariable(*M, i32, false, GlobalValue::CommonLinkage, C0, "x");
-    GlobalVariable *yptr = new GlobalVariable(*M, i32, false, GlobalValue::CommonLinkage, C0, "y");
+    GlobalVariable *xptr = new GlobalVariable(*M, i32, false, GlobalValue::CommonLinkage, CONST(i32, 0), "x");
+    GlobalVariable *yptr = new GlobalVariable(*M, i32, false, GlobalValue::CommonLinkage, CONST(i32, 0), "y");
     LoadInst *x = new LoadInst(i32, xptr, "", term);
     LoadInst *y = new LoadInst(i32, yptr, "", term);
-    ICmpInst *cond1 = new ICmpInst(term, CmpInst::ICMP_SLT, y, C10);
-    BinaryOperator *op = BinaryOperator::CreateAdd(x, C1, "", term);
+    ICmpInst *cond1 = new ICmpInst(term, CmpInst::ICMP_SLT, y, CONST(i32, 10));
+    BinaryOperator *op = BinaryOperator::CreateAdd(x, CONST(i32, 1), "", term);
     op = BinaryOperator::CreateMul(op, x, "", term);
-    op = BinaryOperator::CreateURem(op, C2, "", term);
-    ICmpInst *cond2 = new ICmpInst(term, CmpInst::ICMP_EQ, op, C0);
+    op = BinaryOperator::CreateURem(op, CONST(i32, 2), "", term);
+    ICmpInst *cond2 = new ICmpInst(term, CmpInst::ICMP_EQ, op, CONST(i32, 0));
     return BinaryOperator::CreateOr(cond1, cond2, "", term);
 }
 
 void BogusControlFlow::bogus(BasicBlock *entryBB){
+    // 拆分得到 entryBB, bodyBB, endBB
+    // 其中所有的 PHI 指令都在 entryBB(如果有的话)
+    // endBB 只包含一条终结指令
     BasicBlock *bodyBB = entryBB->splitBasicBlock(entryBB->getFirstNonPHIOrDbgOrLifetime());
     BasicBlock *endBB = bodyBB->splitBasicBlock(bodyBB->getTerminator());
+    
+    // 创建 bodyBB 的变异基本块 bodyBB.altered
     BasicBlock *alteredBB = createAlteredBasicBlock(bodyBB);
-    Value *cond1 = createTrueCondition(entryBB->getTerminator()); 
-    Value *cond2 = createTrueCondition(bodyBB->getTerminator()); 
+
+    // 添加虚假跳转
+    // 1. 创建恒为真的条件
+    Value *cond1 = createBogusCondition(entryBB->getTerminator()); 
+    Value *cond2 = createBogusCondition(bodyBB->getTerminator()); 
+    // 2. 将entryBB, bodyBB, alteredBB 末尾的绝对跳转移除
     entryBB->getTerminator()->eraseFromParent();
     bodyBB->getTerminator()->eraseFromParent();
     alteredBB->getTerminator()->eraseFromParent();
-    BranchInst *entryToBodyBranch = BranchInst::Create(bodyBB, alteredBB, cond1, entryBB);
-    BranchInst *bodyToEndBranch = BranchInst::Create(endBB, alteredBB, cond2, bodyBB);
-    BranchInst *bogusBranch = BranchInst::Create(bodyBB, alteredBB);
+    // 将 entryBB 到 bodyBB 的绝对跳转改为条件跳转
+    BranchInst::Create(bodyBB, alteredBB, cond1, entryBB);
+    // 将 bodyBB 到 endBB的绝对跳转改为条件跳转
+    BranchInst::Create(endBB, alteredBB, cond2, bodyBB);
+    // 添加 bodyBB.altered 到 bodyBB 的绝对跳转
+    BranchInst::Create(bodyBB, alteredBB);
 }
 
 char BogusControlFlow::ID = 0;
-static RegisterPass<BogusControlFlow> X("bcf", "Add bogus control flow to a function.");
+static RegisterPass<BogusControlFlow> X("bcf", "Add bogus control flow to each function.");

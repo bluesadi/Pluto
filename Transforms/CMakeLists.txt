@@ -9,7 +9,7 @@ include_directories("./include")
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
 include_directories(${LLVM_INCLUDE_DIRS})
-
+link_libraries("libLLVMTransformUtils.so")
 add_llvm_library( LLVMObfuscator MODULE
   src/SplitBasicBlock.cpp
   src/Flattening.cpp

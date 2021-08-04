@@ -40,77 +40,22 @@ for.body:                                         ; preds = %for.cond
   %5 = load i8, i8* %arrayidx, align 1
   %conv1 = sext i8 %5 to i32
   %6 = load i32, i32* %i, align 4
-  %7 = sub i32 0, 1074437461
-  %8 = add i32 32, %7
-  %9 = sub i32 %8, 1171083321
-  %10 = sub i32 %9, %6
-  %11 = add i32 %10, 1171083321
-  %12 = sub i32 0, %11
-  %13 = sub i32 0, 1074437461
-  %14 = add i32 %12, %13
-  %15 = sub i32 0, %14
-  %16 = add i32 0, 1556525402
-  %17 = sub i32 %16, %15
-  %18 = sub i32 %17, 1556525402
-  %19 = sub i32 0, %18
-  %20 = add i32 %conv1, %19
-  %21 = load i32, i32* %i, align 4
-  %22 = xor i32 %20, -1
-  %23 = and i32 %22, -1
-  %24 = xor i32 -1, -1
-  %25 = and i32 %20, %24
-  %26 = or i32 %23, %25
-  %27 = xor i32 %26, -1
-  %28 = xor i32 %21, -1
-  %29 = or i32 %27, %28
-  %30 = xor i32 %29, -1
-  %31 = xor i32 154910305, -1
-  %32 = or i32 154910305, %31
-  %33 = and i32 %30, %32
-  %34 = xor i32 %21, -1
-  %35 = and i32 %34, 1049090809
-  %36 = xor i32 1049090809, -1
-  %37 = and i32 %21, %36
-  %38 = or i32 %35, %37
-  %39 = xor i32 -1, -1
-  %40 = and i32 %39, 1049090809
-  %41 = xor i32 1049090809, -1
-  %42 = and i32 -1, %41
-  %43 = or i32 %40, %42
-  %44 = xor i32 %38, %43
-  %45 = xor i32 %20, -1
-  %46 = xor i32 %44, -1
-  %47 = or i32 %45, %46
-  %48 = xor i32 %47, -1
-  %49 = xor i32 1644888954, -1
-  %50 = or i32 1644888954, %49
-  %51 = and i32 %48, %50
-  %52 = xor i32 %33, -1
-  %53 = xor i32 %51, -1
-  %54 = and i32 %52, %53
-  %55 = xor i32 %54, -1
-  %56 = xor i32 1643072075, -1
-  %57 = or i32 1643072075, %56
-  %58 = and i32 %55, %57
-  %conv2 = trunc i32 %58 to i8
-  %59 = load i8*, i8** %dest.addr, align 8
-  %60 = load i32, i32* %i, align 4
-  %idxprom3 = sext i32 %60 to i64
-  %arrayidx4 = getelementptr inbounds i8, i8* %59, i64 %idxprom3
+  %sub = sub nsw i32 32, %6
+  %add = add nsw i32 %conv1, %sub
+  %7 = load i32, i32* %i, align 4
+  %xor = xor i32 %add, %7
+  %conv2 = trunc i32 %xor to i8
+  %8 = load i8*, i8** %dest.addr, align 8
+  %9 = load i32, i32* %i, align 4
+  %idxprom3 = sext i32 %9 to i64
+  %arrayidx4 = getelementptr inbounds i8, i8* %8, i64 %idxprom3
   store i8 %conv2, i8* %arrayidx4, align 1
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %61 = load i32, i32* %i, align 4
-  %62 = sub i32 0, 750017379
-  %63 = sub i32 %61, %62
-  %64 = add i32 %63, 900134148
-  %65 = add i32 %64, 1
-  %66 = sub i32 %65, 900134148
-  %67 = sub i32 %66, 1120462838
-  %68 = sub i32 %67, 750017379
-  %69 = add i32 %68, 1120462838
-  store i32 %69, i32* %i, align 4
+  %10 = load i32, i32* %i, align 4
+  %inc = add nsw i32 %10, 1
+  store i32 %inc, i32* %i, align 4
   br label %for.cond, !llvm.loop !2
 
 for.end:                                          ; preds = %for.cond
@@ -141,45 +86,15 @@ land.rhs:                                         ; preds = %entry
   %arraydecay3 = getelementptr inbounds [100 x i8], [100 x i8]* %dest, i64 0, i64 0
   %call4 = call i32 @memcmp(i8* %arraydecay3, i8* getelementptr inbounds ([100 x i8], [100 x i8]* bitcast (<{ [22 x i8], [78 x i8] }>* @enc to [100 x i8]*), i64 0, i64 0), i64 22) #5
   %tobool = icmp ne i32 %call4, 0
-  %1 = xor i1 %tobool, true
-  %2 = and i1 %1, false
-  %3 = xor i1 false, true
-  %4 = and i1 %tobool, %3
-  %5 = or i1 %2, %4
-  %6 = xor i1 true, true
-  %7 = and i1 %6, false
-  %8 = xor i1 false, true
-  %9 = and i1 true, %8
-  %10 = or i1 %7, %9
-  %11 = xor i1 %5, %10
-  %12 = xor i1 true, true
-  %13 = xor i1 %11, %12
-  %14 = and i1 %13, %11
-  %15 = xor i1 true, true
-  %16 = and i1 %15, true
-  %17 = xor i1 true, true
-  %18 = and i1 true, %17
-  %19 = or i1 %16, %18
-  %20 = xor i1 true, true
-  %21 = and i1 %20, true
-  %22 = xor i1 true, true
-  %23 = and i1 true, %22
-  %24 = or i1 %21, %23
-  %25 = xor i1 %19, %24
-  %26 = xor i1 %25, true
-  %27 = xor i1 %tobool, %26
-  %28 = and i1 %27, %tobool
-  %29 = and i1 %14, %28
-  %30 = xor i1 %14, %28
-  %31 = or i1 %29, %30
+  %lnot = xor i1 %tobool, true
   br label %land.end
 
 land.end:                                         ; preds = %land.rhs, %entry
-  %32 = phi i1 [ false, %entry ], [ %31, %land.rhs ]
-  %frombool = zext i1 %32 to i8
+  %1 = phi i1 [ false, %entry ], [ %lnot, %land.rhs ]
+  %frombool = zext i1 %1 to i8
   store i8 %frombool, i8* %result, align 1
-  %33 = load i8, i8* %result, align 1
-  %tobool5 = trunc i8 %33 to i1
+  %2 = load i8, i8* %result, align 1
+  %tobool5 = trunc i8 %2 to i1
   br i1 %tobool5, label %if.then, label %if.else
 
 if.then:                                          ; preds = %land.end
@@ -191,8 +106,8 @@ if.else:                                          ; preds = %land.end
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
-  %34 = load i32, i32* %retval, align 4
-  ret i32 %34
+  %3 = load i32, i32* %retval, align 4
+  ret i32 %3
 }
 
 declare dso_local i32 @printf(i8*, ...) #3

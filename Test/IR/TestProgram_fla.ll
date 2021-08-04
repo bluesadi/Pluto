@@ -1,4 +1,4 @@
-; ModuleID = 'IR/TestProgram_orig.ll'
+; ModuleID = 'IR/TestProgram_lowerswitch.ll'
 source_filename = "TestProgram.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -25,116 +25,79 @@ entry:
   %src.addr = alloca i8*, align 8
   %len = alloca i32, align 4
   %swVar.ptr = alloca i32, align 4
-  store i32 515401517, i32* %swVar.ptr, align 4
-  %swVar.ptr14 = alloca i32, align 4
-  store i32 515401517, i32* %swVar.ptr14, align 4
-  br label %loopEntry12
+  store i32 21854486, i32* %swVar.ptr, align 4
+  br label %dispatchBB
 
-loopEntry12:                                      ; preds = %loopEnd13, %entry
-  %swVar15 = load i32, i32* %swVar.ptr14, align 4
-  switch i32 %swVar15, label %swDefault16 [
-    i32 515401517, label %loopEntry
-    i32 1603298141, label %swDefault
-    i32 959745354, label %0
-    i32 797174614, label %1
-    i32 685336862, label %3
-    i32 279511477, label %for.cond
-    i32 1224567888, label %4
-    i32 919833745, label %5
-    i32 16010878, label %6
-    i32 1972567418, label %for.body
-    i32 1023246850, label %13
-    i32 169534503, label %16
-    i32 1808424380, label %19
-    i32 1806540408, label %for.inc
-    i32 1765057505, label %20
-    i32 1002969293, label %21
-    i32 617141877, label %22
-    i32 1012827168, label %for.end
-    i32 1647459764, label %loopEnd
-  ]
-
-swDefault16:                                      ; preds = %loopEntry12
-  br label %loopEnd13
-
-loopEntry:                                        ; preds = %loopEntry12
+dispatchBB:                                       ; preds = %entry, %returnBB
   %swVar = load i32, i32* %swVar.ptr, align 4
   switch i32 %swVar, label %swDefault [
-    i32 515401517, label %0
-    i32 1603298141, label %1
-    i32 959745354, label %3
-    i32 797174614, label %for.cond
-    i32 685336862, label %4
-    i32 279511477, label %5
-    i32 1224567888, label %6
-    i32 919833745, label %for.body
-    i32 16010878, label %13
-    i32 1972567418, label %16
-    i32 1023246850, label %19
-    i32 169534503, label %for.inc
-    i32 1808424380, label %20
-    i32 1806540408, label %21
-    i32 1765057505, label %22
-    i32 1002969293, label %for.end
+    i32 21854486, label %0
+    i32 1241544053, label %1
+    i32 1681478924, label %3
+    i32 868117384, label %for.cond
+    i32 1802499220, label %4
+    i32 252824390, label %5
+    i32 747027695, label %6
+    i32 212124147, label %for.body
+    i32 1560993136, label %13
+    i32 680738448, label %16
+    i32 632893834, label %19
+    i32 1175273588, label %for.inc
+    i32 1189154871, label %20
+    i32 1565087257, label %21
+    i32 1100988820, label %22
+    i32 205459669, label %for.end
   ]
 
-swDefault:                                        ; preds = %loopEntry12, %loopEntry
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+swDefault:                                        ; preds = %dispatchBB
+  br label %returnBB
 
-0:                                                ; preds = %loopEntry12, %loopEntry
+0:                                                ; preds = %dispatchBB
   %i = alloca i32, align 4
   store i32* %i, i32** %i.reg2mem, align 8
   store i8* %dest, i8** %dest.addr, align 8
   store i8* %src, i8** %src.addr, align 8
-  store i32 1603298141, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+  store i32 1241544053, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-1:                                                ; preds = %loopEntry12, %loopEntry
+1:                                                ; preds = %dispatchBB
   %2 = load i8*, i8** %src.addr, align 8
   %call = call i64 @strlen(i8* %2) #5
   %conv = trunc i64 %call to i32
   store i32 %conv, i32* %conv.reg2mem, align 4
-  store i32 959745354, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+  store i32 1681478924, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-3:                                                ; preds = %loopEntry12, %loopEntry
+3:                                                ; preds = %dispatchBB
   %conv.reload = load volatile i32, i32* %conv.reg2mem, align 4
   store i32 %conv.reload, i32* %len, align 4
   %i.reload7 = load volatile i32*, i32** %i.reg2mem, align 8
   store i32 0, i32* %i.reload7, align 4
-  store i32 797174614, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+  store i32 868117384, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-for.cond:                                         ; preds = %loopEntry12, %loopEntry
-  store i32 685336862, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+for.cond:                                         ; preds = %dispatchBB
+  store i32 1802499220, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-4:                                                ; preds = %loopEntry12, %loopEntry
-  store i32 279511477, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+4:                                                ; preds = %dispatchBB
+  store i32 252824390, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-5:                                                ; preds = %loopEntry12, %loopEntry
-  store i32 1224567888, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+5:                                                ; preds = %dispatchBB
+  store i32 747027695, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-6:                                                ; preds = %loopEntry12, %loopEntry
+6:                                                ; preds = %dispatchBB
   %i.reload6 = load volatile i32*, i32** %i.reg2mem, align 8
   %7 = load i32, i32* %i.reload6, align 4
   %8 = load i32, i32* %len, align 4
   %cmp = icmp slt i32 %7, %8
-  %9 = select i1 %cmp, i32 919833745, i32 1002969293
+  %9 = select i1 %cmp, i32 212124147, i32 205459669
   store i32 %9, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+  br label %returnBB
 
-for.body:                                         ; preds = %loopEntry12, %loopEntry
+for.body:                                         ; preds = %dispatchBB
   %10 = load i8*, i8** %src.addr, align 8
   %i.reload5 = load volatile i32*, i32** %i.reg2mem, align 8
   %11 = load i32, i32* %i.reload5, align 4
@@ -142,11 +105,10 @@ for.body:                                         ; preds = %loopEntry12, %loopE
   %arrayidx = getelementptr inbounds i8, i8* %10, i64 %idxprom
   %12 = load i8, i8* %arrayidx, align 1
   store i8 %12, i8* %.reg2mem, align 1
-  store i32 16010878, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+  store i32 1560993136, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-13:                                               ; preds = %loopEntry12, %loopEntry
+13:                                               ; preds = %dispatchBB
   %.reload = load volatile i8, i8* %.reg2mem, align 1
   %conv1 = sext i8 %.reload to i32
   %i.reload4 = load volatile i32*, i32** %i.reg2mem, align 8
@@ -157,11 +119,10 @@ for.body:                                         ; preds = %loopEntry12, %loopE
   %i.reload3 = load volatile i32*, i32** %i.reg2mem, align 8
   %15 = load i32, i32* %i.reload3, align 4
   store i32 %15, i32* %.reg2mem8, align 4
-  store i32 1972567418, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+  store i32 680738448, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-16:                                               ; preds = %loopEntry12, %loopEntry
+16:                                               ; preds = %dispatchBB
   %add.reload = load volatile i32, i32* %add.reg2mem, align 4
   %.reload9 = load volatile i32, i32* %.reg2mem8, align 4
   %xor = xor i32 %add.reload, %.reload9
@@ -173,54 +134,44 @@ for.body:                                         ; preds = %loopEntry12, %loopE
   %18 = load i32, i32* %i.reload2, align 4
   %idxprom3 = sext i32 %18 to i64
   store i64 %idxprom3, i64* %idxprom3.reg2mem, align 8
-  store i32 1023246850, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+  store i32 632893834, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-19:                                               ; preds = %loopEntry12, %loopEntry
+19:                                               ; preds = %dispatchBB
   %.reload11 = load volatile i8*, i8** %.reg2mem10, align 8
   %idxprom3.reload = load volatile i64, i64* %idxprom3.reg2mem, align 8
   %arrayidx4 = getelementptr inbounds i8, i8* %.reload11, i64 %idxprom3.reload
   %conv2.reload = load volatile i8, i8* %conv2.reg2mem, align 1
   store i8 %conv2.reload, i8* %arrayidx4, align 1
-  store i32 169534503, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+  store i32 1175273588, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-for.inc:                                          ; preds = %loopEntry12, %loopEntry
-  store i32 1808424380, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+for.inc:                                          ; preds = %dispatchBB
+  store i32 1189154871, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-20:                                               ; preds = %loopEntry12, %loopEntry
-  store i32 1806540408, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+20:                                               ; preds = %dispatchBB
+  store i32 1565087257, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-21:                                               ; preds = %loopEntry12, %loopEntry
-  store i32 1765057505, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+21:                                               ; preds = %dispatchBB
+  store i32 1100988820, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-22:                                               ; preds = %loopEntry12, %loopEntry
+22:                                               ; preds = %dispatchBB
   %i.reload1 = load volatile i32*, i32** %i.reg2mem, align 8
   %23 = load i32, i32* %i.reload1, align 4
   %inc = add nsw i32 %23, 1
   %i.reload = load volatile i32*, i32** %i.reg2mem, align 8
   store i32 %inc, i32* %i.reload, align 4
-  store i32 797174614, i32* %swVar.ptr, align 4
-  store i32 1647459764, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
+  store i32 868117384, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-for.end:                                          ; preds = %loopEntry12, %loopEntry
+for.end:                                          ; preds = %dispatchBB
   ret void
 
-loopEnd:                                          ; preds = %loopEntry12
-  store i32 515401517, i32* %swVar.ptr14, align 4
-  br label %loopEnd13
-
-loopEnd13:                                        ; preds = %loopEnd, %22, %21, %20, %for.inc, %19, %16, %13, %for.body, %6, %5, %4, %for.cond, %3, %1, %0, %swDefault, %swDefault16
-  br label %loopEntry12
+returnBB:                                         ; preds = %22, %21, %20, %for.inc, %19, %16, %13, %for.body, %6, %5, %4, %for.cond, %3, %1, %0, %swDefault
+  br label %dispatchBB
 }
 
 ; Function Attrs: nounwind readonly willreturn
@@ -234,140 +185,101 @@ entry:
   %dest = alloca [100 x i8], align 16
   %result = alloca i8, align 1
   %swVar.ptr = alloca i32, align 4
-  store i32 515401517, i32* %swVar.ptr, align 4
+  store i32 21854486, i32* %swVar.ptr, align 4
   %.reg2mem = alloca i1, align 1
-  %swVar.ptr3 = alloca i32, align 4
-  store i32 515401517, i32* %swVar.ptr3, align 4
-  br label %loopEntry1
+  br label %dispatchBB
 
-loopEntry1:                                       ; preds = %loopEnd2, %entry
-  %swVar4 = load i32, i32* %swVar.ptr3, align 4
-  switch i32 %swVar4, label %swDefault5 [
-    i32 515401517, label %loopEntry
-    i32 1603298141, label %swDefault
-    i32 959745354, label %0
-    i32 797174614, label %1
-    i32 685336862, label %3
-    i32 279511477, label %land.rhs
-    i32 1224567888, label %5
-    i32 919833745, label %6
-    i32 16010878, label %7
-    i32 1972567418, label %land.end
-    i32 1023246850, label %if.then
-    i32 169534503, label %if.else
-    i32 1808424380, label %if.end
-    i32 1806540408, label %loopEnd
-  ]
-
-swDefault5:                                       ; preds = %loopEntry1
-  br label %loopEnd2
-
-loopEntry:                                        ; preds = %loopEntry1
+dispatchBB:                                       ; preds = %entry, %returnBB
   %swVar = load i32, i32* %swVar.ptr, align 4
   switch i32 %swVar, label %swDefault [
-    i32 515401517, label %0
-    i32 1603298141, label %1
-    i32 959745354, label %3
-    i32 797174614, label %land.rhs
-    i32 685336862, label %5
-    i32 279511477, label %6
-    i32 1224567888, label %7
-    i32 919833745, label %land.end
-    i32 16010878, label %if.then
-    i32 1972567418, label %if.else
-    i32 1023246850, label %if.end
+    i32 21854486, label %0
+    i32 1241544053, label %1
+    i32 1681478924, label %3
+    i32 868117384, label %land.rhs
+    i32 1802499220, label %5
+    i32 252824390, label %6
+    i32 747027695, label %7
+    i32 212124147, label %land.end
+    i32 1560993136, label %if.then
+    i32 680738448, label %if.else
+    i32 632893834, label %if.end
   ]
 
-swDefault:                                        ; preds = %loopEntry1, %loopEntry
-  store i32 1806540408, i32* %swVar.ptr3, align 4
-  br label %loopEnd2
+swDefault:                                        ; preds = %dispatchBB
+  br label %returnBB
 
-0:                                                ; preds = %loopEntry1, %loopEntry
+0:                                                ; preds = %dispatchBB
   store i32 0, i32* %retval, align 4
   %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([25 x i8], [25 x i8]* @.str, i64 0, i64 0))
   %call1 = call i32 (i8*, ...) @scanf(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.1, i64 0, i64 0), i8* getelementptr inbounds ([100 x i8], [100 x i8]* @input, i64 0, i64 0))
-  store i32 1603298141, i32* %swVar.ptr, align 4
-  store i32 1806540408, i32* %swVar.ptr3, align 4
-  br label %loopEnd2
+  store i32 1241544053, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-1:                                                ; preds = %loopEntry1, %loopEntry
+1:                                                ; preds = %dispatchBB
   %2 = bitcast [100 x i8]* %dest to i8*
   call void @llvm.memset.p0i8.i64(i8* align 16 %2, i8 0, i64 100, i1 false)
   %arraydecay = getelementptr inbounds [100 x i8], [100 x i8]* %dest, i64 0, i64 0
   store i8* %arraydecay, i8** %arraydecay.reg2mem, align 8
-  store i32 959745354, i32* %swVar.ptr, align 4
-  store i32 1806540408, i32* %swVar.ptr3, align 4
-  br label %loopEnd2
+  store i32 1681478924, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-3:                                                ; preds = %loopEntry1, %loopEntry
+3:                                                ; preds = %dispatchBB
   %arraydecay.reload = load volatile i8*, i8** %arraydecay.reg2mem, align 8
   call void @_Z7encryptPhPc(i8* %arraydecay.reload, i8* getelementptr inbounds ([100 x i8], [100 x i8]* @input, i64 0, i64 0))
   %call2 = call i64 @strlen(i8* getelementptr inbounds ([100 x i8], [100 x i8]* @input, i64 0, i64 0)) #5
   %cmp = icmp eq i64 %call2, 22
-  %4 = select i1 %cmp, i32 797174614, i32 919833745
+  %4 = select i1 %cmp, i32 868117384, i32 212124147
   store i32 %4, i32* %swVar.ptr, align 4
   store i1 false, i1* %.reg2mem, align 1
-  store i32 1806540408, i32* %swVar.ptr3, align 4
-  br label %loopEnd2
+  br label %returnBB
 
-land.rhs:                                         ; preds = %loopEntry1, %loopEntry
-  store i32 685336862, i32* %swVar.ptr, align 4
-  store i32 1806540408, i32* %swVar.ptr3, align 4
-  br label %loopEnd2
+land.rhs:                                         ; preds = %dispatchBB
+  store i32 1802499220, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-5:                                                ; preds = %loopEntry1, %loopEntry
-  store i32 279511477, i32* %swVar.ptr, align 4
-  store i32 1806540408, i32* %swVar.ptr3, align 4
-  br label %loopEnd2
+5:                                                ; preds = %dispatchBB
+  store i32 252824390, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-6:                                                ; preds = %loopEntry1, %loopEntry
-  store i32 1224567888, i32* %swVar.ptr, align 4
-  store i32 1806540408, i32* %swVar.ptr3, align 4
-  br label %loopEnd2
+6:                                                ; preds = %dispatchBB
+  store i32 747027695, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-7:                                                ; preds = %loopEntry1, %loopEntry
+7:                                                ; preds = %dispatchBB
   %arraydecay3 = getelementptr inbounds [100 x i8], [100 x i8]* %dest, i64 0, i64 0
   %call4 = call i32 @memcmp(i8* %arraydecay3, i8* getelementptr inbounds ([100 x i8], [100 x i8]* bitcast (<{ [22 x i8], [78 x i8] }>* @enc to [100 x i8]*), i64 0, i64 0), i64 22) #5
   %tobool = icmp ne i32 %call4, 0
   %lnot = xor i1 %tobool, true
-  store i32 919833745, i32* %swVar.ptr, align 4
+  store i32 212124147, i32* %swVar.ptr, align 4
   store i1 %lnot, i1* %.reg2mem, align 1
-  store i32 1806540408, i32* %swVar.ptr3, align 4
-  br label %loopEnd2
+  br label %returnBB
 
-land.end:                                         ; preds = %loopEntry1, %loopEntry
+land.end:                                         ; preds = %dispatchBB
   %.reload = load i1, i1* %.reg2mem, align 1
   %frombool = zext i1 %.reload to i8
   store i8 %frombool, i8* %result, align 1
   %8 = load i8, i8* %result, align 1
   %tobool5 = trunc i8 %8 to i1
-  %9 = select i1 %tobool5, i32 16010878, i32 1972567418
+  %9 = select i1 %tobool5, i32 1560993136, i32 680738448
   store i32 %9, i32* %swVar.ptr, align 4
-  store i32 1806540408, i32* %swVar.ptr3, align 4
-  br label %loopEnd2
+  br label %returnBB
 
-if.then:                                          ; preds = %loopEntry1, %loopEntry
+if.then:                                          ; preds = %dispatchBB
   %call6 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.2, i64 0, i64 0))
-  store i32 1023246850, i32* %swVar.ptr, align 4
-  store i32 1806540408, i32* %swVar.ptr3, align 4
-  br label %loopEnd2
+  store i32 632893834, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-if.else:                                          ; preds = %loopEntry1, %loopEntry
+if.else:                                          ; preds = %dispatchBB
   %call7 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.3, i64 0, i64 0))
-  store i32 1023246850, i32* %swVar.ptr, align 4
-  store i32 1806540408, i32* %swVar.ptr3, align 4
-  br label %loopEnd2
+  store i32 632893834, i32* %swVar.ptr, align 4
+  br label %returnBB
 
-if.end:                                           ; preds = %loopEntry1, %loopEntry
+if.end:                                           ; preds = %dispatchBB
   %10 = load i32, i32* %retval, align 4
   ret i32 %10
 
-loopEnd:                                          ; preds = %loopEntry1
-  store i32 515401517, i32* %swVar.ptr3, align 4
-  br label %loopEnd2
-
-loopEnd2:                                         ; preds = %loopEnd, %if.else, %if.then, %land.end, %7, %6, %5, %land.rhs, %3, %1, %0, %swDefault, %swDefault5
-  br label %loopEntry1
+returnBB:                                         ; preds = %if.else, %if.then, %land.end, %7, %6, %5, %land.rhs, %3, %1, %0, %swDefault
+  br label %dispatchBB
 }
 
 declare dso_local i32 @printf(i8*, ...) #3

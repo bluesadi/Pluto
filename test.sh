@@ -9,7 +9,8 @@ clang IR/TestProgram_orig.ll -o Bin/TestProgram_orig
 opt -load ../Build/LLVMObfuscator.so -split -split_num 3 -S IR/TestProgram_orig.ll -o IR/TestProgram_split.ll
 clang IR/TestProgram_split.ll -o Bin/TestProgram_split
 # 控制流平坦化
-opt -load ../Build/LLVMObfuscator.so -fla -fla_loop 2 -split_num 3 -S IR/TestProgram_orig.ll -o IR/TestProgram_fla.ll
+opt -lowerswitch -S IR/TestProgram_orig.ll -o IR/TestProgram_lowerswitch.ll
+opt -load ../Build/LLVMObfuscator.so -fla -split_num 3 -S IR/TestProgram_lowerswitch.ll -o IR/TestProgram_fla.ll
 clang IR/TestProgram_fla.ll -o Bin/TestProgram_fla
 # 虚假控制流
 opt -load ../Build/LLVMObfuscator.so -bcf -bcf_loop 2 -split_num 3 -S IR/TestProgram_orig.ll -o IR/TestProgram_bcf.ll
