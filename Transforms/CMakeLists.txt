@@ -15,4 +15,5 @@ add_llvm_library( LLVMObfuscator MODULE
   src/Flattening.cpp
   src/BogusControlFlow.cpp
   src/Substitution.cpp
+  src/RandomControlFlow.cpp
 )

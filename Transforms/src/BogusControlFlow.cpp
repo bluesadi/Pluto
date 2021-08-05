@@ -20,7 +20,9 @@ namespace{
     class BogusControlFlow : public FunctionPass {
         public:
             static char ID;
-            BogusControlFlow() : FunctionPass(ID) {}
+            BogusControlFlow() : FunctionPass(ID) {
+                srand(time(NULL));
+            }
 
             bool runOnFunction(Function &F);
 
@@ -79,7 +81,6 @@ BasicBlock* BogusControlFlow::createAlteredBasicBlock(BasicBlock *BB){
 }
 
 BasicBlock* BogusControlFlow::alterBB(BasicBlock *BB){
-    srand(time(NULL));
     for(Instruction &I : *BB){
         if(I.isBinaryOp()){
             unsigned opcode = I.getOpcode();

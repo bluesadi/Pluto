@@ -16,5 +16,8 @@ clang IR/TestProgram_fla.ll -o Bin/TestProgram_fla
 opt -load ../Build/LLVMObfuscator.so -bcf -bcf_loop 2 -split_num 3 -S IR/TestProgram_orig.ll -o IR/TestProgram_bcf.ll
 clang IR/TestProgram_bcf.ll -o Bin/TestProgram_bcf
 # 指令替换
-opt -load ../Build/LLVMObfuscator.so -sub -sub_loop 2  -S IR/TestProgram_orig.ll -o IR/TestProgram_sub.ll
+opt -load ../Build/LLVMObfuscator.so -sub -sub_loop 2 -S IR/TestProgram_orig.ll -o IR/TestProgram_sub.ll
 clang IR/TestProgram_sub.ll -o Bin/TestProgram_sub
+# 随机控制流
+opt -load ../Build/LLVMObfuscator.so -rcf -rcf_loop 1 -S IR/TestProgram_orig.ll -o IR/TestProgram_rcf.ll
+clang IR/TestProgram_rcf.ll -o Bin/TestProgram_rcf
