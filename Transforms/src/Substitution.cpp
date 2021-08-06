@@ -3,6 +3,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
+#include "Utils.h"
 #include <vector>
 #include <cstdlib>
 #include <ctime>
@@ -156,7 +157,7 @@ void Substitution::addDoubleNeg(BinaryOperator *BI){
 }
 
 void Substitution::addRand(BinaryOperator *BI){
-    ConstantInt *r = (ConstantInt*)ConstantInt::get(BI->getType(), rand());
+    ConstantInt *r = (ConstantInt*)CONST(BI->getType(), rand());
     BinaryOperator *op, *op1, *op2;
     op = BinaryOperator::CreateAdd(BI->getOperand(0), r, "", BI);
     op = BinaryOperator::CreateAdd(op, BI->getOperand(1), "", BI);
@@ -165,7 +166,7 @@ void Substitution::addRand(BinaryOperator *BI){
 }
 
 void Substitution::addRand2(BinaryOperator *BI){
-    ConstantInt *r = (ConstantInt*)ConstantInt::get(BI->getType(), rand());
+    ConstantInt *r = (ConstantInt*)CONST(BI->getType(), rand());
     BinaryOperator *op, *op1, *op2;
     op = BinaryOperator::CreateSub(BI->getOperand(0), r, "", BI);
     op = BinaryOperator::CreateAdd(op, BI->getOperand(1), "", BI);
@@ -198,7 +199,7 @@ void Substitution::subNeg(BinaryOperator *BI){
 }
 
 void Substitution::subRand(BinaryOperator *BI){
-    ConstantInt *r = (ConstantInt*)ConstantInt::get(BI->getType(), rand());
+    ConstantInt *r = (ConstantInt*)CONST(BI->getType(), rand());
     BinaryOperator *op, *op1, *op2;
     op = BinaryOperator::CreateAdd(BI->getOperand(0), r, "", BI);
     op = BinaryOperator::CreateSub(op, BI->getOperand(1), "", BI);
@@ -207,7 +208,7 @@ void Substitution::subRand(BinaryOperator *BI){
 }
 
 void Substitution::subRand2(BinaryOperator *BI){
-    ConstantInt *r = (ConstantInt*)ConstantInt::get(BI->getType(), rand());
+    ConstantInt *r = (ConstantInt*)CONST(BI->getType(), rand());
     BinaryOperator *op, *op1, *op2;
     op = BinaryOperator::CreateSub(BI->getOperand(0), r, "", BI);
     op = BinaryOperator::CreateSub(op, BI->getOperand(1), "", BI);
@@ -240,7 +241,7 @@ void Substitution::xorSubstitute(BinaryOperator *BI){
 }
 
 void Substitution::xorSubstituteRand(BinaryOperator *BI){
-    ConstantInt *r = (ConstantInt*)ConstantInt::get(BI->getType(), rand());
+    ConstantInt *r = (ConstantInt*)CONST(BI->getType(), rand());
     BinaryOperator *op, *op1, *op2, *op3;
     op1 = BinaryOperator::CreateNot(BI->getOperand(0), "", BI);
     op1 = BinaryOperator::CreateAnd(op1, r, "", BI);
@@ -279,7 +280,7 @@ void Substitution::andSubstitute(BinaryOperator *BI){
 }
 
 void Substitution::andSubstituteRand(BinaryOperator *BI){
-    ConstantInt *r = (ConstantInt*)ConstantInt::get(BI->getType(), rand());
+    ConstantInt *r = (ConstantInt*)CONST(BI->getType(), rand());
     BinaryOperator *op, *op1;
     op = BinaryOperator::CreateNot(BI->getOperand(0), "", BI);
     op1 = BinaryOperator::CreateNot(BI->getOperand(1), "", BI);
@@ -314,7 +315,7 @@ void Substitution::orSubstitute(BinaryOperator *BI){
 }
 
 void Substitution::orSubstituteRand(BinaryOperator *BI){
-    ConstantInt *r = (ConstantInt*)ConstantInt::get(BI->getType(), rand());
+    ConstantInt *r = (ConstantInt*)CONST(BI->getType(), rand());
     BinaryOperator *op, *op1;
     op = BinaryOperator::CreateNot(BI->getOperand(0), "", BI);
     op1 = BinaryOperator::CreateNot(BI->getOperand(1), "", BI);
@@ -327,4 +328,4 @@ void Substitution::orSubstituteRand(BinaryOperator *BI){
 }
 
 char Substitution::ID = 0;
-static RegisterPass<Substitution> X("sub", "Replace some binary instructions with equivalent instructions.");
+static RegisterPass<Substitution> X("sub", "Replace a binary instruction with equivalent instructions.");

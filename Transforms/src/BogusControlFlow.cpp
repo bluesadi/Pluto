@@ -7,6 +7,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instructions.h"
 #include "SplitBasicBlock.h"
+#include "Utils.h"
 #include <vector>
 #include <cstdlib>
 #include <ctime>
@@ -26,12 +27,6 @@ namespace{
 
             bool runOnFunction(Function &F);
 
-            // 创建基本块 BB 的变异基本块
-            // 第一步：克隆基本块BB
-            // 第二步：向克隆出的基本块中的若干指令中的操作数进行修改，并添加无用指令，得到变异基本块
-            // 注意变异基本块与原基本块不是等价的！！！
-            BasicBlock* createAlteredBasicBlock(BasicBlock *BB);
-
             // 对基本块 BB 进行混淆
             void bogus(BasicBlock *BB);
 
@@ -49,6 +44,7 @@ namespace{
 }
 
 bool BogusControlFlow::runOnFunction(Function &F){
+    INIT_CONTEXT(F);
     FunctionPass *pass = createSplitBasicBlockPass();
     pass->runOnFunction(F);
     for(int i = 0;i < obfuTimes;i ++){
@@ -63,22 +59,6 @@ bool BogusControlFlow::runOnFunction(Function &F){
     return true;
 }
 
-BasicBlock* BogusControlFlow::createAlteredBasicBlock(BasicBlock *BB){
-    ValueToValueMapTy VMap;
-    BasicBlock * alteredBB = CloneBasicBlock(BB, VMap, BB->getName() + ".clone", BB->getParent());
-    // 对克隆基本块的引用进行修复
-    for(Instruction &I : *alteredBB){
-        for(int i = 0;i < I.getNumOperands();i ++){
-            Value *V = MapValue(I.getOperand(i), VMap);
-            if(V){
-                I.setOperand(i, V);
-            }
-        }
-    }
-    // 对克隆的基本块进行变异（加入垃圾代码，修改指令操作符等等）
-    alterBB(alteredBB);
-    return alteredBB;
-}
 
 BasicBlock* BogusControlFlow::alterBB(BasicBlock *BB){
     for(Instruction &I : *BB){
@@ -200,23 +180,20 @@ BasicBlock* BogusControlFlow::alterBB(BasicBlock *BB){
     }
 }
 
-#define CONST(T,V) ConstantInt::get(T, V, false)
-
 
 Value* BogusControlFlow::createBogusCondition(Instruction *term){
     // if((y < 10 || x * (x + 1) % 2 == 0))
     // 等价于 if(true)
     Module *M = term->getModule();
-    IntegerType *i32 = Type::getInt32Ty(M->getContext());
-    GlobalVariable *xptr = new GlobalVariable(*M, i32, false, GlobalValue::CommonLinkage, CONST(i32, 0), "x");
-    GlobalVariable *yptr = new GlobalVariable(*M, i32, false, GlobalValue::CommonLinkage, CONST(i32, 0), "y");
-    LoadInst *x = new LoadInst(i32, xptr, "", term);
-    LoadInst *y = new LoadInst(i32, yptr, "", term);
-    ICmpInst *cond1 = new ICmpInst(term, CmpInst::ICMP_SLT, y, CONST(i32, 10));
-    BinaryOperator *op = BinaryOperator::CreateAdd(x, CONST(i32, 1), "", term);
-    op = BinaryOperator::CreateMul(op, x, "", term);
-    op = BinaryOperator::CreateURem(op, CONST(i32, 2), "", term);
-    ICmpInst *cond2 = new ICmpInst(term, CmpInst::ICMP_EQ, op, CONST(i32, 0));
+    GlobalVariable *xptr = new GlobalVariable(*M, TYPE_I32, false, GlobalValue::CommonLinkage, CONST_I32(0), "x");
+    GlobalVariable *yptr = new GlobalVariable(*M, TYPE_I32, false, GlobalValue::CommonLinkage, CONST_I32(0), "y");
+    LoadInst *x = new LoadInst(TYPE_I32, xptr, "", term);
+    LoadInst *y = new LoadInst(TYPE_I32, yptr, "", term);
+    ICmpInst *cond1 = new ICmpInst(term, CmpInst::ICMP_SLT, y, CONST_I32(10));
+    BinaryOperator *op1 = BinaryOperator::CreateAdd(x, CONST_I32(1), "", term);
+    BinaryOperator *op2 = BinaryOperator::CreateMul(op1, x, "", term);
+    BinaryOperator *op3 = BinaryOperator::CreateURem(op2, CONST_I32(2), "", term);
+    ICmpInst *cond2 = new ICmpInst(term, CmpInst::ICMP_EQ, op3, CONST_I32(0));
     return BinaryOperator::CreateOr(cond1, cond2, "", term);
 }
 
@@ -224,11 +201,12 @@ void BogusControlFlow::bogus(BasicBlock *entryBB){
     // 拆分得到 entryBB, bodyBB, endBB
     // 其中所有的 PHI 指令都在 entryBB(如果有的话)
     // endBB 只包含一条终结指令
-    BasicBlock *bodyBB = entryBB->splitBasicBlock(entryBB->getFirstNonPHIOrDbgOrLifetime());
-    BasicBlock *endBB = bodyBB->splitBasicBlock(bodyBB->getTerminator());
+    BasicBlock *bodyBB = entryBB->splitBasicBlock(entryBB->getFirstNonPHIOrDbgOrLifetime(), "bodyBB");
+    BasicBlock *endBB = bodyBB->splitBasicBlock(bodyBB->getTerminator(), "endBB");
     
     // 创建 bodyBB 的变异基本块 bodyBB.altered
-    BasicBlock *alteredBB = createAlteredBasicBlock(bodyBB);
+    BasicBlock *alteredBB = createCloneBasicBlock(bodyBB);
+    alterBB(alteredBB);
 
     // 添加虚假跳转
     // 1. 创建恒为真的条件

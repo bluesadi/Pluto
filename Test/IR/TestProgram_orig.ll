@@ -3,12 +3,13 @@ source_filename = "TestProgram.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-@input = dso_local global [100 x i8] zeroinitializer, align 16
+@input = dso_local global i8* null, align 8
 @enc = dso_local global <{ [22 x i8], [78 x i8] }> <{ [22 x i8] c"\86\8A}\87\93\8BM\81\80\8AC\7FII\86q\7FbSi(\9D", [78 x i8] zeroinitializer }>, align 16
-@.str = private unnamed_addr constant [25 x i8] c"Please input your flag: \00", align 1
-@.str.1 = private unnamed_addr constant [3 x i8] c"%s\00", align 1
-@.str.2 = private unnamed_addr constant [18 x i8] c"Congratulations~\0A\00", align 1
-@.str.3 = private unnamed_addr constant [18 x i8] c"Sorry try again.\0A\00", align 1
+@.str = private unnamed_addr constant [26 x i8] c"Welcome to LLVM world...\0A\00", align 1
+@.str.1 = private unnamed_addr constant [33 x i8] c"Input your flag as an argument.\0A\00", align 1
+@.str.2 = private unnamed_addr constant [18 x i8] c"Your flag is: %s\0A\00", align 1
+@.str.3 = private unnamed_addr constant [18 x i8] c"Congratulations~\0A\00", align 1
+@.str.4 = private unnamed_addr constant [18 x i8] c"Sorry try again.\0A\00", align 1
 
 ; Function Attrs: noinline nounwind optnone uwtable mustprogress
 define dso_local void @_Z7encryptPhPc(i8* %dest, i8* %src) #0 {
@@ -66,53 +67,72 @@ for.end:                                          ; preds = %for.cond
 declare dso_local i64 @strlen(i8*) #1
 
 ; Function Attrs: noinline norecurse optnone uwtable mustprogress
-define dso_local i32 @main() #2 {
+define dso_local i32 @main(i32 %argc, i8** %argv) #2 {
 entry:
   %retval = alloca i32, align 4
+  %argc.addr = alloca i32, align 4
+  %argv.addr = alloca i8**, align 8
   %dest = alloca [100 x i8], align 16
   %result = alloca i8, align 1
   store i32 0, i32* %retval, align 4
-  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([25 x i8], [25 x i8]* @.str, i64 0, i64 0))
-  %call1 = call i32 (i8*, ...) @scanf(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.1, i64 0, i64 0), i8* getelementptr inbounds ([100 x i8], [100 x i8]* @input, i64 0, i64 0))
-  %0 = bitcast [100 x i8]* %dest to i8*
-  call void @llvm.memset.p0i8.i64(i8* align 16 %0, i8 0, i64 100, i1 false)
-  %arraydecay = getelementptr inbounds [100 x i8], [100 x i8]* %dest, i64 0, i64 0
-  call void @_Z7encryptPhPc(i8* %arraydecay, i8* getelementptr inbounds ([100 x i8], [100 x i8]* @input, i64 0, i64 0))
-  %call2 = call i64 @strlen(i8* getelementptr inbounds ([100 x i8], [100 x i8]* @input, i64 0, i64 0)) #5
-  %cmp = icmp eq i64 %call2, 22
-  br i1 %cmp, label %land.rhs, label %land.end
+  store i32 %argc, i32* %argc.addr, align 4
+  store i8** %argv, i8*** %argv.addr, align 8
+  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([26 x i8], [26 x i8]* @.str, i64 0, i64 0))
+  %0 = load i32, i32* %argc.addr, align 4
+  %cmp = icmp sle i32 %0, 1
+  br i1 %cmp, label %if.then, label %if.end
 
-land.rhs:                                         ; preds = %entry
-  %arraydecay3 = getelementptr inbounds [100 x i8], [100 x i8]* %dest, i64 0, i64 0
-  %call4 = call i32 @memcmp(i8* %arraydecay3, i8* getelementptr inbounds ([100 x i8], [100 x i8]* bitcast (<{ [22 x i8], [78 x i8] }>* @enc to [100 x i8]*), i64 0, i64 0), i64 22) #5
-  %tobool = icmp ne i32 %call4, 0
+if.then:                                          ; preds = %entry
+  %call1 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([33 x i8], [33 x i8]* @.str.1, i64 0, i64 0))
+  store i32 0, i32* %retval, align 4
+  br label %if.end11
+
+if.end:                                           ; preds = %entry
+  %1 = load i8**, i8*** %argv.addr, align 8
+  %arrayidx = getelementptr inbounds i8*, i8** %1, i64 1
+  %2 = load i8*, i8** %arrayidx, align 8
+  store i8* %2, i8** @input, align 8
+  %3 = load i8*, i8** @input, align 8
+  %call2 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.2, i64 0, i64 0), i8* %3)
+  %4 = bitcast [100 x i8]* %dest to i8*
+  call void @llvm.memset.p0i8.i64(i8* align 16 %4, i8 0, i64 100, i1 false)
+  %arraydecay = getelementptr inbounds [100 x i8], [100 x i8]* %dest, i64 0, i64 0
+  %5 = load i8*, i8** @input, align 8
+  call void @_Z7encryptPhPc(i8* %arraydecay, i8* %5)
+  %6 = load i8*, i8** @input, align 8
+  %call3 = call i64 @strlen(i8* %6) #5
+  %cmp4 = icmp eq i64 %call3, 22
+  br i1 %cmp4, label %land.rhs, label %land.end
+
+land.rhs:                                         ; preds = %if.end
+  %arraydecay5 = getelementptr inbounds [100 x i8], [100 x i8]* %dest, i64 0, i64 0
+  %call6 = call i32 @memcmp(i8* %arraydecay5, i8* getelementptr inbounds ([100 x i8], [100 x i8]* bitcast (<{ [22 x i8], [78 x i8] }>* @enc to [100 x i8]*), i64 0, i64 0), i64 22) #5
+  %tobool = icmp ne i32 %call6, 0
   %lnot = xor i1 %tobool, true
   br label %land.end
 
-land.end:                                         ; preds = %land.rhs, %entry
-  %1 = phi i1 [ false, %entry ], [ %lnot, %land.rhs ]
-  %frombool = zext i1 %1 to i8
+land.end:                                         ; preds = %land.rhs, %if.end
+  %7 = phi i1 [ false, %if.end ], [ %lnot, %land.rhs ]
+  %frombool = zext i1 %7 to i8
   store i8 %frombool, i8* %result, align 1
-  %2 = load i8, i8* %result, align 1
-  %tobool5 = trunc i8 %2 to i1
-  br i1 %tobool5, label %if.then, label %if.else
+  %8 = load i8, i8* %result, align 1
+  %tobool7 = trunc i8 %8 to i1
+  br i1 %tobool7, label %if.then8, label %if.else
 
-if.then:                                          ; preds = %land.end
-  %call6 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.2, i64 0, i64 0))
-  br label %if.end
+if.then8:                                         ; preds = %land.end
+  %call9 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.3, i64 0, i64 0))
+  br label %if.end11
 
 if.else:                                          ; preds = %land.end
-  %call7 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.3, i64 0, i64 0))
-  br label %if.end
+  %call10 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.4, i64 0, i64 0))
+  br label %if.end11
 
-if.end:                                           ; preds = %if.else, %if.then
-  %3 = load i32, i32* %retval, align 4
-  ret i32 %3
+if.end11:                                         ; preds = %if.then, %if.else, %if.then8
+  %9 = load i32, i32* %retval, align 4
+  ret i32 %9
 }
 
 declare dso_local i32 @printf(i8*, ...) #3
-
-declare dso_local i32 @scanf(i8*, ...) #3
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #4

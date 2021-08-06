@@ -8,6 +8,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "SplitBasicBlock.h"
+#include "Utils.h"
 #include <vector>
 #include <cstdlib>
 #include <ctime>
@@ -18,19 +19,20 @@ namespace{
     class Flattening : public FunctionPass{
         public:
             static char ID;
-            Flattening() : FunctionPass(ID){}
+            Flattening() : FunctionPass(ID){
+                srand(time(0));
+            }
 
             // 对函数 F 进行平坦化
             void flatten(Function &F);
     
             bool runOnFunction(Function &F);
 
-            // 修复 PHINode 和逃逸变量
-            void fixStack(Function &F);
     };
 }
 
 bool Flattening::runOnFunction(Function &F){
+    INIT_CONTEXT(F);
     FunctionPass *pass = createSplitBasicBlockPass();
     pass->runOnFunction(F);
     flatten(F);
@@ -46,7 +48,6 @@ void Flattening::flatten(Function &F){
     // 调用 Lower switch 会导致崩溃，解决方法未知
     //FunctionPass *pass = createLowerSwitchPass();
     //pass->runOnFunction(F);
-    IntegerType *i32 = Type::getInt32Ty(F.getContext());
     // 将除入口块（第一个基本块）以外的基本块保存到一个 vector 容器中，便于后续处理
     // 首先保存所有基本块
     vector<BasicBlock*> origBB;
@@ -56,31 +57,30 @@ void Flattening::flatten(Function &F){
 
     // 从vector中去除第一个基本块
     origBB.erase(origBB.begin());
-    BasicBlock &firstBB = F.front();
+    BasicBlock &entryBB = F.getEntryBlock();
     // 如果第一个基本块的末尾是条件跳转
-    if(BranchInst *br = dyn_cast<BranchInst>(firstBB.getTerminator())){
+    if(BranchInst *br = dyn_cast<BranchInst>(entryBB.getTerminator())){
         if(br->isConditional()){
-            BasicBlock *newBB = firstBB.splitBasicBlock(br, "newBB");
+            BasicBlock *newBB = entryBB.splitBasicBlock(br, "newBB");
             origBB.insert(origBB.begin(), newBB);
         }
     }
 
     // 创建分发块和返回块
-    BasicBlock *dispatchBB = BasicBlock::Create(F.getContext(), "dispatchBB", &F, &firstBB);
-    BasicBlock *returnBB = BasicBlock::Create(F.getContext(), "returnBB", &F, &firstBB);
+    BasicBlock *dispatchBB = BasicBlock::Create(F.getContext(), "dispatchBB", &F, &entryBB);
+    BasicBlock *returnBB = BasicBlock::Create(F.getContext(), "returnBB", &F, &entryBB);
     BranchInst::Create(dispatchBB, returnBB);
-    firstBB.moveBefore(dispatchBB);
+    entryBB.moveBefore(dispatchBB);
     // 去除第一个基本块末尾的跳转
-    firstBB.getTerminator()->eraseFromParent();
+    entryBB.getTerminator()->eraseFromParent();
     // 使第一个基本块跳转到dispatchBB
-    BranchInst *brDispatchBB = BranchInst::Create(dispatchBB, &firstBB);
+    BranchInst *brDispatchBB = BranchInst::Create(dispatchBB, &entryBB);
 
     // 向分发块中插入switch指令和switch on的变量
-    srand(time(0));
     int randNumCase = rand();
-    AllocaInst *swVarPtr = new AllocaInst(i32, 0, "swVar.ptr", brDispatchBB);
-    new StoreInst(ConstantInt::get(i32, randNumCase), swVarPtr, brDispatchBB);
-    LoadInst *swVar = new LoadInst(i32, swVarPtr, "swVar", false, dispatchBB);
+    AllocaInst *swVarPtr = new AllocaInst(TYPE_I32, 0, "swVar.ptr", brDispatchBB);
+    new StoreInst(CONST_I32(randNumCase), swVarPtr, brDispatchBB);
+    LoadInst *swVar = new LoadInst(TYPE_I32, swVarPtr, "swVar", false, dispatchBB);
     // 初始化switch指令的default case
     // default case实际上不会被执行
     BasicBlock *swDefault = BasicBlock::Create(F.getContext(), "swDefault", &F, returnBB);
@@ -88,9 +88,8 @@ void Flattening::flatten(Function &F){
     SwitchInst *swInst = SwitchInst::Create(swVar, swDefault, 0, dispatchBB);
     // 将原基本块插入到返回块之前，并分配case值
     for(BasicBlock *BB : origBB){
-        ConstantInt *numCase = cast<ConstantInt>(ConstantInt::get(i32, randNumCase));
         BB->moveBefore(returnBB);
-        swInst->addCase(numCase, BB);
+        swInst->addCase(CONST_I32(randNumCase), BB);
         randNumCase = rand();
     }
 
@@ -121,28 +120,6 @@ void Flattening::flatten(Function &F){
         }
     }
     fixStack(F);
-}
-
-void Flattening::fixStack(Function &F) {
-    vector<PHINode*> origPHI;
-    vector<Instruction*> origReg;
-    BasicBlock &entryBB = F.getEntryBlock();
-    for(BasicBlock &BB : F){
-        for(Instruction &I : BB){
-            if(PHINode *PN = dyn_cast<PHINode>(&I)){
-                origPHI.push_back(PN);
-            }else if(!(isa<AllocaInst>(&I) && I.getParent() == &entryBB) 
-                && I.isUsedOutsideOfBlock(&BB)){
-                origReg.push_back(&I);
-            }
-        }
-    }
-    for(PHINode *PN : origPHI){
-        DemotePHIToStack(PN, entryBB.getTerminator());
-    }
-    for(Instruction *I : origReg){
-        DemoteRegToStack(*I, entryBB.getTerminator());
-    }
 }
  
 char Flattening::ID = 0;
