@@ -1,4 +1,4 @@
-if [! -d "Build"]; then
+if [ ! -d "Build" ]; then
     mkdir Build
 fi
 cd ./Build
