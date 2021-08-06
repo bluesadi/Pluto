@@ -26,13 +26,16 @@ bool a2b_hex(BYTE *dest, char *src){
 
 int32_t T_Box[16] = {52, 22, 33, 13, 1, 50, 65, 67, 20, 18, 9, 72, 41, 14, 70, 96};
 int32_t M[16] = {4550,9560,14993,21490,10754,9076,13153,12068,22043,16418,32364,37064,13211,9310,16231,24974};
-
+char *input;
 
 // 1781631d2793a5472c241c41f37997ac
-int main(){
-    char input[100] = {0};
-    printf("Please input your flag:");
-    scanf("%s",input);
+int main(int argc, char *argv[]){
+    printf("Welcome to LLVM world...\n");
+    if(argc <= 1){
+        printf("Input your flag as an argument.\n");
+        return 0;
+    }
+    input = argv[1];
     if(strlen(input) != 32){
         printf("Wrong length!\n");
         exit(0);

@@ -26,28 +26,28 @@ entry:
   %src.addr = alloca i8*, align 8
   %len = alloca i32, align 4
   %swVar.ptr = alloca i32, align 4
-  store i32 1806328805, i32* %swVar.ptr, align 4
+  store i32 115020367, i32* %swVar.ptr, align 4
   br label %dispatchBB
 
 dispatchBB:                                       ; preds = %entry, %returnBB
   %swVar = load i32, i32* %swVar.ptr, align 4
   switch i32 %swVar, label %swDefault [
-    i32 1806328805, label %0
-    i32 1569108140, label %1
-    i32 860598470, label %3
-    i32 682298107, label %for.cond
-    i32 1746952169, label %4
-    i32 1379741683, label %5
-    i32 598433912, label %6
-    i32 1189011028, label %for.body
-    i32 939754968, label %13
-    i32 77757015, label %16
-    i32 1485996819, label %19
-    i32 1305256641, label %for.inc
-    i32 23280724, label %20
-    i32 1167998218, label %21
-    i32 342522435, label %22
-    i32 492717831, label %for.end
+    i32 115020367, label %0
+    i32 1745165792, label %1
+    i32 973023325, label %3
+    i32 595545753, label %for.cond
+    i32 1685397265, label %4
+    i32 1511956186, label %5
+    i32 507938435, label %6
+    i32 1002029676, label %for.body
+    i32 1704600329, label %13
+    i32 1809909817, label %16
+    i32 786393551, label %19
+    i32 253335921, label %for.inc
+    i32 636763208, label %20
+    i32 1310826726, label %21
+    i32 1765532819, label %22
+    i32 880262318, label %for.end
   ]
 
 swDefault:                                        ; preds = %dispatchBB
@@ -58,7 +58,7 @@ swDefault:                                        ; preds = %dispatchBB
   store i32* %i, i32** %i.reg2mem, align 8
   store i8* %dest, i8** %dest.addr, align 8
   store i8* %src, i8** %src.addr, align 8
-  store i32 1569108140, i32* %swVar.ptr, align 4
+  store i32 1745165792, i32* %swVar.ptr, align 4
   br label %returnBB
 
 1:                                                ; preds = %dispatchBB
@@ -66,7 +66,7 @@ swDefault:                                        ; preds = %dispatchBB
   %call = call i64 @strlen(i8* %2) #5
   %conv = trunc i64 %call to i32
   store i32 %conv, i32* %conv.reg2mem, align 4
-  store i32 860598470, i32* %swVar.ptr, align 4
+  store i32 973023325, i32* %swVar.ptr, align 4
   br label %returnBB
 
 3:                                                ; preds = %dispatchBB
@@ -74,19 +74,19 @@ swDefault:                                        ; preds = %dispatchBB
   store i32 %conv.reload, i32* %len, align 4
   %i.reload7 = load volatile i32*, i32** %i.reg2mem, align 8
   store i32 0, i32* %i.reload7, align 4
-  store i32 682298107, i32* %swVar.ptr, align 4
+  store i32 595545753, i32* %swVar.ptr, align 4
   br label %returnBB
 
 for.cond:                                         ; preds = %dispatchBB
-  store i32 1746952169, i32* %swVar.ptr, align 4
+  store i32 1685397265, i32* %swVar.ptr, align 4
   br label %returnBB
 
 4:                                                ; preds = %dispatchBB
-  store i32 1379741683, i32* %swVar.ptr, align 4
+  store i32 1511956186, i32* %swVar.ptr, align 4
   br label %returnBB
 
 5:                                                ; preds = %dispatchBB
-  store i32 598433912, i32* %swVar.ptr, align 4
+  store i32 507938435, i32* %swVar.ptr, align 4
   br label %returnBB
 
 6:                                                ; preds = %dispatchBB
@@ -94,7 +94,7 @@ for.cond:                                         ; preds = %dispatchBB
   %7 = load i32, i32* %i.reload6, align 4
   %8 = load i32, i32* %len, align 4
   %cmp = icmp slt i32 %7, %8
-  %9 = select i1 %cmp, i32 1189011028, i32 492717831
+  %9 = select i1 %cmp, i32 1002029676, i32 880262318
   store i32 %9, i32* %swVar.ptr, align 4
   br label %returnBB
 
@@ -106,7 +106,7 @@ for.body:                                         ; preds = %dispatchBB
   %arrayidx = getelementptr inbounds i8, i8* %10, i64 %idxprom
   %12 = load i8, i8* %arrayidx, align 1
   store i8 %12, i8* %.reg2mem, align 1
-  store i32 939754968, i32* %swVar.ptr, align 4
+  store i32 1704600329, i32* %swVar.ptr, align 4
   br label %returnBB
 
 13:                                               ; preds = %dispatchBB
@@ -120,7 +120,7 @@ for.body:                                         ; preds = %dispatchBB
   %i.reload3 = load volatile i32*, i32** %i.reg2mem, align 8
   %15 = load i32, i32* %i.reload3, align 4
   store i32 %15, i32* %.reg2mem8, align 4
-  store i32 77757015, i32* %swVar.ptr, align 4
+  store i32 1809909817, i32* %swVar.ptr, align 4
   br label %returnBB
 
 16:                                               ; preds = %dispatchBB
@@ -135,7 +135,7 @@ for.body:                                         ; preds = %dispatchBB
   %18 = load i32, i32* %i.reload2, align 4
   %idxprom3 = sext i32 %18 to i64
   store i64 %idxprom3, i64* %idxprom3.reg2mem, align 8
-  store i32 1485996819, i32* %swVar.ptr, align 4
+  store i32 786393551, i32* %swVar.ptr, align 4
   br label %returnBB
 
 19:                                               ; preds = %dispatchBB
@@ -144,19 +144,19 @@ for.body:                                         ; preds = %dispatchBB
   %arrayidx4 = getelementptr inbounds i8, i8* %.reload11, i64 %idxprom3.reload
   %conv2.reload = load volatile i8, i8* %conv2.reg2mem, align 1
   store i8 %conv2.reload, i8* %arrayidx4, align 1
-  store i32 1305256641, i32* %swVar.ptr, align 4
+  store i32 253335921, i32* %swVar.ptr, align 4
   br label %returnBB
 
 for.inc:                                          ; preds = %dispatchBB
-  store i32 23280724, i32* %swVar.ptr, align 4
+  store i32 636763208, i32* %swVar.ptr, align 4
   br label %returnBB
 
 20:                                               ; preds = %dispatchBB
-  store i32 1167998218, i32* %swVar.ptr, align 4
+  store i32 1310826726, i32* %swVar.ptr, align 4
   br label %returnBB
 
 21:                                               ; preds = %dispatchBB
-  store i32 342522435, i32* %swVar.ptr, align 4
+  store i32 1765532819, i32* %swVar.ptr, align 4
   br label %returnBB
 
 22:                                               ; preds = %dispatchBB
@@ -165,7 +165,7 @@ for.inc:                                          ; preds = %dispatchBB
   %inc = add nsw i32 %23, 1
   %i.reload = load volatile i32*, i32** %i.reg2mem, align 8
   store i32 %inc, i32* %i.reload, align 4
-  store i32 682298107, i32* %swVar.ptr, align 4
+  store i32 595545753, i32* %swVar.ptr, align 4
   br label %returnBB
 
 for.end:                                          ; preds = %dispatchBB
@@ -188,32 +188,32 @@ entry:
   %argc.addr = alloca i32, align 4
   %argv.addr = alloca i8**, align 8
   %swVar.ptr = alloca i32, align 4
-  store i32 1503784440, i32* %swVar.ptr, align 4
+  store i32 2118200709, i32* %swVar.ptr, align 4
   %.reg2mem = alloca i1, align 1
   br label %dispatchBB
 
 dispatchBB:                                       ; preds = %entry, %returnBB
   %swVar = load i32, i32* %swVar.ptr, align 4
   switch i32 %swVar, label %swDefault [
-    i32 1503784440, label %0
-    i32 1362286915, label %1
-    i32 58275522, label %2
-    i32 539160995, label %if.then
-    i32 1003084327, label %5
-    i32 94889511, label %6
-    i32 2010043519, label %7
-    i32 1721907751, label %if.end
-    i32 1809910853, label %10
-    i32 1449022528, label %13
-    i32 2142584874, label %16
-    i32 1489690614, label %land.rhs
-    i32 1581007276, label %18
-    i32 243179376, label %19
-    i32 1148535771, label %20
-    i32 1002631769, label %land.end
-    i32 1103777846, label %if.then8
-    i32 1830833878, label %if.else
-    i32 602100290, label %if.end11
+    i32 2118200709, label %0
+    i32 2081166298, label %1
+    i32 83563242, label %2
+    i32 252365138, label %if.then
+    i32 1102255133, label %5
+    i32 1248430968, label %6
+    i32 559027486, label %7
+    i32 1917435222, label %if.end
+    i32 1261027954, label %10
+    i32 1429365891, label %13
+    i32 51968904, label %16
+    i32 573333051, label %land.rhs
+    i32 2103106184, label %18
+    i32 690898203, label %19
+    i32 688353419, label %20
+    i32 1700788328, label %land.end
+    i32 1663921529, label %if.then8
+    i32 1283899172, label %if.else
+    i32 1238701945, label %if.end11
   ]
 
 swDefault:                                        ; preds = %dispatchBB
@@ -225,39 +225,39 @@ swDefault:                                        ; preds = %dispatchBB
   %result = alloca i8, align 1
   store i8* %result, i8** %result.reg2mem, align 8
   store i32 0, i32* %retval, align 4
-  store i32 1362286915, i32* %swVar.ptr, align 4
+  store i32 2081166298, i32* %swVar.ptr, align 4
   br label %returnBB
 
 1:                                                ; preds = %dispatchBB
   store i32 %argc, i32* %argc.addr, align 4
   store i8** %argv, i8*** %argv.addr, align 8
   %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([26 x i8], [26 x i8]* @.str, i64 0, i64 0))
-  store i32 58275522, i32* %swVar.ptr, align 4
+  store i32 83563242, i32* %swVar.ptr, align 4
   br label %returnBB
 
 2:                                                ; preds = %dispatchBB
   %3 = load i32, i32* %argc.addr, align 4
   %cmp = icmp sle i32 %3, 1
-  %4 = select i1 %cmp, i32 539160995, i32 1721907751
+  %4 = select i1 %cmp, i32 252365138, i32 1917435222
   store i32 %4, i32* %swVar.ptr, align 4
   br label %returnBB
 
 if.then:                                          ; preds = %dispatchBB
-  store i32 1003084327, i32* %swVar.ptr, align 4
+  store i32 1102255133, i32* %swVar.ptr, align 4
   br label %returnBB
 
 5:                                                ; preds = %dispatchBB
-  store i32 94889511, i32* %swVar.ptr, align 4
+  store i32 1248430968, i32* %swVar.ptr, align 4
   br label %returnBB
 
 6:                                                ; preds = %dispatchBB
-  store i32 2010043519, i32* %swVar.ptr, align 4
+  store i32 559027486, i32* %swVar.ptr, align 4
   br label %returnBB
 
 7:                                                ; preds = %dispatchBB
   %call1 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([33 x i8], [33 x i8]* @.str.1, i64 0, i64 0))
   store i32 0, i32* %retval, align 4
-  store i32 602100290, i32* %swVar.ptr, align 4
+  store i32 1238701945, i32* %swVar.ptr, align 4
   br label %returnBB
 
 if.end:                                           ; preds = %dispatchBB
@@ -265,7 +265,7 @@ if.end:                                           ; preds = %dispatchBB
   %arrayidx = getelementptr inbounds i8*, i8** %8, i64 1
   %9 = load i8*, i8** %arrayidx, align 8
   store i8* %9, i8** @input, align 8
-  store i32 1809910853, i32* %swVar.ptr, align 4
+  store i32 1261027954, i32* %swVar.ptr, align 4
   br label %returnBB
 
 10:                                               ; preds = %dispatchBB
@@ -274,7 +274,7 @@ if.end:                                           ; preds = %dispatchBB
   %dest.reload2 = load volatile [100 x i8]*, [100 x i8]** %dest.reg2mem, align 8
   %12 = bitcast [100 x i8]* %dest.reload2 to i8*
   call void @llvm.memset.p0i8.i64(i8* align 16 %12, i8 0, i64 100, i1 false)
-  store i32 1449022528, i32* %swVar.ptr, align 4
+  store i32 1429365891, i32* %swVar.ptr, align 4
   br label %returnBB
 
 13:                                               ; preds = %dispatchBB
@@ -284,28 +284,28 @@ if.end:                                           ; preds = %dispatchBB
   call void @_Z7encryptPhPc(i8* %arraydecay, i8* %14)
   %15 = load i8*, i8** @input, align 8
   store i8* %15, i8** %.reg2mem4, align 8
-  store i32 2142584874, i32* %swVar.ptr, align 4
+  store i32 51968904, i32* %swVar.ptr, align 4
   br label %returnBB
 
 16:                                               ; preds = %dispatchBB
   %.reload5 = load volatile i8*, i8** %.reg2mem4, align 8
   %call3 = call i64 @strlen(i8* %.reload5) #5
   %cmp4 = icmp eq i64 %call3, 22
-  %17 = select i1 %cmp4, i32 1489690614, i32 1002631769
+  %17 = select i1 %cmp4, i32 573333051, i32 1700788328
   store i32 %17, i32* %swVar.ptr, align 4
   store i1 false, i1* %.reg2mem, align 1
   br label %returnBB
 
 land.rhs:                                         ; preds = %dispatchBB
-  store i32 1581007276, i32* %swVar.ptr, align 4
+  store i32 2103106184, i32* %swVar.ptr, align 4
   br label %returnBB
 
 18:                                               ; preds = %dispatchBB
-  store i32 243179376, i32* %swVar.ptr, align 4
+  store i32 690898203, i32* %swVar.ptr, align 4
   br label %returnBB
 
 19:                                               ; preds = %dispatchBB
-  store i32 1148535771, i32* %swVar.ptr, align 4
+  store i32 688353419, i32* %swVar.ptr, align 4
   br label %returnBB
 
 20:                                               ; preds = %dispatchBB
@@ -314,7 +314,7 @@ land.rhs:                                         ; preds = %dispatchBB
   %call6 = call i32 @memcmp(i8* %arraydecay5, i8* getelementptr inbounds ([100 x i8], [100 x i8]* bitcast (<{ [22 x i8], [78 x i8] }>* @enc to [100 x i8]*), i64 0, i64 0), i64 22) #5
   %tobool = icmp ne i32 %call6, 0
   %lnot = xor i1 %tobool, true
-  store i32 1002631769, i32* %swVar.ptr, align 4
+  store i32 1700788328, i32* %swVar.ptr, align 4
   store i1 %lnot, i1* %.reg2mem, align 1
   br label %returnBB
 
@@ -326,18 +326,18 @@ land.end:                                         ; preds = %dispatchBB
   %result.reload = load volatile i8*, i8** %result.reg2mem, align 8
   %21 = load i8, i8* %result.reload, align 1
   %tobool7 = trunc i8 %21 to i1
-  %22 = select i1 %tobool7, i32 1103777846, i32 1830833878
+  %22 = select i1 %tobool7, i32 1663921529, i32 1283899172
   store i32 %22, i32* %swVar.ptr, align 4
   br label %returnBB
 
 if.then8:                                         ; preds = %dispatchBB
   %call9 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.3, i64 0, i64 0))
-  store i32 602100290, i32* %swVar.ptr, align 4
+  store i32 1238701945, i32* %swVar.ptr, align 4
   br label %returnBB
 
 if.else:                                          ; preds = %dispatchBB
   %call10 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.4, i64 0, i64 0))
-  store i32 602100290, i32* %swVar.ptr, align 4
+  store i32 1238701945, i32* %swVar.ptr, align 4
   br label %returnBB
 
 if.end11:                                         ; preds = %dispatchBB
