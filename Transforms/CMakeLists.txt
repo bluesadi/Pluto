@@ -11,6 +11,7 @@ add_definitions(${LLVM_DEFINITIONS_LIST})
 include_directories(${LLVM_INCLUDE_DIRS})
 link_libraries("libLLVMTransformUtils.so")
 add_llvm_library( LLVMObfuscator MODULE
+  src/HelloWorld.cpp
   src/Flattening.cpp
   src/BogusControlFlow.cpp
   src/Substitution.cpp
