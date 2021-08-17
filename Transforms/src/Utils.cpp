@@ -12,27 +12,23 @@ LLVMContext *CONTEXT = nullptr;
 void llvm::fixStack(Function &F) {
     vector<PHINode*> origPHI;
     vector<Instruction*> origReg;
-    do{
-        origPHI.clear();
-        origReg.clear();
-        BasicBlock &entryBB = F.getEntryBlock();
-        for(BasicBlock &BB : F){
-            for(Instruction &I : BB){
-                if(PHINode *PN = dyn_cast<PHINode>(&I)){
-                    origPHI.push_back(PN);
-                }else if(!(isa<AllocaInst>(&I) && I.getParent() == &entryBB) 
-                    && I.isUsedOutsideOfBlock(&BB)){
-                    origReg.push_back(&I);
-                }
+    BasicBlock &entryBB = F.getEntryBlock();
+    for(BasicBlock &BB : F){
+        for(Instruction &I : BB){
+            if(PHINode *PN = dyn_cast<PHINode>(&I)){
+                origPHI.push_back(PN);
+            }else if(!(isa<AllocaInst>(&I) && I.getParent() == &entryBB) 
+                && I.isUsedOutsideOfBlock(&BB)){
+                origReg.push_back(&I);
             }
         }
-        for(PHINode *PN : origPHI){
-            DemotePHIToStack(PN, entryBB.getTerminator());
-        }
-        for(Instruction *I : origReg){
-            DemoteRegToStack(*I, entryBB.getTerminator());
-        }
-    }while(!origPHI.empty() || !origReg.empty());
+    }
+    for(PHINode *PN : origPHI){
+        DemotePHIToStack(PN, entryBB.getTerminator());
+    }
+    for(Instruction *I : origReg){
+        DemoteRegToStack(*I, entryBB.getTerminator());
+    }
 }
 
 BasicBlock* llvm::createCloneBasicBlock(BasicBlock *BB){

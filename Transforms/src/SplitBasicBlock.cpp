@@ -41,19 +41,17 @@ bool SplitBasicBlock::runOnFunction(Function &F){
 }
 
 void SplitBasicBlock::split(BasicBlock *BB){
-    BasicBlock *curBB = BB;
     // 计算分裂后每个基本块的大小
-    // 原基本块的大小 / 分裂数目（向下取整）
-    int splitSize = BB->size() / splitNum;
-    if(splitSize){
-        for(int i = 0;i < splitNum;i ++){
-            int cnt = 0;
-            for(Instruction &I : *curBB){
-                if(++cnt == splitSize){
-                    // 在 I 指令处对基本块进行分割
-                    curBB = curBB->splitBasicBlock(&I);
-                    break;
-                }
+    // 原基本块的大小 / 分裂数目（向上取整）
+    int splitSize = (BB->size() + splitNum - 1) / splitNum;
+    for(int i = 1;i < splitNum;i ++){
+        BasicBlock *curBB = BB;
+        int cnt = 0;
+        for(Instruction &I : *curBB){
+            if(cnt++ == splitSize){
+                // 在 I 指令处对基本块进行分割
+                curBB = curBB->splitBasicBlock(&I);
+                break;
             }
         }
     }

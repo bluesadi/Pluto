@@ -54,11 +54,10 @@ void Flattening::flatten(Function &F){
     for(BasicBlock &BB: F){
         origBB.push_back(&BB);
     }
-
     // 从vector中去除第一个基本块
     origBB.erase(origBB.begin());
     BasicBlock &entryBB = F.getEntryBlock();
-    // 如果第一个基本块的末尾是条件跳转
+    // 如果第一个基本块的末尾是条件跳转，单独分离
     if(BranchInst *br = dyn_cast<BranchInst>(entryBB.getTerminator())){
         if(br->isConditional()){
             BasicBlock *newBB = entryBB.splitBasicBlock(br, "newBB");
@@ -76,13 +75,13 @@ void Flattening::flatten(Function &F){
     // 使第一个基本块跳转到dispatchBB
     BranchInst *brDispatchBB = BranchInst::Create(dispatchBB, &entryBB);
 
-    // 向分发块中插入switch指令和switch on的变量
+    // 在入口块插入alloca和store指令创建并初始化switch变量，初始值为随机值
     int randNumCase = rand();
     AllocaInst *swVarPtr = new AllocaInst(TYPE_I32, 0, "swVar.ptr", brDispatchBB);
     new StoreInst(CONST_I32(randNumCase), swVarPtr, brDispatchBB);
+    // 在分发块插入load指令读取switch变量
     LoadInst *swVar = new LoadInst(TYPE_I32, swVarPtr, "swVar", false, dispatchBB);
-    // 初始化switch指令的default case
-    // default case实际上不会被执行
+    // 在分发块插入switch指令实现基本块的调度
     BasicBlock *swDefault = BasicBlock::Create(F.getContext(), "swDefault", &F, returnBB);
     BranchInst::Create(returnBB, swDefault);
     SwitchInst *swInst = SwitchInst::Create(swVar, swDefault, 0, dispatchBB);
@@ -93,7 +92,7 @@ void Flattening::flatten(Function &F){
         randNumCase = rand();
     }
 
-    // 在每个基本块最后修改 switchVarPtr 指向的值
+    // 在每个基本块最后添加修改switch变量的指令和跳转到返回块的指令
     for(BasicBlock *BB : origBB){
         // retn BB
         if(BB->getTerminator()->getNumSuccessors() == 0){
@@ -106,7 +105,6 @@ void Flattening::flatten(Function &F){
             ConstantInt *numCase = swInst->findCaseDest(sucBB);
             new StoreInst(numCase, swVarPtr, BB);
             BranchInst::Create(returnBB, BB);
-            continue;
         }
         // 条件跳转
         else if(BB->getTerminator()->getNumSuccessors() == 2){
