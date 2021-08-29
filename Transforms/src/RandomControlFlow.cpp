@@ -28,9 +28,6 @@ namespace{
 
         bool runOnFunction(Function &F);
 
-        // 向基本块中插入垃圾代码
-        BasicBlock* alterBB(BasicBlock *BB);
-
         // 创建一组等效于 origVar 的指令
         Value* alterVal(Value *origVar,BasicBlock *insertAfter);
 

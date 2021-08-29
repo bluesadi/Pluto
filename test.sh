@@ -24,7 +24,7 @@ echo -e "\n\033[32m> Test case on Flattening <\033[0m"
 ./Bin/TestProgram_fla flag{s1mpl3_11vm_d3m0}
 
 # 虚假控制流
-opt -load ../Build/LLVMObfuscator.so -bcf -bcf_loop 2 -split_num 3 -S IR/TestProgram_orig.ll -o IR/TestProgram_bcf.ll
+opt -load ../Build/LLVMObfuscator.so -bcf -bcf_loop 1 -split_num 3 -S IR/TestProgram_orig.ll -o IR/TestProgram_bcf.ll
 clang IR/TestProgram_bcf.ll -o Bin/TestProgram_bcf
 echo -e "\n\033[32m> Test case on BogusControlFlow <\033[0m"
 ./Bin/TestProgram_bcf flag{s1mpl3_11vm_d3m0}

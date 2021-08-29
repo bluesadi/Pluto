@@ -78,7 +78,7 @@ void ConstantSubstitution::linearSubstitute(BinaryOperator *BI, int i){
     ConstantInt *constC = (ConstantInt*)CONST(val->getType(), c);
     // 创建全局变量 x, y
     GlobalVariable *x = new GlobalVariable(M, val->getType(), false, GlobalValue::PrivateLinkage, constX, "x");
-    GlobalVariable *y = new GlobalVariable(M, val->getType(), false, GlobalVariable::PrivateLinkage, constY, "y");
+    GlobalVariable *y = new GlobalVariable(M, val->getType(), false, GlobalValue::PrivateLinkage, constY, "y");
     LoadInst *opX = new LoadInst(val->getType(), x, "", BI);
     LoadInst *opY = new LoadInst(val->getType(), y, "", BI);
     // 构造 op = ax + by + c 表达式
@@ -104,7 +104,7 @@ void ConstantSubstitution::bitwiseSubstitute(BinaryOperator *BI, int i){
     ConstantInt *constC = (ConstantInt*)CONST(val->getType(), c);
     // 创建全局变量 x, y
     GlobalVariable *x = new GlobalVariable(M, val->getType(), false, GlobalValue::PrivateLinkage, constX, "x");
-    GlobalVariable *y = new GlobalVariable(M, val->getType(), false, GlobalVariable::PrivateLinkage, constY, "y");
+    GlobalVariable *y = new GlobalVariable(M, val->getType(), false, GlobalValue::PrivateLinkage, constY, "y");
     LoadInst *opX = new LoadInst(val->getType(), x, "", BI);
     LoadInst *opY = new LoadInst(val->getType(), y, "", BI);
     // 构造 op = (x << 5 | y >> 3) ^ c 表达式

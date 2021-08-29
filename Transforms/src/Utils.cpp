@@ -1,9 +1,9 @@
-#include "Utils.h"
 #include <vector>
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "Utils.h"
 using std::vector;
 using namespace llvm;
 
@@ -33,15 +33,21 @@ void llvm::fixStack(Function &F) {
 
 BasicBlock* llvm::createCloneBasicBlock(BasicBlock *BB){
     // 克隆之前先修复所有逃逸变量
+    vector<Instruction*> origReg;
+    BasicBlock &entryBB = BB->getParent()->getEntryBlock();
     for(Instruction &I : *BB){
-        if(I.isUsedOutsideOfBlock(BB)){
-            AllocaInst *a = DemoteRegToStack(I, &BB->getParent()->getEntryBlock());
+        if(!(isa<AllocaInst>(&I) && I.getParent() == &entryBB) 
+            && I.isUsedOutsideOfBlock(BB)){
+            origReg.push_back(&I);
         }
     }
+    for(Instruction *I : origReg){
+        DemoteRegToStack(*I, entryBB.getTerminator());
+    }
     ValueToValueMapTy VMap;
-    BasicBlock * alteredBB = CloneBasicBlock(BB, VMap, BB->getName() + "cloneBB", BB->getParent());
+    BasicBlock *cloneBB = CloneBasicBlock(BB, VMap, "cloneBB", BB->getParent());
     // 对克隆基本块的引用进行修复
-    for(Instruction &I : *alteredBB){
+    for(Instruction &I : *cloneBB){
         for(int i = 0;i < I.getNumOperands();i ++){
             Value *V = MapValue(I.getOperand(i), VMap);
             if(V){
@@ -49,5 +55,5 @@ BasicBlock* llvm::createCloneBasicBlock(BasicBlock *BB){
             }
         }
     }
-    return alteredBB;
+    return cloneBB;
 }
