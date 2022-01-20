@@ -7,7 +7,7 @@ Obfuscator based on LLVM 12.0.1, being developed and maintained by 34r7h4mn
 - Clang 12.0.1
 - CMake 3.16.3
 ## Usage
-TODO
+Several examples are offered in [obfu-examples](obfu-examples)
 ## Features
 - Control Flow Flattening
 - Bogus Control Flow
