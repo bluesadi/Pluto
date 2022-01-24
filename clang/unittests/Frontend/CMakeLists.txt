@@ -1,0 +1,27 @@
+set(LLVM_LINK_COMPONENTS
+  Support
+  )
+
+add_clang_unittest(FrontendTests
+  ASTUnitTest.cpp
+  CompilerInvocationTest.cpp
+  CompilerInstanceTest.cpp
+  FixedPointString.cpp
+  FrontendActionTest.cpp
+  CodeGenActionTest.cpp
+  ParsedSourceLocationTest.cpp
+  PCHPreambleTest.cpp
+  OutputStreamTest.cpp
+  TextDiagnosticTest.cpp
+  )
+clang_target_link_libraries(FrontendTests
+  PRIVATE
+  clangAST
+  clangBasic
+  clangFrontend
+  clangLex
+  clangSema
+  clangCodeGen
+  clangFrontendTool
+  clangSerialization
+  )
