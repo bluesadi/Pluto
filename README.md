@@ -8,6 +8,7 @@ Pluto is an obfuscator based on LLVM 12.0.1, being developed and maintained by 3
 - Ninja 1.10.0
 ## Usage
 ### Building on Linux/Windows
+The following commands work on both Linux and Windows:
 ```
 cd build
 cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" \
