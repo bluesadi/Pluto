@@ -1,7 +1,12 @@
+clang_path="../build/bin/"
+
+cd obfu-examples
+rm -f build/*
+
 test(){
     echo -e "\033[32m[*] Test obfuscation with flag '$1' \033[0m"
     out="build/$2.out"
-    clang++ $1 src/TestProgram.cpp src/AES.cpp -o $out
+    ${clang_path}clang++ $1 src/TestProgram.cpp src/AES.cpp -o $out
     du -b $out
     ./$out flag{s1mpl3_11vm_d3m0}
     if [ $? -eq 0 ]
@@ -11,9 +16,6 @@ test(){
         echo -e "\033[31m[*] Test failure \033[0m\n"
     fi
 }
-
-cd obfu-examples
-rm -f build/*
 
 # Test the Flattening pass
 test "-mllvm -fla -mllvm -split-num=3" "fla"
