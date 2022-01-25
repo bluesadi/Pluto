@@ -34,3 +34,6 @@ test "-mllvm -gle -mllvm -gle-times=2 -mllvm -onlystr" "ste"
 
 # Test the VariableSubstitution pass
 test "-mllvm -vsb -mllvm -vsb-times=2" "vsb"
+
+# Test the RandomControlFlow pass
+test "-mllvm -rcf -mllvm -rcf-times=2" "rcf"

@@ -56,6 +56,7 @@
 #include "llvm/Transforms/Obfuscation/Substitution.h"
 #include "llvm/Transforms/Obfuscation/GlobalsEncryption.h"
 #include "llvm/Transforms/Obfuscation/VariableSubstitution.h"
+#include "llvm/Transforms/Obfuscation/RandomControlFlow.h"
 
 using namespace llvm;
 
@@ -70,6 +71,8 @@ cl::opt<bool> RunSubstitution("sub", cl::init(false), cl::desc("Enable the Subst
 cl::opt<bool> RunGlobalsEncryption("gle", cl::init(false), cl::desc("Enable the GlobalsEncryption pass"));
 
 cl::opt<bool> RunVariableSubstitution("vsb", cl::init(false), cl::desc("Enable the VariableSubstitution pass"));
+
+cl::opt<bool> RunRandomControlFlow("rcf", cl::init(false), cl::desc("Enable the RandomControlFlow pass"));
 
 cl::opt<bool> RunPartialInlining("enable-partial-inlining", cl::init(false),
                                  cl::Hidden, cl::ZeroOrMore,
@@ -548,6 +551,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createSubstitutionPass(RunSubstitution));
   MPM.add(createGlobalsEncryptionPass(RunGlobalsEncryption));
   MPM.add(createVariableSubstitutionPass(RunVariableSubstitution));
+  MPM.add(createRandomControlFlow(RunRandomControlFlow));
 
   MPM.add(createAnnotation2MetadataLegacyPass());
 
