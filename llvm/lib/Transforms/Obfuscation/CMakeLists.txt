@@ -9,6 +9,7 @@ add_llvm_component_library(LLVMObfuscation
   GlobalsEncryption.cpp
   VariableSubstitution.cpp
   RandomControlFlow.cpp
+  TrapAngr.cpp
 
   DEPENDS
   intrinsics_gen

@@ -17,6 +17,15 @@ test(){
     fi
 }
 
+test2(){
+    echo -e "\033[32m[*] Test obfuscation with flag '$1' \033[0m"
+    out="build/$2.out"
+    ${clang_path}clang++ $1 src/TestProgram-2.cpp -o $out
+    ${clang_path}clang++ -O1 src/TestProgram-2.cpp -o test.out
+    du -b $out
+    ./$out
+}
+
 # Test the Flattening pass
 test "-mllvm -fla -mllvm -split-num=3" "fla"
 
@@ -37,3 +46,6 @@ test "-mllvm -vsb -mllvm -vsb-times=2" "vsb"
 
 # Test the RandomControlFlow pass
 test "-mllvm -rcf -mllvm -rcf-times=2" "rcf"
+
+# Test the TrapAngr pass
+test "-mllvm -trap-angr" "trap-angr"

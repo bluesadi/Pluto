@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "*.inc": "cpp",
+        "*.def": "cpp",
+        "cstdlib": "cpp",
+        "chrono": "cpp",
+        "complex": "cpp",
+        "array": "cpp",
+        "tuple": "cpp",
+        "utility": "cpp"
+    }
+}
