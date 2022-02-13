@@ -16,8 +16,8 @@ using namespace llvm;
 using std::vector;
 using std::string;
 
-static cl::opt<int> ObfuTimes("trap-angr-times", cl::init(1), cl::desc("Run TrapAngr pass <trap-angr-times> time(s)"));
-static cl::opt<int> ObfuProb("trap-angr-prob", cl::init(40), cl::desc("A constant will be substituted with a probability of <trap-angr-prob>%"));
+static cl::opt<int> ObfuTimes("trap-angr-times", cl::init(1), cl::desc("Run the TrapAngr pass <trap-angr-times> time(s)"));
+static cl::opt<int> ObfuProb("trap-angr-prob", cl::init(40), cl::desc("Each constant will be substituted with a probability of <trap-angr-prob>%"));
 
 /*
 uint32_t remu3(uint32_t n){
