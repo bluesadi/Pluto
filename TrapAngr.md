@@ -15,8 +15,8 @@ That will make angr got stuck while performing symbolic execution. As angr will 
 The remainder operation usually optimized by the compiler (which is called fast remainder optimization). In this pass, I wrote an fast remainder of 3 myself, and obfuscated it via [Variable Substitution](llvm/lib/Transforms/Obfuscation/VariableSubstitution.cpp) to make it more confusing. 
 
 ## Available Compiler Options
-- `-mllvm -trap-angr-times=3`: Run TrapAngr pass 3 times. Default: 1
-- `-mllvm -trap-angr-prob=60`: Each constant will be substituted with a probability of 40%. Default: 40
+- `-mllvm -trap-angr-times=3`: Run the TrapAngr pass 3 times. Default: 1
+- `-mllvm -trap-angr-prob=60`: Each constant will be substituted with a probability of 60%. Default: 40
 ## Obfuscation Result
 You can find the obfuscated binary at [obfu-examples/build/trap-angr.out](obfu-examples/build/trap-angr.out)
 \
