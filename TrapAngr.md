@@ -9,7 +9,7 @@ The code in each function is equivalent to `return arr[rand() % 3]`. `arr` is a 
 ![](assets/genrand.png)
 \
 \
-That will make angr got stuck while performing symbolic execution. As angr will calculate the max value of the index if it is a symbolic value, but angr cannot calculate the max value of [fast remainder](https://reverseengineering.stackexchange.com/questions/1397/how-can-i-reverse-optimized-integer-division-modulo-by-constant-operations) operation somehow, it breaks down. In other words, this pass exploit the features of angr's Symbolic Memory Addressing strategies and the limitation of z3 solver.
+That will make angr got stuck while performing symbolic execution. As angr will calculate the max value of the index if it is a symbolic value, but angr cannot calculate the max value of [fast remainder](https://reverseengineering.stackexchange.com/questions/1397/how-can-i-reverse-optimized-integer-division-modulo-by-constant-operations) operation somehow, it breaks down. In other words, this pass exploits the features of angr's Symbolic Memory Addressing strategies and the limitation of z3 solver.
 \
 \
 The remainder operation usually optimized by the compiler (which is called fast remainder optimization). In this pass, I wrote an fast remainder of 3 myself, and obfuscated it via [Variable Substitution](llvm/lib/Transforms/Obfuscation/VariableSubstitution.cpp) to make it more confusing. 
