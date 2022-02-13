@@ -20,6 +20,8 @@ The remainder operation usually optimized by the compiler (which is called fast 
 ## Obfuscation Result
 You can find the obfuscated binary at [obfu-examples/build/trap-angr.out](obfu-examples/build/trap-angr.out)
 \
+\
 ![](assets/trap-angr-result.png)
+\
 \
 ![](assets/genrand.png)
