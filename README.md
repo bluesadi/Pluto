@@ -17,7 +17,7 @@ cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" \
 ninja
 ```
 ### Examples
-Several examples are offered in [obfu-examples](obfu-examples)
+Several examples are available in [obfu-examples](obfu-examples) and [run-examples.sh](run-examples.sh)
 ## Features
 - Control Flow Flattening
 - Bogus Control Flow
@@ -26,3 +26,4 @@ Several examples are offered in [obfu-examples](obfu-examples)
 - Variable Substitution
 - String Encryption
 - Globals Encryption
+- [Trap Angr](TrapAngr.md)
