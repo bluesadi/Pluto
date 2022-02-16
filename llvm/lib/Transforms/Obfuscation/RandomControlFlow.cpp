@@ -52,9 +52,16 @@ bool RandomControlFlow::randcf(BasicBlock *BB){
     
     // 在 entryBB 后插入随机跳转，使其能够随机跳转到第 bodyBB 或其克隆基本块 cloneBB
     entryBB->getTerminator()->eraseFromParent();
-    // 通过分配一块栈空间实现类似于获取随机数的效果
-    AllocaInst *randPtr = new AllocaInst(TYPE_I32, 0, "rand.ptr", entryBB);
-    Value *randVar = new LoadInst(TYPE_I32, randPtr, "", entryBB);
+    // 方案一：通过分配一块栈空间实现类似于获取随机数的效果
+    // AllocaInst *randPtr = new AllocaInst(TYPE_I32, 0, "rand.ptr", entryBB);
+    // Value *randVar = new LoadInst(TYPE_I32, randPtr, "", entryBB);
+
+    // 方案二：调用rand()函数获取随机数
+    Module &M = *BB->getModule();
+    Function *randFunc = cast<Function>(M.getOrInsertFunction("rand", FunctionType::getInt32Ty(*CONTEXT)).getCallee());
+    randFunc->setDSOLocal(true);
+    Value *randVar = CallInst::Create(randFunc->getFunctionType(), randFunc, "", entryBB);
+
     insertRandomBranch(randVar, bodyBB, cloneBB, entryBB);
 
     // 添加 bodyBB 到 bodyBB.clone 的虚假随机跳转
