@@ -9,7 +9,7 @@
 using namespace llvm;
 
 static cl::opt<int> ObfuTimes("linear-mba-times", cl::init(1), cl::desc("Run LinearMBAObfuscation pass <linear-mba-times> time(s)"));
-static cl::opt<int> TermsNumber("linear-mba-terms-number", cl::init(10), cl::desc("Choose <linear-mba-terms-number> boolean expr to construct MBA expr."));
+static cl::opt<int> TermsNumber("linear-mba-terms", cl::init(10), cl::desc("Choose <linear-mba-terms> boolean expr to construct MBA expr."));
 
 bool LinearMBAObfuscation::runOnFunction(Function &F){
     if(enable){
