@@ -50,13 +50,6 @@ int64_t* llvm::generateLinearMBA(int termsNumber){
             notZeroCond = notZeroCond || (params[i] != 0);
         }
         s.add(notZeroCond);
-        // a1 + a2 + ... + an != 0
-        notZeroCond = c.int_const(0);
-        for(int i = 0;i < termsNumber;i ++){
-            notZeroCond = notZeroCond + params[i];
-        }
-        notZeroCond = notZeroCond != 0;
-        s.add(notZeroCond);
         if(s.check() != sat){
             continue;
         }
@@ -65,6 +58,15 @@ int64_t* llvm::generateLinearMBA(int termsNumber){
         fill_n(terms, 15, 0);
         for(int i = 0;i < termsNumber;i ++){
             terms[exprSelector[i]] += m.eval(params[i]).as_int64();
+        }
+        // reject if all params are 0
+        bool all_zero = true;
+        for(int i = 0;i < 15;i ++){
+            if(terms[i] != 0) all_zero = false;
+        }
+        if(all_zero){
+            delete[] terms;
+            continue;
         }
         return terms;
     }
