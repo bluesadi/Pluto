@@ -58,6 +58,7 @@
 #include "llvm/Transforms/Obfuscation/VariableSubstitution.h"
 #include "llvm/Transforms/Obfuscation/RandomControlFlow.h"
 #include "llvm/Transforms/Obfuscation/TrapAngr.h"
+#include "llvm/Transforms/Obfuscation/LinearMBAObfuscation.h"
 
 using namespace llvm;
 
@@ -76,6 +77,8 @@ cl::opt<bool> RunVariableSubstitution("vsb", cl::init(false), cl::desc("Enable t
 cl::opt<bool> RunRandomControlFlow("rcf", cl::init(false), cl::desc("Enable the RandomControlFlow pass"));
 
 cl::opt<bool> RunTrapAngr("trap-angr", cl::init(false), cl::desc("Enable the TrapAngr pass"));
+
+cl::opt<bool> RunLinearMBAObfuscation("linear-mba", cl::init(false), cl::desc("Enable the LinearMBAObfuscation pass"));
 
 
 cl::opt<bool> RunPartialInlining("enable-partial-inlining", cl::init(false),
@@ -557,6 +560,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createVariableSubstitutionPass(RunVariableSubstitution));
   MPM.add(createRandomControlFlow(RunRandomControlFlow));
   MPM.add(createTrapAngrPass(RunTrapAngr));
+  MPM.add(createLinearMBAObfuscationPass(RunLinearMBAObfuscation));
 
   MPM.add(createAnnotation2MetadataLegacyPass());
 

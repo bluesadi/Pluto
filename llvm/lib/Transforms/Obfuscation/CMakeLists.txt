@@ -1,3 +1,4 @@
+link_libraries("/usr/lib/libz3.so")
 add_llvm_component_library(LLVMObfuscation
   HelloWorld.cpp
   SplitBasicBlock.cpp
@@ -10,6 +11,8 @@ add_llvm_component_library(LLVMObfuscation
   VariableSubstitution.cpp
   RandomControlFlow.cpp
   TrapAngr.cpp
+  LinearMBAObfuscation.cpp
+  MBAUtils.cpp
 
   DEPENDS
   intrinsics_gen
