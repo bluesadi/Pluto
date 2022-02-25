@@ -1,4 +1,4 @@
-link_libraries("/usr/lib/libz3.so")
+link_libraries(z3)
 add_llvm_component_library(LLVMObfuscation
   HelloWorld.cpp
   SplitBasicBlock.cpp
