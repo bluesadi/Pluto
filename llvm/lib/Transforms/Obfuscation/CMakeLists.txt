@@ -1,4 +1,3 @@
-link_libraries(z3)
 add_llvm_component_library(LLVMObfuscation
   HelloWorld.cpp
   SplitBasicBlock.cpp
@@ -16,11 +15,14 @@ add_llvm_component_library(LLVMObfuscation
 
   DEPENDS
   intrinsics_gen
+  
+  LINK_LIBS
+  z3
 
   LINK_COMPONENTS
   Core
   Support
   Analysis
   TransformUtils
+)
   
-  )
