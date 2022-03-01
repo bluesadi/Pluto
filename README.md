@@ -6,7 +6,13 @@ Pluto is an obfuscator based on LLVM 12.0.1, being developed and maintained by 3
 - Clang/LLVM 12.0.1
 - CMake 3.16.3
 - Ninja 1.10.0
+- libz3-dev 4.8.7-4build1
 ## Usage
+### Dependencies
+The MBA Obfuscation pass depends on z3-solver. On Ubuntu, you can simply install it with the following command:
+```
+sudo apt install libz3-dev 
+```
 ### Building on Linux/Windows
 The following commands work on both Linux and Windows:
 ```
