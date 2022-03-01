@@ -27,7 +27,9 @@ bool MBAObfuscation::runOnFunction(Function &F){
                 for(Instruction *I : origInst){
                     if(isa<BinaryOperator>(I)){
                         BinaryOperator *BI = cast<BinaryOperator>(I);
-                        substitute(BI);
+                        if(BI->getOperand(0)->getType()->isIntegerTy()){
+                            substitute(BI);
+                        }
                     }
                 }
             }
