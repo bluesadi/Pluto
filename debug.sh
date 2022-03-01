@@ -17,4 +17,4 @@ debug(){
 debug "" "orig"
 
 # Test the TrapAngr pass
-debug "-mllvm -linear-mba" "linear-mba"
+debug "-mllvm -mba" "mba"

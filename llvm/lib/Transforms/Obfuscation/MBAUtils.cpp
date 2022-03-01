@@ -2,6 +2,8 @@
 #include <vector>
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Transforms/Obfuscation/CryptoUtils.h"
+#include <cstdint>
 using namespace z3;
 using namespace std;
 using namespace llvm;
@@ -57,7 +59,7 @@ int64_t* llvm::generateLinearMBA(int termsNumber){
         int64_t *terms = new int64_t[15];
         fill_n(terms, 15, 0);
         for(int i = 0;i < termsNumber;i ++){
-            terms[exprSelector[i]] += m.eval(params[i]).as_int64();
+            terms[exprSelector[i]] += m.eval(params[i]).get_numeral_int64();
         }
         // reject if all params are 0
         bool all_zero = true;
@@ -117,4 +119,48 @@ Value* llvm::insertLinearMBA(int64_t *params, BinaryOperator *insertBefore){
         mbaExpr = builder.CreateAdd(mbaExpr, term);
     }
     return mbaExpr;
+}
+
+uint64_t inverse(uint64_t n, IntegerType *type){
+    context c;
+    solver s(c);
+    expr a = c.bv_val(n, type->getBitWidth());
+    expr a_inv = c.bv_const("a_inv", type->getBitWidth());
+    s.add(a * a_inv == 1);
+    s.add(a_inv != 0);
+    s.check();
+    model m = s.get_model();
+    return m.eval(a_inv).get_numeral_uint64();
+}
+
+
+void generateUnivariatePoly(uint64_t *a, uint64_t *b, IntegerType *type){
+    uint64_t a0, a1, b0, b1, a1_inv;
+    a0 = cryptoutils->get_uint64_t(), a1 = cryptoutils->get_uint64_t() | 1;
+
+    // Calculate a1_inv 
+    a1_inv = inverse(a1, type);
+
+    // Calculate b1
+    b1 = a1_inv;
+
+    // Calculate b0
+    b0 = -(b1 * a0);
+
+    a[0] = a0, a[1] = a1, b[0] = b0, b[1] = b1;
+}
+
+Value* llvm::insertPolynomialMBA(Value *linearMBAExpr, BinaryOperator *insertBefore){
+    IRBuilder<> builder(insertBefore->getContext());
+    builder.SetInsertPoint(insertBefore);
+    Type *operandType = insertBefore->getOperand(0)->getType();
+    uint32_t bitWidth = operandType->getIntegerBitWidth();
+    uint64_t a[2], b[2];
+    generateUnivariatePoly(a, b, cast<IntegerType>(operandType));
+    Value *expr;
+    expr = builder.CreateMul(ConstantInt::get(operandType, b[1]), linearMBAExpr);
+    expr = builder.CreateAdd(expr, ConstantInt::get(operandType, b[0]));
+    expr = builder.CreateMul(ConstantInt::get(operandType, a[1]), expr);
+    expr = builder.CreateAdd(expr, ConstantInt::get(operandType, a[0]));
+    return expr;
 }

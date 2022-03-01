@@ -2,16 +2,20 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Obfuscation/Utils.h"
-#include "llvm/Transforms/Obfuscation/LinearMBAObfuscation.h"
+#include "llvm/Transforms/Obfuscation/MBAObfuscation.h"
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
 #include "llvm/Transforms/Obfuscation/MBAUtils.h"
 #include <vector>
+#include <iostream>
+using namespace std;
 using namespace llvm;
 
-static cl::opt<int> ObfuTimes("linear-mba-times", cl::init(1), cl::desc("Run LinearMBAObfuscation pass <linear-mba-times> time(s)"));
-static cl::opt<int> TermsNumber("linear-mba-terms", cl::init(10), cl::desc("Choose <linear-mba-terms> boolean exprs to construct the MBA expr."));
+static cl::opt<int> ObfuTimes("mba-times", cl::init(1), cl::desc("Run MBAObfuscation pass <mba-times> time(s)"));
+static cl::opt<int> TermsNumber("linear-mba-terms", cl::init(10), cl::desc("Choose <linear-mba-terms> boolean exprs to construct the linear MBA expr."));
 
-bool LinearMBAObfuscation::runOnFunction(Function &F){
+using namespace z3;
+
+bool MBAObfuscation::runOnFunction(Function &F){
     if(enable){
         INIT_CONTEXT(F);
         for(int i = 0;i < ObfuTimes;i ++){
@@ -33,7 +37,7 @@ bool LinearMBAObfuscation::runOnFunction(Function &F){
     return false;
 }
 
-void LinearMBAObfuscation::substitute(BinaryOperator *BI){
+void MBAObfuscation::substitute(BinaryOperator *BI){
     switch (BI->getOpcode()) {
         case BinaryOperator::Add:
             substituteAdd(BI);
@@ -56,15 +60,15 @@ void LinearMBAObfuscation::substitute(BinaryOperator *BI){
 }
 
 
-void LinearMBAObfuscation::substituteAdd(BinaryOperator *BI){
+void MBAObfuscation::substituteAdd(BinaryOperator *BI){
     int64_t *terms = generateLinearMBA(TermsNumber);
     terms[2] += 1;
     terms[4] += 1;
-    Value *mbaExpr = insertLinearMBA(terms, BI);
+    Value *mbaExpr = insertPolynomialMBA(insertLinearMBA(terms, BI), BI);
     BI->replaceAllUsesWith(mbaExpr);
 }
 
-void LinearMBAObfuscation::substituteSub(BinaryOperator *BI){
+void MBAObfuscation::substituteSub(BinaryOperator *BI){
     int64_t *terms = generateLinearMBA(TermsNumber);
     terms[2] += 1;
     terms[4] -= 1;
@@ -72,29 +76,29 @@ void LinearMBAObfuscation::substituteSub(BinaryOperator *BI){
     BI->replaceAllUsesWith(mbaExpr);
 }
 
-void LinearMBAObfuscation::substituteXor(BinaryOperator *BI){
+void MBAObfuscation::substituteXor(BinaryOperator *BI){
     int64_t *terms = generateLinearMBA(TermsNumber);
     terms[5] += 1;
     Value *mbaExpr = insertLinearMBA(terms, BI);
     BI->replaceAllUsesWith(mbaExpr);
 }
 
-void LinearMBAObfuscation::substituteAnd(BinaryOperator *BI){
+void MBAObfuscation::substituteAnd(BinaryOperator *BI){
     int64_t *terms = generateLinearMBA(TermsNumber);
     terms[0] += 1;
     Value *mbaExpr = insertLinearMBA(terms, BI);
     BI->replaceAllUsesWith(mbaExpr);
 }
 
-void LinearMBAObfuscation::substituteOr(BinaryOperator *BI){
+void MBAObfuscation::substituteOr(BinaryOperator *BI){
     int64_t *terms = generateLinearMBA(TermsNumber);
     terms[6] += 1;
     Value *mbaExpr = insertLinearMBA(terms, BI);
     BI->replaceAllUsesWith(mbaExpr);
 }
 
-FunctionPass* llvm::createLinearMBAObfuscationPass(bool enable){
-    return new LinearMBAObfuscation(enable);
+FunctionPass* llvm::createMBAObfuscationPass(bool enable){
+    return new MBAObfuscation(enable);
 }
 
-char LinearMBAObfuscation::ID = 0;
+char MBAObfuscation::ID = 0;

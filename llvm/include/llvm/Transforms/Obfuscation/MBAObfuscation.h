@@ -4,12 +4,12 @@
 
 namespace llvm{
 
-    class LinearMBAObfuscation : public FunctionPass {
+    class MBAObfuscation : public FunctionPass {
         public:
             static char ID;
             bool enable;
 
-            LinearMBAObfuscation(bool enable) : FunctionPass(ID) {
+            MBAObfuscation(bool enable) : FunctionPass(ID) {
                 this->enable = enable;
             }
 
@@ -34,5 +34,5 @@ namespace llvm{
             
     };
 
-    FunctionPass* createLinearMBAObfuscationPass(bool enable);
+    FunctionPass* createMBAObfuscationPass(bool enable);
 }

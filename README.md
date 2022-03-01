@@ -27,3 +27,4 @@ Several examples are available in [obfu-examples](obfu-examples) and [run-exampl
 - String Encryption
 - Globals Encryption
 - [Trap Angr](TrapAngr.md)
+- MBA Obfuscation

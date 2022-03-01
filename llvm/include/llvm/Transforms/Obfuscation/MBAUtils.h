@@ -7,4 +7,6 @@ namespace llvm {
 
     Value* insertLinearMBA(int64_t *params, BinaryOperator *insertBefore);
 
+    Value* insertPolynomialMBA(Value *linearMBAExpr, BinaryOperator *insertBefore);
+
 }
