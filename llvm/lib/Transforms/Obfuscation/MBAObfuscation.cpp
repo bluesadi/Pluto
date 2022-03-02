@@ -74,28 +74,28 @@ void MBAObfuscation::substituteSub(BinaryOperator *BI){
     int64_t *terms = generateLinearMBA(TermsNumber);
     terms[2] += 1;
     terms[4] -= 1;
-    Value *mbaExpr = insertLinearMBA(terms, BI);
+    Value *mbaExpr = insertPolynomialMBA(insertLinearMBA(terms, BI), BI);
     BI->replaceAllUsesWith(mbaExpr);
 }
 
 void MBAObfuscation::substituteXor(BinaryOperator *BI){
     int64_t *terms = generateLinearMBA(TermsNumber);
     terms[5] += 1;
-    Value *mbaExpr = insertLinearMBA(terms, BI);
+    Value *mbaExpr = insertPolynomialMBA(insertLinearMBA(terms, BI), BI);
     BI->replaceAllUsesWith(mbaExpr);
 }
 
 void MBAObfuscation::substituteAnd(BinaryOperator *BI){
     int64_t *terms = generateLinearMBA(TermsNumber);
     terms[0] += 1;
-    Value *mbaExpr = insertLinearMBA(terms, BI);
+    Value *mbaExpr = insertPolynomialMBA(insertLinearMBA(terms, BI), BI);
     BI->replaceAllUsesWith(mbaExpr);
 }
 
 void MBAObfuscation::substituteOr(BinaryOperator *BI){
     int64_t *terms = generateLinearMBA(TermsNumber);
     terms[6] += 1;
-    Value *mbaExpr = insertLinearMBA(terms, BI);
+    Value *mbaExpr = insertPolynomialMBA(insertLinearMBA(terms, BI), BI);
     BI->replaceAllUsesWith(mbaExpr);
 }
 

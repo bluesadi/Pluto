@@ -121,11 +121,11 @@ Value* llvm::insertLinearMBA(int64_t *params, BinaryOperator *insertBefore){
     return mbaExpr;
 }
 
-uint64_t inverse(uint64_t n, IntegerType *type){
+uint64_t inverse(uint64_t n, uint32_t bitWidth){
     context c;
     solver s(c);
-    expr a = c.bv_val(n, type->getBitWidth());
-    expr a_inv = c.bv_const("a_inv", type->getBitWidth());
+    expr a = c.bv_val(n, bitWidth);
+    expr a_inv = c.bv_const("a_inv", bitWidth);
     s.add(a * a_inv == 1);
     s.add(a_inv != 0);
     s.check();
@@ -134,12 +134,12 @@ uint64_t inverse(uint64_t n, IntegerType *type){
 }
 
 
-void generateUnivariatePoly(uint64_t *a, uint64_t *b, IntegerType *type){
+void generateUnivariatePoly(uint64_t *a, uint64_t *b, uint32_t bitWidth){
     uint64_t a0, a1, b0, b1, a1_inv;
     a0 = cryptoutils->get_uint64_t(), a1 = cryptoutils->get_uint64_t() | 1;
 
     // Calculate a1_inv 
-    a1_inv = inverse(a1, type);
+    a1_inv = inverse(a1, bitWidth);
 
     // Calculate b1
     b1 = a1_inv;
@@ -156,7 +156,7 @@ Value* llvm::insertPolynomialMBA(Value *linearMBAExpr, BinaryOperator *insertBef
     Type *operandType = insertBefore->getOperand(0)->getType();
     uint32_t bitWidth = operandType->getIntegerBitWidth();
     uint64_t a[2], b[2];
-    generateUnivariatePoly(a, b, cast<IntegerType>(operandType));
+    generateUnivariatePoly(a, b, bitWidth);
     Value *expr;
     expr = builder.CreateMul(ConstantInt::get(operandType, b[1]), linearMBAExpr);
     expr = builder.CreateAdd(expr, ConstantInt::get(operandType, b[0]));
