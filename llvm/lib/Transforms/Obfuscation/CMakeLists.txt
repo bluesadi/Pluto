@@ -25,4 +25,3 @@ add_llvm_component_library(LLVMObfuscation
   Analysis
   TransformUtils
 )
-  
