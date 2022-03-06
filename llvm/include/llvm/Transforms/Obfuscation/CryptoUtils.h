@@ -60,6 +60,11 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
 
 #endif
 
+#if defined(__APPLE__) && defined(__aarch64__)
+#define ENDIAN_LITTLE
+#define ENDIAN_64BITWORD
+#endif
+
 #if defined(__BIG_ENDIAN__) || defined(_BIG_ENDIAN)
 #define ENDIAN_BIG
 #endif
