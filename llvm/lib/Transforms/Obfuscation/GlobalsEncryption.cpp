@@ -27,7 +27,11 @@ bool GlobalsEncryption::runOnModule(Module &M){
     }
     for(int i = 0;i < ObfuTimes;i ++){
         for(GlobalVariable *GV : GVs){
-            if(GV->hasInitializer() && (GV->getName().contains(".str") || !OnlyStr)
+            // Only obfuscate on globals of integer and array
+            if(!GV->getValueType()->isIntegerTy() && !GV->getValueType()->isArrayTy()){
+                continue;
+            }      
+            if(GV->hasInitializer() && GV->getInitializer() && (GV->getName().contains(".str") || !OnlyStr)
                 // Do not encrypt globals having a section specified as "llvm.metadata"
                 && !GV->getSection().equals("llvm.metadata")){
                 Constant *initializer = GV->getInitializer();
@@ -39,7 +43,7 @@ bool GlobalsEncryption::runOnModule(Module &M){
                     uint32_t len = seqData->getNumElements();
                     uint64_t key = cryptoutils->get_uint64_t();
                     // A simple xor encryption
-                    for(int i = 0;i < len * size;i ++){
+                    for(uint32_t i = 0;i < len * size;i ++){
                         data[i] ^= ((char*)&key)[i % size];
                     }
                     GV->setConstant(false);
@@ -60,7 +64,7 @@ bool GlobalsEncryption::runOnModule(Module &M){
 void GlobalsEncryption::insertIntDecryption(Module &M, EncryptedGV encGV){
     vector<Type*>args;
     FunctionType* funcType = FunctionType::get(Type::getVoidTy(M.getContext()), args, false);
-    string funcName = formatv("decrypt.{0:x-}", cryptoutils->get_uint64_t());
+    string funcName = formatv("{0}.{1:x-}", M.getName(), M.getMDKindID(encGV.GV->getName()));
     FunctionCallee callee = M.getOrInsertFunction(funcName, funcType);
     Function *func = cast<Function>(callee.getCallee());
 
@@ -77,7 +81,7 @@ void GlobalsEncryption::insertIntDecryption(Module &M, EncryptedGV encGV){
 void GlobalsEncryption::insertArrayDecryption(Module &M, EncryptedGV encGV){
     vector<Type*>args;
     FunctionType* funcType = FunctionType::get(Type::getVoidTy(M.getContext()), args, false);
-    string funcName = formatv("decrypt.{0:x-}", cryptoutils->get_uint64_t());
+    string funcName = formatv("{0}.{1:x-}", M.getName(), M.getMDKindID(encGV.GV->getName()));
     FunctionCallee callee = M.getOrInsertFunction(funcName, funcType);
     Function *func = cast<Function>(callee.getCallee());
     BasicBlock *entry = BasicBlock::Create(*CONTEXT, "entry", func);
