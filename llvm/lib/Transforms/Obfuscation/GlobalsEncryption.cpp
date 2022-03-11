@@ -27,12 +27,12 @@ bool GlobalsEncryption::runOnModule(Module &M){
     }
     for(int i = 0;i < ObfuTimes;i ++){
         for(GlobalVariable *GV : GVs){
-            // Only obfuscate on globals of integer and array
+            // Only encrypt globals of integer and array
             if(!GV->getValueType()->isIntegerTy() && !GV->getValueType()->isArrayTy()){
                 continue;
             }      
             if(GV->hasInitializer() && GV->getInitializer() && (GV->getName().contains(".str") || !OnlyStr)
-                // Do not encrypt globals having a section specified as "llvm.metadata"
+                // Do not encrypt globals having a section named "llvm.metadata"
                 && !GV->getSection().equals("llvm.metadata")){
                 Constant *initializer = GV->getInitializer();
                 ConstantInt *varData = dyn_cast<ConstantInt>(initializer);
