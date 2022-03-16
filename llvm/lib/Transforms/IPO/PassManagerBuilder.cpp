@@ -522,7 +522,7 @@ void PassManagerBuilder::populateModulePassManager(
   // is handled separately, so just check this is not the ThinLTO post-link.
   bool DefaultOrPreLinkPipeline = !PerformThinLTO;
   // Add custom obfuscation passes to PassManager
-  regeisterAllPassess(MPM);
+  regeisterAllPasses(MPM);
 
   MPM.add(createAnnotation2MetadataLegacyPass());
 

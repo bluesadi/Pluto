@@ -32,7 +32,7 @@ cl::opt<bool> RunTrapAngr("trap-angr", cl::init(false), cl::desc("Enable the Tra
 
 cl::opt<bool> RunMBAObfuscation("mba", cl::init(false), cl::desc("Enable the MBAObfuscation pass"));
 
-void llvm::regeisterAllPassess(legacy::PassManagerBase &MPM){
+void llvm::regeisterAllPasses(legacy::PassManagerBase &MPM){
     MPM.add(createHelloWorldPass(RunHelloWorld));
     MPM.add(createSplitBasicBlockPass());
     MPM.add(createLowerSwitchPass());
