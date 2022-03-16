@@ -1,4 +1,5 @@
 add_llvm_component_library(LLVMObfuscation
+  PassRegistry.cpp
   HelloWorld.cpp
   SplitBasicBlock.cpp
   CryptoUtils.cpp
