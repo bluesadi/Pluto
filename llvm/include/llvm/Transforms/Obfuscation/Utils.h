@@ -17,6 +17,7 @@ extern llvm::LLVMContext *CONTEXT;
 namespace llvm{
     void fixStack(Function &F);
     BasicBlock* createCloneBasicBlock(BasicBlock *BB);
+    std::string readAnnotate(Function *f);
 }
 
 #endif // LLVM_UTILS_H
