@@ -2,3 +2,4 @@ build/
 debug/
 .vscode
 debug.sh
+test/aes/TestProgram.out

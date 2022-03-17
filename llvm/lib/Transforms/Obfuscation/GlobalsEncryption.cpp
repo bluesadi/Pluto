@@ -35,22 +35,26 @@ bool GlobalsEncryption::runOnModule(Module &M){
                 // Do not encrypt globals having a section named "llvm.metadata"
                 && !GV->getSection().equals("llvm.metadata")){
                 Constant *initializer = GV->getInitializer();
-                ConstantInt *varData = dyn_cast<ConstantInt>(initializer);
-                ConstantDataSequential *seqData = dyn_cast<ConstantDataSequential>(initializer);
-                if(seqData && GV->getValueType()->isArrayTy()){
-                    char *data = const_cast<char*>(seqData->getRawDataValues().data());
-                    uint32_t size = seqData->getElementByteSize();
-                    uint32_t len = seqData->getNumElements();
+                ConstantInt *intData = dyn_cast<ConstantInt>(initializer);
+                ConstantDataArray *arrData = dyn_cast<ConstantDataArray>(initializer);
+                if(arrData){
+                    uint32_t eleSize = arrData->getElementByteSize();
+                    uint32_t eleNum = arrData->getNumElements();
+                    uint32_t arrLen = eleNum * eleSize;
+                    char *data = const_cast<char*>(arrData->getRawDataValues().data());
+                    char *dataCopy = new char[arrLen];
+                    memcpy(dataCopy, data, arrLen);
                     uint64_t key = cryptoutils->get_uint64_t();
                     // A simple xor encryption
-                    for(uint32_t i = 0;i < len * size;i ++){
-                        data[i] ^= ((char*)&key)[i % size];
+                    for(uint32_t i = 0;i < arrLen;i ++){
+                        dataCopy[i] ^= ((char*)&key)[i % eleSize];
                     }
+                    GV->setInitializer(ConstantDataArray::getRaw(StringRef(dataCopy, arrLen), eleNum, arrData->getElementType()));
                     GV->setConstant(false);
-                    insertArrayDecryption(M, {GV, key, len});
-                }else if(varData && GV->getValueType()->isIntegerTy()){
+                    insertArrayDecryption(M, {GV, key, eleNum});
+                }else if(intData){
                     uint64_t key = cryptoutils->get_uint64_t();
-                    ConstantInt *enc = CONST(varData->getType(), key ^ varData->getZExtValue());
+                    ConstantInt *enc = CONST(intData->getType(), key ^ intData->getZExtValue());
                     GV->setInitializer(enc);
                     GV->setConstant(false);
                     insertIntDecryption(M, {GV, key, 1LL});
