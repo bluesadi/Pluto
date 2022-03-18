@@ -34,13 +34,10 @@ namespace llvm
             std::vector<BasicBlock*> *getBlocks(Function *function,std::vector<BasicBlock*> *lists);
             void getAnalysisUsage(AnalysisUsage &AU);
             unsigned int getUniqueNumber(std::vector<unsigned int> *rand_list);
+            static bool valueEscapes(Instruction *Inst);
             void DoFlatten(Function *f,int seed,int enderNum);
             bool runOnFunction(Function &function);
-            void getAnalysisUsage(AnalysisUsage &AU) const override
-            {
-                AU.addRequiredID(LowerSwitchID);
-                FunctionPass::getAnalysisUsage(AU);
-            }
+
     };
     FunctionPass* createFlatteningEnhancedPass(bool enable);
 }

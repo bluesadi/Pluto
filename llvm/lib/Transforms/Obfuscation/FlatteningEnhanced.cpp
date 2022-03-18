@@ -1,20 +1,14 @@
-#include "llvm/Pass.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/CFG.h"
-#include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/BasicBlock.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Transforms/Scalar.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/LinkAllPasses.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Transforms/Utils.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Obfuscation/FlatteningEnhanced.h"
 #include "llvm/Transforms/Obfuscation/Utils.h"
-#include <sstream>
-#include "llvm/IR/Module.h"
-#include<vector>
+#include "llvm/Transforms/Obfuscation/CryptoUtils.h"
+#include <vector>
 #include<list>
 #include<ctime>
 #include<map>
@@ -147,6 +141,17 @@ unsigned int MyFlatten::getUniqueNumber(std::vector<unsigned int> *rand_list)
 	}
 	return num;
 }
+bool MyFlatten::valueEscapes(Instruction *Inst)
+{
+	const BasicBlock *BB=Inst->getParent();
+	for(const User *U:Inst->users())
+	{
+		const Instruction *UI=cast<Instruction>(U);
+		if (UI->getParent()!=BB || isa<PHINode>(UI))
+			return true;
+	}
+	return false;
+}
 void MyFlatten::DoFlatten(Function *f,int seed,int enderNum)
 {
 	srand(seed);
@@ -250,7 +255,36 @@ void MyFlatten::DoFlatten(Function *f,int seed,int enderNum)
 	}
 	ConstantInt *startVal=cast<ConstantInt>(ConstantInt::get(Type::getInt32Ty(f->getContext()),startNum));		//Set the entry value
 	new StoreInst(startVal,switchVar,newEntry->getTerminator());
-	fixStack(*f);
+	std::vector<PHINode *> tmpPhi;
+	std::vector<Instruction *> tmpReg;
+	BasicBlock *bbEntry = &*f->begin();
+	do
+	{
+		tmpPhi.clear();
+		tmpReg.clear();
+		for(Function::iterator i = f->begin();i!=f->end();i++)
+		{
+			for( BasicBlock::iterator j=i->begin();j!=i->end();j++)
+			{
+				if(isa<PHINode>(j))
+				{
+					PHINode *phi=cast<PHINode>(j);
+					tmpPhi.push_back(phi);
+					continue;
+				}
+				if (!(isa<AllocaInst>(j) && j->getParent()==bbEntry) && (valueEscapes(&*j) || j->isUsedOutsideOfBlock(&*i)))
+				{
+					tmpReg.push_back(&*j);
+					continue;
+				}
+			}
+		}
+		for(unsigned int i=0;i<tmpReg.size();i++)
+			DemoteRegToStack(*tmpReg.at(i),f->begin()->getTerminator());
+		for(unsigned int i=0;i<tmpPhi.size();i++)
+			DemotePHIToStack(tmpPhi.at(i),f->begin()->getTerminator());
+	}
+	while(tmpReg.size()!= 0 || tmpPhi.size()!= 0);
 }
 bool MyFlatten::runOnFunction(Function &function)
 {
