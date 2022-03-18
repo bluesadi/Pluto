@@ -5,6 +5,7 @@ add_llvm_component_library(LLVMObfuscation
   CryptoUtils.cpp
   Utils.cpp
   Flattening.cpp
+  FlatteningEnhanced.cpp
   BogusControlFlow.cpp
   Substitution.cpp
   GlobalsEncryption.cpp

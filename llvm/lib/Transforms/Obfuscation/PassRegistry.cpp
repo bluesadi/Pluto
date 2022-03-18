@@ -3,6 +3,7 @@
 #include "llvm/Transforms/Obfuscation/HelloWorld.h"
 #include "llvm/Transforms/Obfuscation/SplitBasicBlock.h"
 #include "llvm/Transforms/Obfuscation/Flattening.h"
+#include "llvm/Transforms/Obfuscation/FlatteningEnhanced.h"
 #include "llvm/Transforms/Obfuscation/BogusControlFlow.h"
 #include "llvm/Transforms/Obfuscation/Substitution.h"
 #include "llvm/Transforms/Obfuscation/GlobalsEncryption.h"
@@ -17,6 +18,8 @@ using namespace llvm;
 cl::opt<bool> RunHelloWorld("hlw", cl::init(false), cl::desc("Enable the HelloWorld pass"));
 
 cl::opt<bool> RunFlattening("fla", cl::init(false), cl::desc("Enable the Flattening pass"));
+
+cl::opt<bool> RunFlatteningEnhanced("fla-ex", cl::init(false), cl::desc("Enable the Enhanced Flattening pass"));
 
 cl::opt<bool> RunBogusControlFlow("bcf", cl::init(false), cl::desc("Enable the BogusControlFlow pass"));
 
@@ -37,6 +40,7 @@ void llvm::regeisterAllPasses(legacy::PassManagerBase &MPM){
     MPM.add(createSplitBasicBlockPass());
     MPM.add(createLowerSwitchPass());
     MPM.add(createFlatteningPass(RunFlattening));
+    MPM.add(createFlatteningEnhancedPass(RunFlatteningEnhanced));
     MPM.add(craeteBogusControlFlow(RunBogusControlFlow));
     MPM.add(createSubstitutionPass(RunSubstitution));
     MPM.add(createGlobalsEncryptionPass(RunGlobalsEncryption));
@@ -44,4 +48,5 @@ void llvm::regeisterAllPasses(legacy::PassManagerBase &MPM){
     MPM.add(createRandomControlFlow(RunRandomControlFlow));
     MPM.add(createTrapAngrPass(RunTrapAngr));
     MPM.add(createMBAObfuscationPass(RunMBAObfuscation));
+    
 }
