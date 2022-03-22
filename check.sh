@@ -1,8 +1,8 @@
 export CC=`pwd`/build/bin/clang
-export CFLAGS="-mllvm -$1"
+export CFLAGS="-O2 -mllvm -$1"
 
 cd test/secp256k1
 make clean
 ./configure
-make
+make -j
 make check

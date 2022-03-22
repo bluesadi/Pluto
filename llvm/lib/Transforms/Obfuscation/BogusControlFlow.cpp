@@ -14,13 +14,26 @@ using std::vector;
 // 混淆次数，混淆次数越多混淆结果越复杂
 static cl::opt<int> ObfuTimes("bcf-times", cl::init(1), cl::desc("Run BogusControlFlow pass <bcf-times> time(s)"));
 
+bool containsInlineAsm(BasicBlock &BB){
+    for(Instruction &I : BB){
+        for(int i = 0;i < I.getNumOperands();i ++){
+            if(isa<InlineAsm>(I.getOperand(i))){
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 bool BogusControlFlow::runOnFunction(Function &F){
     if(enable){
         INIT_CONTEXT(F);
         for(int i = 0;i < ObfuTimes;i ++){
             vector<BasicBlock*> origBB;
             for(BasicBlock &BB : F){
-                origBB.push_back(&BB);
+                if(!containsInlineAsm(BB)){
+                    origBB.push_back(&BB);
+                }
             }
             for(BasicBlock *BB : origBB){
                 bogus(BB);

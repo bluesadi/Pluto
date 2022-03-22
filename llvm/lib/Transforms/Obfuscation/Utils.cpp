@@ -46,6 +46,7 @@ BasicBlock* llvm::createCloneBasicBlock(BasicBlock *BB){
     }
     ValueToValueMapTy VMap;
     BasicBlock *cloneBB = CloneBasicBlock(BB, VMap, "cloneBB", BB->getParent());
+    BasicBlock::iterator origI = BB->begin();
     // 对克隆基本块的引用进行修复
     for(Instruction &I : *cloneBB){
         for(int i = 0;i < I.getNumOperands();i ++){
@@ -54,6 +55,8 @@ BasicBlock* llvm::createCloneBasicBlock(BasicBlock *BB){
                 I.setOperand(i, V);
             }
         }
+        I.setDebugLoc(origI->getDebugLoc());
+        origI++;
     }
     return cloneBB;
 }

@@ -1,4 +1,4 @@
-CXXFLAGS="-mllvm -$1"
+CXXFLAGS="-O2 -mllvm -$1"
 
 cd test/aes
 rm -f TestProgram.out

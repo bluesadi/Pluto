@@ -53,4 +53,10 @@ ninja
 ### Fast test on AES
 See [fast-check.sh](fast-check.sh) and [test/aes](test/aes/).
 ### Comprehensive test on secp256k1
+Tested on:
+- Flattening: `-O2 -mllvm -fla`
+- BogusControlFlow: `-O2 -mllvm -bcf`
+- Substitution: `-O2 -mllvm -sub`
+- GlobalsEncryption: `-O2 -mllvm -gle`
+
 See [check.sh](check.sh) and [test/secp256k1](test/secp256k1/).
