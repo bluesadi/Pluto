@@ -157,6 +157,12 @@ Value* llvm::insertPolynomialMBA(Value *linearMBAExpr, BinaryOperator *insertBef
     uint32_t bitWidth = operandType->getIntegerBitWidth();
     uint64_t a[2], b[2];
     generateUnivariatePoly(a, b, bitWidth);
+    // Just for debug
+    // uint64_t x = cryptoutils->get_uint64_t();
+    // APInt mask = cast<IntegerType>(operandType)->getMask();
+    // if(((a[1] * (b[1] * x + b[0]) + a[0]) & mask) != (x & mask)){
+    //     assert(false);
+    // }
     Value *expr;
     expr = builder.CreateMul(ConstantInt::get(operandType, b[1]), linearMBAExpr);
     expr = builder.CreateAdd(expr, ConstantInt::get(operandType, b[0]));

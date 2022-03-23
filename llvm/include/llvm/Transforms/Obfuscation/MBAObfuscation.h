@@ -18,19 +18,19 @@ namespace llvm{
             void substitute(BinaryOperator *BI);
 
             // 替换 Add 指令
-            void substituteAdd(BinaryOperator *BI);
+            Value* substituteAdd(BinaryOperator *BI);
 
             // 替换 Sub 指令
-            void substituteSub(BinaryOperator *BI);
+            Value* substituteSub(BinaryOperator *BI);
 
             // 替换 And 指令
-            void substituteAnd(BinaryOperator *BI);
+            Value* substituteAnd(BinaryOperator *BI);
             
             // 替换 Or 指令
-            void substituteOr(BinaryOperator *BI);
+            Value* substituteOr(BinaryOperator *BI);
 
             // 替换 Xor 指令
-            void substituteXor(BinaryOperator *BI);
+            Value* substituteXor(BinaryOperator *BI);
             
     };
 
