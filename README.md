@@ -1,5 +1,5 @@
 # Pluto-Obfuscator
-Pluto is an obfuscator based on LLVM 12.0.1, being developed and maintained by 34r7h4mn.
+Pluto is an obfuscator based on LLVM 12.0.1, being developed and maintained by 34r7h4mn and za233.
 > Pluto is a dwarf planet in the Kuiper belt, a ring of bodies beyond the orbit of Neptune.
 ## Environment
 - Ubuntu 20.04.3 LTS
@@ -58,5 +58,6 @@ Tested on:
 - BogusControlFlow: `-O2 -mllvm -bcf`
 - Substitution: `-O2 -mllvm -sub`
 - GlobalsEncryption: `-O2 -mllvm -gle`
+- MBAObfuscation: `-O2 -mllvm -mba -mllvm -mba-prob=100`
 
 See [check.sh](check.sh) and [test/secp256k1](test/secp256k1/).
