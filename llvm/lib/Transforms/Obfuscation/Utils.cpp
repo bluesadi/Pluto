@@ -55,7 +55,17 @@ BasicBlock* llvm::createCloneBasicBlock(BasicBlock *BB){
                 I.setOperand(i, V);
             }
         }
-        I.setDebugLoc(origI->getDebugLoc());
+        // SmallVector<std::pair<unsigned, MDNode *>, 4> MDs;
+        // I.getAllMetadata(MDs);
+        // for(std::pair<unsigned, MDNode *> pair : MDs){
+        //     MDNode *MD = MapMetadata(pair.second, VMap);
+        //     if(MD){
+        //         errs() << "DEBUG1: " << *pair.second << "\n";
+        //         errs() << "DEBUG2: " << *MD << "\n";
+        //         I.setMetadata(pair.first, MD);
+        //     }
+        // }
+        //I.setDebugLoc(origI->getDebugLoc());
         origI++;
     }
     return cloneBB;

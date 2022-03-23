@@ -64,9 +64,8 @@ void BogusControlFlow::bogus(BasicBlock *entryBB){
     // 第一步，拆分得到 entryBB, bodyBB, endBB
     // 其中所有的 PHI 指令都在 entryBB(如果有的话)
     // endBB 只包含一条终结指令
-    BasicBlock *bodyBB = entryBB->splitBasicBlock(entryBB->getFirstNonPHI(), "bodyBB");
+    BasicBlock *bodyBB = entryBB->splitBasicBlock(entryBB->getFirstNonPHIOrDbgOrLifetime(), "bodyBB");
     BasicBlock *endBB = bodyBB->splitBasicBlock(bodyBB->getTerminator(), "endBB");
-    
     // 第二步，克隆 bodyBB 得到克隆块 cloneBB
     BasicBlock *cloneBB = createCloneBasicBlock(bodyBB);
 
