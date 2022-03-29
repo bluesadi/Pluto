@@ -12,6 +12,7 @@
 #include "llvm/Transforms/Obfuscation/TrapAngr.h"
 #include "llvm/Transforms/Obfuscation/MBAObfuscation.h"
 #include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/IPO.h"
 
 using namespace llvm;
 
@@ -35,7 +36,7 @@ cl::opt<bool> RunTrapAngr("trap-angr", cl::init(false), cl::desc("Enable the Tra
 
 cl::opt<bool> RunMBAObfuscation("mba", cl::init(false), cl::desc("Enable the MBAObfuscation pass"));
 
-void llvm::regeisterAllPasses(legacy::PassManagerBase &MPM){
+void llvm::registerAllPasses(legacy::PassManagerBase &MPM){
     MPM.add(createHelloWorldPass(RunHelloWorld));
     MPM.add(createSplitBasicBlockPass());
     MPM.add(createLowerSwitchPass());

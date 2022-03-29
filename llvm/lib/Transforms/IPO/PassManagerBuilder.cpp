@@ -53,6 +53,8 @@
 
 using namespace llvm;
 
+cl::opt<bool> RunStripSymbols("strip", cl::init(false), cl::desc("Enable the StripSymbols pass"));
+
 cl::opt<bool> RunPartialInlining("enable-partial-inlining", cl::init(false),
                                  cl::Hidden, cl::ZeroOrMore,
                                  cl::desc("Run Partial inlinining pass"));
@@ -521,8 +523,13 @@ void PassManagerBuilder::populateModulePassManager(
   // Whether this is a default or *LTO pre-link pipeline. The FullLTO post-link
   // is handled separately, so just check this is not the ThinLTO post-link.
   bool DefaultOrPreLinkPipeline = !PerformThinLTO;
+
+  if(RunStripSymbols){
+    MPM.add(createStripSymbolsPass());
+  }
+
   // Add custom obfuscation passes to PassManager
-  regeisterAllPasses(MPM);
+  registerAllPasses(MPM);
 
   MPM.add(createAnnotation2MetadataLegacyPass());
 
