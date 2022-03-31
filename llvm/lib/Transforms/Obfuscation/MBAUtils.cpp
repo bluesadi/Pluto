@@ -3,6 +3,7 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
+#include "llvm/Support/SMTAPI.h"
 #include <cstdint>
 using namespace z3;
 using namespace std;
@@ -25,6 +26,64 @@ int8_t truthTable[15][4] = {
     {1, 1, 1, 0},   // ~(x & y)
     {1, 1, 1, 1},   // -1
 };
+
+// int64_t* llvm::generateLinearMBA(int termsNumber){
+//     SMTSolverRef ss = CreateZ3Solver();
+//     ss->mkBitvector(APSInt::get(16), 32)->print(outs());
+//     int* exprSelector = new int[termsNumber];
+//     while(true){
+//         SMTSolverRef solver = CreateZ3Solver();
+//         vector<SMTExprRef> params;
+//         for(int i = 0;i < termsNumber;i ++){
+//             // string paramName = formatv("a{0:d}", i);
+//             // params.push_back(c.int_const(paramName.c_str()));
+//             string paramName = formatv("a{0:d}", i);
+//             params.push_back(solver->mkSymbol(paramName.c_str(), solver->getBitvectorSort(64)));
+//         }
+//         for(int i = 0;i < termsNumber;i ++){
+//             exprSelector[i] = rand() % 15;
+//         }
+//         for(int i = 0;i < 4;i ++){
+//             // expr equ = c.int_val(0);
+//             SMTExprRef equ = solver->mkBitvector(APSInt::get(16), 64);
+//             for(int j = 0;j < termsNumber;j ++){
+//                 //equ = equ + params[j] * truthTable[exprSelector[j]][i];
+//                 equ = solver->mkBVAdd(equ, solver->mkBVMul(params[j], solver->mkBitvector(APSInt::get(truthTable[exprSelector[j]][i]), 64)));
+//             }
+//             //s.add(equ == 0);
+//             solver->addConstraint(solver->mkEqual(equ, solver->mkBitvector(APSInt::get(0), 64)));
+//         }
+//         //expr notZeroCond = c.bool_val(false);
+//         SMTExprRef notZeroCond = solver->mkBoolean(false);
+//         // a1 != 0 || a2 != 0 || ... || an != 0 
+//         for(int i = 0;i < termsNumber;i ++){
+//             //notZeroCond = notZeroCond || (params[i] != 0);
+//         }
+//         //s.add(notZeroCond);
+//         solver->addConstraint(notZeroCond);
+//         Optional<bool> sat = solver->check();
+//         if(sat.hasValue() && sat.getValue()){
+//             continue;
+//         }
+//         //model m = s.get_model();
+//         solver->dump
+//         int64_t *terms = new int64_t[15];
+//         fill_n(terms, 15, 0);
+//         for(int i = 0;i < termsNumber;i ++){
+//             terms[exprSelector[i]] += m.eval(params[i]).get_numeral_int64();
+//         }
+//         // reject if all params are 0
+//         bool all_zero = true;
+//         for(int i = 0;i < 15;i ++){
+//             if(terms[i] != 0) all_zero = false;
+//         }
+//         if(all_zero){
+//             delete[] terms;
+//             continue;
+//         }
+//         return terms;
+//     }
+// }
 
 int64_t* llvm::generateLinearMBA(int termsNumber){
     int* exprSelector = new int[termsNumber];
@@ -131,6 +190,27 @@ uint64_t inverse(uint64_t n, uint32_t bitWidth){
     s.check();
     model m = s.get_model();
     return m.eval(a_inv).get_numeral_uint64();
+    // SMTSolverRef solver = CreateZ3Solver();
+    // SMTExprRef a = solver->mkBitvector(APSInt::get(n), bitWidth);
+    // outs() << "Debug0: ";
+    // a->print(outs());
+    // outs() << "\n";
+    // SMTExprRef a_inv = solver->mkSymbol("a_inv", solver->getSort(a));
+    // solver->addConstraint(solver->mkEqual(solver->mkBVMul(a, a_inv), solver->mkBitvector(APSInt::get(1), bitWidth)));
+    // solver->addConstraint(solver->mkNot(solver->mkEqual(a_inv, solver->mkBitvector(APSInt::get(0), bitWidth))));
+    // //solver->addConstraint(solver->mkEqual(solver->mkBVAdd(a, a_inv), solver->mkBitvector(APSInt::get(1), bitWidth)));
+    // Optional<bool> sat = solver->check();
+    // outs() << "Debug1: ";
+    // solver->print(outs());
+    // outs() << "\n";
+    // if(!sat.hasValue() || sat.getValue() == 0){
+    //     outs() << "ERROR\n";
+    // }
+    // outs() << sat.getValue() << "\n";
+    // APSInt result;
+    // bool tt = solver->getInterpretation(a, result);
+    // outs() << "Debug: " << tt << "," << result << "\n"; 
+    // return result.getZExtValue();
 }
 
 

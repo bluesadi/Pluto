@@ -364,7 +364,7 @@ option(LLVM_ENABLE_Z3_SOLVER
   "Enable Support for the Z3 constraint solver in LLVM."
   ${LLVM_ENABLE_Z3_SOLVER_DEFAULT}
 )
-
+message("DEBUG: " ${LLVM_ENABLE_Z3_SOLVER})
 if (LLVM_ENABLE_Z3_SOLVER)
   find_package(Z3 4.7.1)
 
