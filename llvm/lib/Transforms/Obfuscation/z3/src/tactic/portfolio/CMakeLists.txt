@@ -1,0 +1,22 @@
+z3_add_component(portfolio
+  SOURCES
+    default_tactic.cpp
+    smt_strategic_solver.cpp
+    solver2lookahead.cpp
+    solver_subsumption_tactic.cpp
+  COMPONENT_DEPENDENCIES
+    aig_tactic
+    fp
+    fpa_tactics
+    qe
+    sat_solver
+    sls_tactic
+    smtlogic_tactics
+    subpaving_tactic
+    ufbv_tactic
+    fd_solver
+  TACTIC_HEADERS
+    default_tactic.h
+    solver_subsumption_tactic.h
+
+)

@@ -1,0 +1,13 @@
+z3_add_component(sat_solver
+  SOURCES
+    inc_sat_solver.cpp
+  COMPONENT_DEPENDENCIES
+    aig_tactic
+    arith_tactics
+    bv_tactics
+    core_tactics
+    sat_tactic
+    solver
+  TACTIC_HEADERS
+    inc_sat_solver.h
+)

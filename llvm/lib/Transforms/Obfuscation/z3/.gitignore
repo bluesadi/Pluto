@@ -1,0 +1,93 @@
+*~
+rebase.cmd
+*.pyc
+*.pyo
+# Ignore callgrind files
+callgrind.out.*
+# .hpp files are automatically generated
+*.hpp
+.z3-trace
+# OCaml generated files
+*.a
+*.cma
+*.cmo
+*.cmi
+*.cmxa
+ocamlz3
+# Java generated files
+*.class
+*.jar
+# Emacs temp files
+\#*\#
+# Directories with generated code and documentation
+release/*
+build/*
+build-dist/*
+dist/*
+src/out/*
+doc/html/*
+# GTAGS generated files
+src/GPATH
+src/GRTAGS
+src/GSYMS
+src/GTAGS
+src/HTML/*
+# CSCOPE files
+src/cscope.in.out
+src/cscope.out
+src/cscope.po.out
+ncscope.out
+# CEDET files
+.cproject
+.project
+# Commonly used directories for code
+bld_dbg/*
+bld_rel/*
+bld_dbg_x64/*
+bld_rel_x64/*
+.vscode
+# Auto generated files.
+config.log
+config.status
+install_tactic.cpp
+mem_initializer.cpp
+gparams_register_modules.cpp
+scripts/config-debug.mk
+scripts/config-release.mk
+src/api/api_commands.cpp
+src/api/api_log_macros.h
+src/api/api_log_macros.cpp
+src/api/dll/api_dll.def
+src/api/dotnet/Enumerations.cs
+src/api/dotnet/Native.cs
+src/api/dotnet/Properties/AssemblyInfo.cs
+src/api/dotnet/Microsoft.Z3.xml
+src/api/python/z3/z3consts.py
+src/api/python/z3/z3core.py
+src/ast/pattern/database.h
+src/util/version.h
+src/api/java/Native.cpp
+src/api/java/Native.java
+src/api/java/enumerations/*.java
+src/api/ml/z3native_stubs.c
+src/api/ml/z3native.ml
+src/api/ml/z3enums.ml
+src/api/ml/z3native.mli
+src/api/ml/z3enums.mli
+src/api/ml/z3.mllib
+src/api/js/node_modules/
+src/api/js/*.js
+src/api/js/build/
+src/api/js/**/*.d.ts
+!src/api/js/scripts/*.js
+!src/api/js/src/*.js
+
+out/**
+*.bak
+doc/api
+doc/code
+.vs
+examples/**/obj
+CMakeSettings.json
+# Editor temp files
+*.swp
