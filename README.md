@@ -9,6 +9,7 @@ This project has been developed and tested on the following environment:
 - Ninja 1.10.0
 
 Building on Windows and MacOS is also possible.\
+\
 You can even embed this project in the Andorid NDK toolchain (Windows cross-compilation is not supported yet).
 
 ## Features
