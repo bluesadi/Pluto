@@ -37,7 +37,7 @@ z3_add_component(sat
     sat_xor_finder.cpp
   COMPONENT_DEPENDENCIES
     util
-    dd
+    z3dd
     grobner
   PYG_FILES
     sat_asymm_branch_params.pyg

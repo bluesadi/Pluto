@@ -5,6 +5,6 @@ z3_add_component(grobner
     pdd_solver.cpp
   COMPONENT_DEPENDENCIES
     ast
-    dd
+    z3dd
     simplex
 )
