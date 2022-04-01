@@ -2,10 +2,14 @@
 Pluto is an obfuscator based on LLVM 12.0.1, being developed and maintained by 34r7h4mn and za233.
 > Pluto is a dwarf planet in the Kuiper belt, a ring of bodies beyond the orbit of Neptune.
 ## Environment
+This project has been developed and tested on the following environment:
 - Ubuntu 20.04.3 LTS
 - Clang/LLVM 12.0.1
 - CMake 3.16.3
 - Ninja 1.10.0
+
+Building on Windows, MacOS is also possible.
+You can even embed this project in the Andorid NDK toolchain (Windows cross-compilation is not supported yet).
 
 ## Features
 - Control Flow Flattening
