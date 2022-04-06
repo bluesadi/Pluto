@@ -14,8 +14,6 @@ static cl::opt<int> ObfuTimes("mba-times", cl::init(1), cl::desc("Run MBAObfusca
 static cl::opt<int> ObfuProb("mba-prob", cl::init(40), cl::desc("<mba-prob> percent chance to perform obfuscation for each binary operation."));
 static cl::opt<int> TermsNumber("linear-mba-terms", cl::init(10), cl::desc("Choose <linear-mba-terms> boolean exprs to construct the linear MBA expr."));
 
-using namespace z3;
-
 bool MBAObfuscation::runOnFunction(Function &F){
     if(enable){
         INIT_CONTEXT(F);
@@ -66,7 +64,9 @@ void MBAObfuscation::substitute(BinaryOperator *BI){
             break;
     }
     if(mbaExpr){
-        mbaExpr = insertPolynomialMBA(mbaExpr, BI);
+        if(BI->getOperand(0)->getType()->getIntegerBitWidth() <= 32){
+            mbaExpr = insertPolynomialMBA(mbaExpr, BI);
+        }
         BI->replaceAllUsesWith(mbaExpr);
     }
 }

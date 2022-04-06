@@ -1,5 +1,3 @@
-add_subdirectory(z3)
-
 add_llvm_component_library(LLVMObfuscation
   PassRegistry.cpp
   HelloWorld.cpp
@@ -19,9 +17,6 @@ add_llvm_component_library(LLVMObfuscation
 
   DEPENDS
   intrinsics_gen
-  
-  LINK_LIBS
-  libz3
 
   LINK_COMPONENTS
   Core

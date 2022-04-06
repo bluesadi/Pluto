@@ -1,12 +1,12 @@
+#include "Eigen/Dense"
 #include "llvm/Transforms/Obfuscation/MBAUtils.h"
-#include <vector>
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
-#include "llvm/Support/SMTAPI.h"
+#include <algorithm>
+#include <vector>
 #include <cstdint>
-using namespace z3;
-using namespace std;
+using namespace Eigen;
 using namespace llvm;
 
 int8_t truthTable[15][4] = {
@@ -27,109 +27,41 @@ int8_t truthTable[15][4] = {
     {1, 1, 1, 1},   // -1
 };
 
-// int64_t* llvm::generateLinearMBA(int termsNumber){
-//     SMTSolverRef ss = CreateZ3Solver();
-//     ss->mkBitvector(APSInt::get(16), 32)->print(outs());
-//     int* exprSelector = new int[termsNumber];
-//     while(true){
-//         SMTSolverRef solver = CreateZ3Solver();
-//         vector<SMTExprRef> params;
-//         for(int i = 0;i < termsNumber;i ++){
-//             // string paramName = formatv("a{0:d}", i);
-//             // params.push_back(c.int_const(paramName.c_str()));
-//             string paramName = formatv("a{0:d}", i);
-//             params.push_back(solver->mkSymbol(paramName.c_str(), solver->getBitvectorSort(64)));
-//         }
-//         for(int i = 0;i < termsNumber;i ++){
-//             exprSelector[i] = rand() % 15;
-//         }
-//         for(int i = 0;i < 4;i ++){
-//             // expr equ = c.int_val(0);
-//             SMTExprRef equ = solver->mkBitvector(APSInt::get(16), 64);
-//             for(int j = 0;j < termsNumber;j ++){
-//                 //equ = equ + params[j] * truthTable[exprSelector[j]][i];
-//                 equ = solver->mkBVAdd(equ, solver->mkBVMul(params[j], solver->mkBitvector(APSInt::get(truthTable[exprSelector[j]][i]), 64)));
-//             }
-//             //s.add(equ == 0);
-//             solver->addConstraint(solver->mkEqual(equ, solver->mkBitvector(APSInt::get(0), 64)));
-//         }
-//         //expr notZeroCond = c.bool_val(false);
-//         SMTExprRef notZeroCond = solver->mkBoolean(false);
-//         // a1 != 0 || a2 != 0 || ... || an != 0 
-//         for(int i = 0;i < termsNumber;i ++){
-//             //notZeroCond = notZeroCond || (params[i] != 0);
-//         }
-//         //s.add(notZeroCond);
-//         solver->addConstraint(notZeroCond);
-//         Optional<bool> sat = solver->check();
-//         if(sat.hasValue() && sat.getValue()){
-//             continue;
-//         }
-//         //model m = s.get_model();
-//         solver->dump
-//         int64_t *terms = new int64_t[15];
-//         fill_n(terms, 15, 0);
-//         for(int i = 0;i < termsNumber;i ++){
-//             terms[exprSelector[i]] += m.eval(params[i]).get_numeral_int64();
-//         }
-//         // reject if all params are 0
-//         bool all_zero = true;
-//         for(int i = 0;i < 15;i ++){
-//             if(terms[i] != 0) all_zero = false;
-//         }
-//         if(all_zero){
-//             delete[] terms;
-//             continue;
-//         }
-//         return terms;
-//     }
-// }
-
-int64_t* llvm::generateLinearMBA(int termsNumber){
-    int* exprSelector = new int[termsNumber];
+int64_t* llvm::generateLinearMBA(int exprNumber){
+    int* exprSelector = new int[exprNumber];
+    int64_t *coeffs = new int64_t[15];
     while(true){
-        context c;
-        vector<expr> params;
-        solver s(c);
-        for(int i = 0;i < termsNumber;i ++){
-            string paramName = formatv("a{0:d}", i);
-            params.push_back(c.int_const(paramName.c_str()));
-        }
-        for(int i = 0;i < termsNumber;i ++){
+        std::fill_n(coeffs, 15, 0);
+        for(int i = 0;i < exprNumber;i ++){
             exprSelector[i] = rand() % 15;
         }
-        for(int i = 0;i < 4;i ++){
-            expr equ = c.int_val(0);
-            for(int j = 0;j < termsNumber;j ++){
-                equ = equ + params[j] * truthTable[exprSelector[j]][i];
+        MatrixXd A(4, exprNumber);
+        VectorXd b(4);
+        VectorXd X;
+        b << 0, 0, 0, 0;
+        for(int i = 0;i < exprNumber;i ++){
+            for(int j = 0;j < 4;j ++){
+                A(j, i) = truthTable[exprSelector[i]][j];
             }
-            s.add(equ == 0);
         }
-        expr notZeroCond = c.bool_val(false);
-        // a1 != 0 || a2 != 0 || ... || an != 0 
-        for(int i = 0;i < termsNumber;i ++){
-            notZeroCond = notZeroCond || (params[i] != 0);
+        X = A.fullPivLu().kernel().col(0);
+        // reject if coeffs contain non-integer or are all zero
+        bool reject = false;
+        for(int i = 0;i < exprNumber;i ++){
+            coeffs[exprSelector[i]] += X[i];
+            if(std::abs(X[i] - (int64_t)X[i]) > 1e-5){
+                reject = true;
+                break;
+            }
         }
-        s.add(notZeroCond);
-        if(s.check() != sat){
-            continue;
-        }
-        model m = s.get_model();
-        int64_t *terms = new int64_t[15];
-        fill_n(terms, 15, 0);
-        for(int i = 0;i < termsNumber;i ++){
-            terms[exprSelector[i]] += m.eval(params[i]).get_numeral_int64();
-        }
-        // reject if all params are 0
-        bool all_zero = true;
+        if(reject) continue;
+        reject = true;
         for(int i = 0;i < 15;i ++){
-            if(terms[i] != 0) all_zero = false;
+            if(coeffs[i] != 0) reject = false;
         }
-        if(all_zero){
-            delete[] terms;
-            continue;
-        }
-        return terms;
+        if(reject) continue;
+        delete[] exprSelector;
+        return coeffs;
     }
 }
 
@@ -180,37 +112,27 @@ Value* llvm::insertLinearMBA(int64_t *params, BinaryOperator *insertBefore){
     return mbaExpr;
 }
 
+// Extended Euclid's Theorem function.
+uint64_t exgcd(uint64_t a, uint64_t b, uint64_t& x, uint64_t& y) {
+    if (b == 0) {
+        x = 1, y = 0;
+        return a;
+    }
+    uint64_t g = exgcd(b, a % b, y, x);
+    y -= a / b * x;
+    return g;
+}
+
+uint64_t inv(uint64_t a, uint64_t p) {
+    uint64_t x, y;
+    exgcd(a, p, x, y);
+    // get the inverse element
+    return (x % p + p) % p;
+}
+
 uint64_t inverse(uint64_t n, uint32_t bitWidth){
-    context c;
-    solver s(c);
-    expr a = c.bv_val(n, bitWidth);
-    expr a_inv = c.bv_const("a_inv", bitWidth);
-    s.add(a * a_inv == 1);
-    s.add(a_inv != 0);
-    s.check();
-    model m = s.get_model();
-    return m.eval(a_inv).get_numeral_uint64();
-    // SMTSolverRef solver = CreateZ3Solver();
-    // SMTExprRef a = solver->mkBitvector(APSInt::get(n), bitWidth);
-    // outs() << "Debug0: ";
-    // a->print(outs());
-    // outs() << "\n";
-    // SMTExprRef a_inv = solver->mkSymbol("a_inv", solver->getSort(a));
-    // solver->addConstraint(solver->mkEqual(solver->mkBVMul(a, a_inv), solver->mkBitvector(APSInt::get(1), bitWidth)));
-    // solver->addConstraint(solver->mkNot(solver->mkEqual(a_inv, solver->mkBitvector(APSInt::get(0), bitWidth))));
-    // //solver->addConstraint(solver->mkEqual(solver->mkBVAdd(a, a_inv), solver->mkBitvector(APSInt::get(1), bitWidth)));
-    // Optional<bool> sat = solver->check();
-    // outs() << "Debug1: ";
-    // solver->print(outs());
-    // outs() << "\n";
-    // if(!sat.hasValue() || sat.getValue() == 0){
-    //     outs() << "ERROR\n";
-    // }
-    // outs() << sat.getValue() << "\n";
-    // APSInt result;
-    // bool tt = solver->getInterpretation(a, result);
-    // outs() << "Debug: " << tt << "," << result << "\n"; 
-    // return result.getZExtValue();
+    assert(bitWidth <= 32);
+    return inv(n, 1LL << bitWidth);
 }
 
 
