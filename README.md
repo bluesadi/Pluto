@@ -55,7 +55,7 @@ See [fast-check.sh](fast-check.sh) and [test/aes](test/aes/).
 ### Full test on libsecp256k1
 We have a full test on a crypto library named libsecp256k1 from [bitcoin-core/secp256k1](https://github.com/bitcoin-core/secp256k1), insuring that our passes work fine in most cases.
 
-Tested on:
+Passed:
 - Flattening: `-O2 -mllvm -fla`
 - BogusControlFlow: `-O2 -mllvm -bcf`
 - Substitution: `-O2 -mllvm -sub`
