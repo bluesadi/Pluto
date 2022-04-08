@@ -53,7 +53,7 @@ Run a test case of AES to check out buggy code quickly and roughly.
 
 See [fast-check.sh](fast-check.sh) and [test/aes](test/aes/).
 ### Full test on libsecp256k1
-We have a full test on a crypto library named libsecp256k1 from [bitcoin-core/secp256k1](https://github.com/bitcoin-core/secp256k1), insuring that our passes work fine in most cases.
+We have a full test on a crypto library named libsecp256k1 from [bitcoin-core/secp256k1](https://github.com/bitcoin-core/secp256k1), to insure our passes work fine in most cases.
 
 Passed:
 - Flattening: `-O2 -mllvm -fla`
