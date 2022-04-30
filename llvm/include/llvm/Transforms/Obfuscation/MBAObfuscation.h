@@ -15,6 +15,8 @@ namespace llvm{
 
             bool runOnFunction(Function &F);
 
+            void substituteConstant(Instruction *I, int i);
+
             void substitute(BinaryOperator *BI);
 
             // 替换 Add 指令

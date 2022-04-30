@@ -3,6 +3,7 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
+#include "llvm/Transforms/Obfuscation/Utils.h"
 #include <algorithm>
 #include <vector>
 #include <cstdint>
@@ -65,11 +66,22 @@ int64_t* llvm::generateLinearMBA(int exprNumber){
     }
 }
 
-Value* llvm::insertLinearMBA(int64_t *params, BinaryOperator *insertBefore){
+Value* llvm::insertLinearMBA(int64_t *params, Instruction *insertBefore){
     IRBuilder<> builder(insertBefore->getContext());
     builder.SetInsertPoint(insertBefore);
-    Value *x = insertBefore->getOperand(0);
-    Value *y = insertBefore->getOperand(1);
+    Value *x, *y;
+    if(isa<BinaryOperator>(insertBefore) && insertBefore->getNumOperands() == 2){
+        x = insertBefore->getOperand(0);
+        y = insertBefore->getOperand(1);
+    }else{
+        Module &M = *insertBefore->getModule();
+        Type *type = insertBefore->getOperand(0)->getType();
+        uint64_t randX = cryptoutils->get_uint64_t(), randY = cryptoutils->get_uint64_t();
+        GlobalVariable *xPtr = new GlobalVariable(M, type, false, GlobalValue::PrivateLinkage, CONST(type, randX), "x");
+        GlobalVariable *yPtr = new GlobalVariable(M, type, false, GlobalValue::PrivateLinkage, CONST(type, randY), "y");
+        x = builder.CreateLoad(xPtr);
+        y = builder.CreateLoad(yPtr);
+    }
     Value *mbaExpr = builder.CreateAlloca(x->getType());
     builder.CreateStore(ConstantInt::get(x->getType(), 0), mbaExpr);
     mbaExpr = builder.CreateLoad(mbaExpr);
@@ -152,7 +164,7 @@ void generateUnivariatePoly(uint64_t *a, uint64_t *b, uint32_t bitWidth){
     a[0] = a0, a[1] = a1, b[0] = b0, b[1] = b1;
 }
 
-Value* llvm::insertPolynomialMBA(Value *linearMBAExpr, BinaryOperator *insertBefore){
+Value* llvm::insertPolynomialMBA(Value *linearMBAExpr, Instruction *insertBefore){
     IRBuilder<> builder(insertBefore->getContext());
     builder.SetInsertPoint(insertBefore);
     Type *operandType = insertBefore->getOperand(0)->getType();

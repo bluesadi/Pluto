@@ -26,12 +26,23 @@ bool MBAObfuscation::runOnFunction(Function &F){
                 for(Instruction *I : origInst){
                     if(isa<BinaryOperator>(I)){
                         BinaryOperator *BI = cast<BinaryOperator>(I);
-                        if(BI->getOperand(0)->getType()->isIntegerTy() && cryptoutils->get_uint8_t() % 100 < ObfuProb){
+                        if(BI->getOperand(0)->getType()->isIntegerTy() && RANDOM(ObfuProb)){
                             // Do not support 128-bit integers now
                             if(BI->getOperand(0)->getType()->getIntegerBitWidth() > 64){
                                 continue;
                             }
                             substitute(BI);
+                        }
+                    }
+                    else{ 
+                        for(int i = 0;i < I->getNumOperands();i ++){
+                            if(I->getOperand(0)->getType()->isIntegerTy() && RANDOM(ObfuProb)){
+                                // error occurs for unknown reasons
+                                //if(isa<StoreInst>(I) || isa<CmpInst>(I) || isa<CallInst>(I)){
+                                if(isa<StoreInst>(I) || isa<CmpInst>(I)){
+                                    substituteConstant(I, i);
+                                }
+                            }
                         }
                     }
                 }
@@ -40,6 +51,19 @@ bool MBAObfuscation::runOnFunction(Function &F){
         return true;
     }
     return false;
+}
+
+void MBAObfuscation::substituteConstant(Instruction *I, int i){
+    ConstantInt *val = dyn_cast<ConstantInt>(I->getOperand(i));
+    if(val && val->getBitWidth() <= 64){
+        int64_t *terms = generateLinearMBA(TermsNumber);
+        terms[14] -= val->getValue().getZExtValue();
+        Value *mbaExpr = insertLinearMBA(terms, I);
+        if(val->getBitWidth() <= 32){
+            mbaExpr = insertPolynomialMBA(mbaExpr, I);
+        }
+        I->setOperand(i, mbaExpr);
+    }
 }
 
 void MBAObfuscation::substitute(BinaryOperator *BI){

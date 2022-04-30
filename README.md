@@ -1,5 +1,5 @@
 # Pluto-Obfuscator
-Pluto is an obfuscator based on LLVM 12.0.1, being developed and maintained by 34r7h4mn and za233.
+Pluto is an obfuscator based on LLVM 12.0.1, mainly developed by 34r7h4mn.
 > Pluto is a dwarf planet in the Kuiper belt, a ring of bodies beyond the orbit of Neptune.
 ## Environment
 This project was developed and tested on the following environment:
@@ -18,7 +18,7 @@ You can also build this project on Windows and MacOS, or even embed it in Androi
 - Variable Substitution
 - String Encryption
 - Globals Encryption
-- [Trap Angr](TrapAngr.md)
+- [Trap Angr (Experimental)](TrapAngr.md)
 - MBA Obfuscation
 
 ## Usage
@@ -61,5 +61,6 @@ Passed:
 - Substitution: `-O2 -mllvm -sub`
 - GlobalsEncryption: `-O2 -mllvm -gle`
 - MBAObfuscation: `-O2 -mllvm -mba -mllvm -mba-prob=100`
+- FullProtection (**HIGHLY RECOMMENDED**): `-mllvm -mba -mllvm -mba-prob=100 -mllvm -fla -mllvm -gle`
 
 See [check.sh](check.sh) and [test/secp256k1](test/secp256k1/).

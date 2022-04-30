@@ -48,6 +48,7 @@ void llvm::registerAllPasses(legacy::PassManagerBase &MPM){
     MPM.add(createVariableSubstitutionPass(RunVariableSubstitution));
     MPM.add(createRandomControlFlow(RunRandomControlFlow));
     MPM.add(createTrapAngrPass(RunTrapAngr));
+    MPM.add(createLowerSwitchPass());
     MPM.add(createMBAObfuscationPass(RunMBAObfuscation));
     
 }
