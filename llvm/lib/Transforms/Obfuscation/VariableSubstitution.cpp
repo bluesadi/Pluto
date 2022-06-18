@@ -13,7 +13,7 @@ using std::vector;
 #define NUMBER_CONST_SUBST 2
 
 // 混淆次数，混淆次数越多混淆结果越复杂
-static cl::opt<int> ObfuTimes("vsb-times", cl::init(1), cl::desc("Run VariableSubstitution pass <gle-times> time(s)"));
+static cl::opt<int> ObfuTimes("vsb-times", cl::init(1), cl::desc("Run VariableSubstitution pass <vsb-times> time(s)"));
 
 bool VariableSubstitution::runOnFunction(Function &F){
     INIT_CONTEXT(F);
