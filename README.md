@@ -51,7 +51,7 @@ ninja install # Comment it out if you already have another version of LLVM insta
 ### Filter Mode
 In case you just want to obfuscate specific functions, Pluto-Obfuscator also provides a filter mechanism using annotation, to help you specify which functions should or should not be obfuscated.
 
-To enable this mechanism, you should add `-mllvm -filter-mode=include` or `-mllvm -filter-mode=include` to clang as an argument. 
+To enable this mechanism, you should pass `-mllvm -filter-mode=include` or `-mllvm -filter-mode=include` to clang as an argument. 
 
 - `-filter-mode=include`: only those functions with `include` annotation will be obfuscated.
 - `-filter-mode=exclude`: those functions with `exclude` annotation will not be obfuscated. 
@@ -62,7 +62,7 @@ For example:
 clang++ TestFilter.cpp -mllvm -fla -mllvm -filter-mode=include -o TestFilter.include
 ```
 
-Following is a self-explanatory snippet showing how to annonate functions:
+Following is a self-explanatory snippet showing how to annonate functions. In this case, only foo1 will be obfuscated in include mode. foo2 will be excluded in exclude mode. And foo3 will always be obfuscated:
 ```cpp
 #define FUNC_INCLUDE __attribute__((annotate("include")))
 #define FUNC_EXCLUDE __attribute__((annotate("exclude")))
