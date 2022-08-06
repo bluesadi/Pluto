@@ -53,7 +53,6 @@
 
 using namespace llvm;
 
-cl::opt<bool> RunStripSymbols("strip", cl::init(false), cl::desc("Enable the StripSymbols pass"));
 
 cl::opt<bool> RunPartialInlining("enable-partial-inlining", cl::init(false),
                                  cl::Hidden, cl::ZeroOrMore,
@@ -304,6 +303,9 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
 void PassManagerBuilder::populateFunctionPassManager(
     legacy::FunctionPassManager &FPM) {
   addExtensionsToPM(EP_EarlyAsPossible, FPM);
+
+  registerFunctionPasses(FPM);
+
   FPM.add(createEntryExitInstrumenterPass());
 
   // Add LibraryInfo if we have some.
@@ -524,12 +526,7 @@ void PassManagerBuilder::populateModulePassManager(
   // is handled separately, so just check this is not the ThinLTO post-link.
   bool DefaultOrPreLinkPipeline = !PerformThinLTO;
 
-  if(RunStripSymbols){
-    MPM.add(createStripSymbolsPass());
-  }
-
-  // Add custom obfuscation passes to PassManager
-  registerAllPasses(MPM);
+  registerModulePasses(MPM);
 
   MPM.add(createAnnotation2MetadataLegacyPass());
 

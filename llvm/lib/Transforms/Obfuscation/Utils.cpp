@@ -7,6 +7,14 @@
 using std::vector;
 using namespace llvm;
 
+
+cl::opt<FilterModeEnum> FilterMode(
+    "filter-mode", cl::init(FilterModeEnum::NONE), cl::values(
+        clEnumValN(FilterModeEnum::NONE, "none", "Do not filter any functions"),
+        clEnumValN(FilterModeEnum::INCLUDE, "include", "Only obfuscate functions with TAG_INCLUDE annotation"),
+        clEnumValN(FilterModeEnum::EXCLUDE, "exclude", "Only obfuscate functions without TAG_EXCLUDE annotation")
+    ), cl::desc("PlutoObfuscator - HelloWorld Pass"));
+    
 LLVMContext *CONTEXT = nullptr;
 
 void llvm::fixStack(Function &F) {
@@ -71,42 +79,33 @@ BasicBlock* llvm::createCloneBasicBlock(BasicBlock *BB){
     return cloneBB;
 }
 
-std::string llvm::readAnnotate(Function *f)   //取自原版ollvm项目
-{
+// Copied from obfuscator-llvm.
+// Reference: https://github.com/obfuscator-llvm/obfuscator/blob/llvm-4.0/lib/Transforms/Utils/Utils.cpp
+std::string llvm::readAnnotation(Function *F) {
     std::string annotation = "";
     /* Get annotation variable */
-    GlobalVariable *glob=f->getParent()->getGlobalVariable( "llvm.global.annotations" );
-    if ( glob != NULL )
-    {
+    GlobalVariable *glob = F->getParent()->getGlobalVariable( "llvm.global.annotations" );
+    if( glob != NULL ){
         /* Get the array */
-        if ( ConstantArray * ca = dyn_cast<ConstantArray>( glob->getInitializer() ) )
-        {
-            for ( unsigned i = 0; i < ca->getNumOperands(); ++i )
-            {
+        if(ConstantArray* ca = dyn_cast<ConstantArray>(glob->getInitializer())){
+            for( unsigned i = 0; i < ca->getNumOperands(); ++i ){
                 /* Get the struct */
-                if ( ConstantStruct * structAn = dyn_cast<ConstantStruct>( ca->getOperand( i ) ) )
-                {
-                    if ( ConstantExpr * expr = dyn_cast<ConstantExpr>( structAn->getOperand( 0 ) ) )
-                    {
+                if(ConstantStruct* structAn = dyn_cast<ConstantStruct>(ca->getOperand(i))){
+                    if(ConstantExpr* expr = dyn_cast<ConstantExpr>(structAn->getOperand(0))){
                         /*
                          * If it's a bitcast we can check if the annotation is concerning
                          * the current function
                          */
-                        if ( expr->getOpcode() == Instruction::BitCast && expr->getOperand( 0 ) == f )
-                        {
-                            ConstantExpr *note = cast<ConstantExpr>( structAn->getOperand( 1 ) );
+                        if(expr->getOpcode() == Instruction::BitCast && expr->getOperand(0) == F){
+                            ConstantExpr *note = cast<ConstantExpr>(structAn->getOperand(1));
                             /*
                              * If it's a GetElementPtr, that means we found the variable
                              * containing the annotations
                              */
-                            if ( note->getOpcode() == Instruction::GetElementPtr )
-                            {
-                                if ( GlobalVariable * annoteStr = dyn_cast<GlobalVariable>( note->getOperand( 0 ) ) )
-                                {
-                                    if ( ConstantDataSequential * data = dyn_cast<ConstantDataSequential>( annoteStr->getInitializer() ) )
-                                    {
-                                        if ( data->isString() )
-                                        {
+                            if(note->getOpcode() == Instruction::GetElementPtr){
+                                if(GlobalVariable* annoteStr = dyn_cast<GlobalVariable>(note->getOperand(0))){
+                                    if(ConstantDataSequential* data = dyn_cast<ConstantDataSequential>(annoteStr->getInitializer())){
+                                        if(data->isString()){
                                             annotation += data->getAsString().lower() + " ";
                                         }
                                     }
@@ -118,5 +117,5 @@ std::string llvm::readAnnotate(Function *f)   //取自原版ollvm项目
             }
         }
     }
-    return(annotation);
+    return annotation;
 }

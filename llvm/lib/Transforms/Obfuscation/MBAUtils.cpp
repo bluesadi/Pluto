@@ -1,12 +1,13 @@
+#include "llvm/Transforms/Obfuscation/Utils.h"
 #include "Eigen/Dense"
 #include "llvm/Transforms/Obfuscation/MBAUtils.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
-#include "llvm/Transforms/Obfuscation/Utils.h"
 #include <algorithm>
 #include <vector>
 #include <cstdint>
+
 using namespace Eigen;
 using namespace llvm;
 

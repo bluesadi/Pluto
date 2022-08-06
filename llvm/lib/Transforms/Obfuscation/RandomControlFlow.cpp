@@ -19,6 +19,7 @@ static cl::opt<int> ObfuTimes("rcf-times", cl::init(1), cl::desc("Run RandomCont
 bool RandomControlFlow::runOnFunction(Function &F){
     if(enable){
         INIT_CONTEXT(F);
+        SKIP_IF_SHOULD(F);
         for(int i = 0;i < ObfuTimes;i ++){
             vector<BasicBlock*> origBB;
             for(BasicBlock &BB : F){

@@ -7,3 +7,4 @@ cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" \
     -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
     ../llvm
 ninja
+ninja install

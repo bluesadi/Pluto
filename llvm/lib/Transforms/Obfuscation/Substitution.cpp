@@ -16,6 +16,7 @@ static IRBuilder<> *builder = nullptr;
 bool Substitution::runOnFunction(Function &F){
     if(enable){
         INIT_CONTEXT(F);
+        SKIP_IF_SHOULD(F);
         builder = new IRBuilder<>(*CONTEXT);
         for(int i = 0;i < ObfuTimes;i ++){
             for(BasicBlock &BB : F){

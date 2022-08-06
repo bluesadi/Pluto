@@ -78,6 +78,7 @@ void TrapAngr::substitute(Instruction *I, int i){
 
 bool TrapAngr::runOnFunction(Function &F){
     INIT_CONTEXT(F);
+    SKIP_IF_SHOULD(F);
     if(enable && !F.getName().startswith("genrand.")){
         for(int i = 0;i < ObfuTimes;i ++){
             for(BasicBlock &BB : F){

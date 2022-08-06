@@ -3,12 +3,14 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/CommandLine.h"
 #include <sstream>
+#include <iomanip>
 #include <vector>
 #include "llvm/Transforms/Obfuscation/Utils.h"
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include "llvm/Transforms/Obfuscation/GlobalsEncryption.h"
 #include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/SHA1.h"
 
 using namespace std;
 using namespace llvm;
@@ -65,10 +67,31 @@ bool GlobalsEncryption::runOnModule(Module &M){
     return true;
 }
 
+/*
+    Generate a hashed name for the decryption function of a global variable to 
+    be encrypted
+
+    e.g. 44b5bc44f8b7f2d95383c20f3ee762c9beee8913
+*/
+string genHashedName(GlobalVariable *GV){
+    Module &M = *GV->getParent();
+    string funcName = formatv("{0}_{1:x-}", M.getName(), M.getMDKindID(GV->getName()));
+    SHA1 sha1;
+    sha1.init();
+    sha1.update(funcName);
+    StringRef digest = sha1.final();
+    std::stringstream ss;
+    ss << std::hex;
+    for(size_t i = 0;i < digest.size();i++){
+        ss << std::setw(2) << std::setfill('0') << (unsigned)(digest[i] & 0xFF);
+    }
+    return ss.str();
+}
+
 void GlobalsEncryption::insertIntDecryption(Module &M, EncryptedGV encGV){
     vector<Type*>args;
     FunctionType* funcType = FunctionType::get(Type::getVoidTy(M.getContext()), args, false);
-    string funcName = formatv("{0}.{1:x-}", M.getName(), M.getMDKindID(encGV.GV->getName()));
+    string funcName = genHashedName(encGV.GV);
     FunctionCallee callee = M.getOrInsertFunction(funcName, funcType);
     Function *func = cast<Function>(callee.getCallee());
 
@@ -85,7 +108,7 @@ void GlobalsEncryption::insertIntDecryption(Module &M, EncryptedGV encGV){
 void GlobalsEncryption::insertArrayDecryption(Module &M, EncryptedGV encGV){
     vector<Type*>args;
     FunctionType* funcType = FunctionType::get(Type::getVoidTy(M.getContext()), args, false);
-    string funcName = formatv("{0}.{1:x-}", M.getName(), M.getMDKindID(encGV.GV->getName()));
+    string funcName = genHashedName(encGV.GV);
     FunctionCallee callee = M.getOrInsertFunction(funcName, funcType);
     Function *func = cast<Function>(callee.getCallee());
     BasicBlock *entry = BasicBlock::Create(*CONTEXT, "entry", func);

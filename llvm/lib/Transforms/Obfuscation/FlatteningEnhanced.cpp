@@ -288,7 +288,7 @@ void MyFlatten::DoFlatten(Function *f,int seed,int enderNum)
 }
 bool MyFlatten::runOnFunction(Function &function)
 {
-	if(enable && readAnnotate(&function).find("fla2"))
+	if(enable && readAnnotation(&function).find("fla2"))
 	{
 		DoFlatten(&function,time(0),10);
 		return true;

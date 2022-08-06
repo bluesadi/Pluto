@@ -16,8 +16,9 @@ using std::vector;
 static cl::opt<int> ObfuTimes("vsb-times", cl::init(1), cl::desc("Run VariableSubstitution pass <vsb-times> time(s)"));
 
 bool VariableSubstitution::runOnFunction(Function &F){
-    INIT_CONTEXT(F);
     if(enable){
+        INIT_CONTEXT(F);
+        SKIP_IF_SHOULD(F);
         for(int i = 0;i < ObfuTimes;i ++){
             for(BasicBlock &BB : F){
                 vector<Instruction*> origInst;
