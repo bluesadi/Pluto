@@ -19,7 +19,7 @@ You can also build this project on Windows and MacOS, or even merge it into Andr
 - Variable Substitution
 - String Encryption
 - Globals Encryption
-- [Trap Angr (Experimental)](TrapAngr.md)
+- [Trap Angr (Experimental)](docs/TrapAngr.md)
 - MBA Obfuscation
 
 ## Usage
@@ -62,6 +62,6 @@ Passed:
 - Substitution: `-O2 -mllvm -sub`
 - GlobalsEncryption: `-O2 -mllvm -gle`
 - MBAObfuscation: `-O2 -mllvm -mba -mllvm -mba-prob=100`
-- FullProtection (**HIGHLY RECOMMENDED**): `-mllvm -mba -mllvm -mba-prob=100 -mllvm -fla -mllvm -gle`
+- FullProtection (**HIGHLY RECOMMENDED**): `-s -mllvm -mba -mllvm -mba-prob=100 -mllvm -fla -mllvm -gle`
 
 See [check.sh](check.sh) and [test/secp256k1](test/secp256k1/).

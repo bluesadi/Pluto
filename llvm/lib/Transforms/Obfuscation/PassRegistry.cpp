@@ -45,9 +45,6 @@ static cl::opt<bool> RunTrapAngr(
 static cl::opt<bool> RunMBAObfuscation(
     "mba", cl::init(false), cl::desc("PlutoObfuscator -  MBAObfuscation Pass"));
 
-static cl::opt<bool> RunStripSymbols(
-    "strip-all", cl::init(false), cl::desc("PlutoObfuscator -  StripSymbols Pass"));
-
 void llvm::registerModulePasses(legacy::PassManagerBase &MPM){
     MPM.add(createGlobalsEncryptionPass(RunGlobalsEncryption));
 }
