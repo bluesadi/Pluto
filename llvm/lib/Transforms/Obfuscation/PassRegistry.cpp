@@ -12,43 +12,56 @@
 #include "llvm/Transforms/Obfuscation/TrapAngr.h"
 #include "llvm/Transforms/Obfuscation/MBAObfuscation.h"
 #include "llvm/Transforms/Utils.h"
-#include "llvm/Transforms/IPO.h"
 
 using namespace llvm;
 
-cl::opt<bool> RunHelloWorld("hlw", cl::init(false), cl::desc("Enable the HelloWorld pass"));
+static cl::opt<bool> RunHelloWorld(
+    "hlw", cl::init(false), cl::desc("PlutoObfuscator - HelloWorld Pass"));
 
-cl::opt<bool> RunFlattening("fla", cl::init(false), cl::desc("Enable the Flattening pass"));
+static cl::opt<bool> RunFlattening(
+    "fla", cl::init(false), cl::desc("PlutoObfuscator - Flattening Pass"));
 
-cl::opt<bool> RunFlatteningEnhanced("fla-ex", cl::init(false), cl::desc("Enable the Enhanced Flattening pass"));
+static cl::opt<bool> RunFlatteningEnhanced(
+    "fla-ex", cl::init(false), cl::desc("PlutoObfuscator - FlatteningEnhanced"));
 
-cl::opt<bool> RunBogusControlFlow("bcf", cl::init(false), cl::desc("Enable the BogusControlFlow pass"));
+static cl::opt<bool> RunBogusControlFlow(
+    "bcf", cl::init(false), cl::desc("PlutoObfuscator -  BogusControlFlow Pass"));
 
-cl::opt<bool> RunSubstitution("sub", cl::init(false), cl::desc("Enable the Substitution pass"));
+static cl::opt<bool> RunSubstitution(
+    "sub", cl::init(false), cl::desc("PlutoObfuscator - Substitution Pass"));
 
-cl::opt<bool> RunGlobalsEncryption("gle", cl::init(false), cl::desc("Enable the GlobalsEncryption pass"));
+static cl::opt<bool> RunGlobalsEncryption(
+    "gle", cl::init(false), cl::desc("PlutoObfuscator - GlobalsEncryption Pass"));
 
-cl::opt<bool> RunVariableSubstitution("vsb", cl::init(false), cl::desc("Enable the VariableSubstitution pass"));
+static cl::opt<bool> RunVariableSubstitution(
+    "vsb", cl::init(false), cl::desc("PlutoObfuscator - VariableSubstitution Pass"));
 
-cl::opt<bool> RunRandomControlFlow("rcf", cl::init(false), cl::desc("Enable the RandomControlFlow pass"));
+static cl::opt<bool> RunRandomControlFlow(
+    "rcf", cl::init(false), cl::desc("PlutoObfuscator - RandomControlFlow Pass"));
 
-cl::opt<bool> RunTrapAngr("trap-angr", cl::init(false), cl::desc("Enable the TrapAngr pass"));
+static cl::opt<bool> RunTrapAngr(
+    "trap-angr", cl::init(false), cl::desc("PlutoObfuscator - TrapAngr Pass"));
 
-cl::opt<bool> RunMBAObfuscation("mba", cl::init(false), cl::desc("Enable the MBAObfuscation pass"));
+static cl::opt<bool> RunMBAObfuscation(
+    "mba", cl::init(false), cl::desc("PlutoObfuscator -  MBAObfuscation Pass"));
 
-void llvm::registerAllPasses(legacy::PassManagerBase &MPM){
-    MPM.add(createHelloWorldPass(RunHelloWorld));
-    MPM.add(createSplitBasicBlockPass());
-    MPM.add(createLowerSwitchPass());
-    MPM.add(createFlatteningPass(RunFlattening));
-    MPM.add(createFlatteningEnhancedPass(RunFlatteningEnhanced));
-    MPM.add(craeteBogusControlFlow(RunBogusControlFlow));
-    MPM.add(createSubstitutionPass(RunSubstitution));
+static cl::opt<bool> RunStripSymbols(
+    "strip-all", cl::init(false), cl::desc("PlutoObfuscator -  StripSymbols Pass"));
+
+void llvm::registerModulePasses(legacy::PassManagerBase &MPM){
     MPM.add(createGlobalsEncryptionPass(RunGlobalsEncryption));
-    MPM.add(createVariableSubstitutionPass(RunVariableSubstitution));
-    MPM.add(createRandomControlFlow(RunRandomControlFlow));
-    MPM.add(createTrapAngrPass(RunTrapAngr));
-    MPM.add(createLowerSwitchPass());
-    MPM.add(createMBAObfuscationPass(RunMBAObfuscation));
-    
+}
+
+void llvm::registerFunctionPasses(legacy::PassManagerBase &FPM){
+    FPM.add(createHelloWorldPass(RunHelloWorld));
+    FPM.add(createSplitBasicBlockPass());
+    FPM.add(createLowerSwitchPass());
+    FPM.add(createFlatteningPass(RunFlattening));
+    FPM.add(createFlatteningEnhancedPass(RunFlatteningEnhanced));
+    FPM.add(craeteBogusControlFlow(RunBogusControlFlow));
+    FPM.add(createSubstitutionPass(RunSubstitution));
+    FPM.add(createVariableSubstitutionPass(RunVariableSubstitution));
+    FPM.add(createRandomControlFlow(RunRandomControlFlow));
+    FPM.add(createTrapAngrPass(RunTrapAngr));
+    FPM.add(createMBAObfuscationPass(RunMBAObfuscation));
 }

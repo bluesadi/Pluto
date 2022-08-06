@@ -2,9 +2,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "Eigen/Dense"
 #include <iostream>
-using namespace Eigen;
 using namespace llvm;
 
 bool HelloWorld::runOnFunction(Function &F){

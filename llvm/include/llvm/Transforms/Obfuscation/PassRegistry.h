@@ -3,6 +3,8 @@
 
 namespace llvm {
 
-    void registerAllPasses(legacy::PassManagerBase &MPM);
+    void registerModulePasses(legacy::PassManagerBase &MPM);
+
+    void registerFunctionPasses(legacy::PassManagerBase &MPM);
 
 }
