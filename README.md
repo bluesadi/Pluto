@@ -62,7 +62,7 @@ For example:
 clang++ TestFilter.cpp -mllvm -fla -mllvm -filter-mode=include -o TestFilter.include
 ```
 
-Following is a self-explanatory snippet showing how to annonate functions. In this case, only foo1 will be obfuscated in include mode. foo2 will be excluded in exclude mode. And foo3 will always be obfuscated:
+Following is a self-explanatory snippet showing how to annonate functions. In this case, only foo1 will be obfuscated in `include` mode. foo2 will be ignored in `exclude` mode. And foo3 will always be obfuscated:
 ```cpp
 #define FUNC_INCLUDE __attribute__((annotate("include")))
 #define FUNC_EXCLUDE __attribute__((annotate("exclude")))
