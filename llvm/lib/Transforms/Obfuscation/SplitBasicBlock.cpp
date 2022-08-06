@@ -2,6 +2,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Obfuscation/SplitBasicBlock.h"
+#include "llvm/Transforms/Obfuscation/Utils.h"
 #include <vector>
 using std::vector;
 using namespace llvm;
@@ -11,6 +12,7 @@ static cl::opt<int> SplitNum("split-num", cl::init(0), cl::desc("Split <split_nu
 
 bool SplitBasicBlock::runOnFunction(Function &F){
     if(SplitNum > 0){
+        SKIP_IF_SHOULD(F);
         // 第一步：保存原先的所有基本块
         vector<BasicBlock*> origBB;
         for(BasicBlock &BB : F){

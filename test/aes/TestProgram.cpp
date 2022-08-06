@@ -2,15 +2,10 @@
 #include <cstring>
 #include <cstdlib>
 #include "AES.h"
+#include "Annotation.h"
 
 char *input;
 char enc[100] = "\xce\x6a\x64\x09\x74\x00\xf7\xf0\x86\x31\x5b\x78\xe3\x05\x6f\xfa\xcf\x31\x00\x45\xff\x19\xdf\xeb\xea\xcc\x33\x97\x26\xce\xbc\xa3"; 
-
-int sum(){
-    return 1;
-}
-
-int i = sum();
 
 //flag{s1mpl3_11vm_d3m0} 
 int main(int argc, char *argv[]){ 

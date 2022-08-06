@@ -17,6 +17,7 @@ static cl::opt<int> TermsNumber("linear-mba-terms", cl::init(10), cl::desc("Choo
 bool MBAObfuscation::runOnFunction(Function &F){
     if(enable){
         INIT_CONTEXT(F);
+        SKIP_IF_SHOULD(F);
         for(int i = 0;i < ObfuTimes;i ++){
             for(BasicBlock &BB : F){
                 std::vector<Instruction*> origInst;

@@ -23,7 +23,7 @@ You can also build this project on Windows and MacOS, or even merge it into Andr
 - MBA Obfuscation
 
 ## Usage
-### Building on Linux/Windows
+### Build on Linux/Windows
 The following commands work on both Linux and Windows:
 ```shell
 cd build
@@ -31,8 +31,9 @@ cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" \
     -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86" \
     -DBUILD_SHARED_LIBS=On ../llvm
 ninja
+ninja install   # Comment it out if you already have another version of LLVM installed on your machine
 ```
-### Building on MacOS
+### Build on MacOS
 
 ```shell
 mkdir -p build
@@ -44,16 +45,53 @@ cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" \
     -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
     ../llvm
 ninja
+ninja install # Comment it out if you already have another version of LLVM installed on your machine
 ```
 
+### Filter Mode
+In case you just want to obfuscate specific functions, Pluto-Obfuscator also provides a filter mechanism using annotation, to help you specify which functions should or should not be obfuscated.
 
+To enable this mechanism, you should add `-mllvm -filter-mode=include` or `-mllvm -filter-mode=include` to clang as an argument. For example:
+```shell
+clang++ TestFilter.cpp -mllvm -fla -mllvm -filter-mode=include -o TestFilter.include
+```
+
+`-filter-mode=include` means only those functions with `include` annotation will be obfuscated. While `-filter-mode=exclude` means those functions with `exclude` annotation will not be obfuscated. The default filter mode is `none`, which means all functions will be processed.
+
+Following is a self-explanatory snippet showing how to annonate functions:
+```cpp
+#define FUNC_INCLUDE __attribute__((annotate("include")))
+#define FUNC_EXCLUDE __attribute__((annotate("exclude")))
+
+FUNC_INCLUDE
+void foo1(){
+
+}
+
+FUNC_EXCLUDE
+void foo2(){
+
+}
+
+void foo3(){
+
+}
+
+int main(){
+    foo1();
+    foo2();
+    foo3();
+}
+```
 
 ## Test
-### Fast test on AES
-Run a test case of AES to check out buggy code quickly and roughly.
+### Quick Test on AES
+If you want to develop your own passes on top of this project, you can simply execute this script to check whether your passes work well.
+
+For example, `fast-check gle mba mba-prob=40`.
 
 See [fast-check.sh](fast-check.sh) and [test/aes](test/aes/).
-### Full test on libsecp256k1
+### Full Test on libsecp256k1
 We have a full test on a crypto library named libsecp256k1 from [bitcoin-core/secp256k1](https://github.com/bitcoin-core/secp256k1), to insure our passes work fine in most cases.
 
 Passed:
