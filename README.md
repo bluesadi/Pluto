@@ -104,6 +104,6 @@ Passed:
 - Substitution: `-O2 -mllvm -sub`
 - GlobalsEncryption: `-O2 -mllvm -gle`
 - MBAObfuscation: `-O2 -mllvm -mba -mllvm -mba-prob=100`
-- FullProtection (**HIGHLY RECOMMENDED**): `-s -mllvm -mba -mllvm -mba-prob=100 -mllvm -fla -mllvm -gle`
+- FullProtection (**HIGHLY RECOMMENDED**): `-s -mllvm -mba -mllvm -mba-prob=50 -mllvm -fla -mllvm -gle`
 
 See [check.sh](check.sh) and [test/secp256k1](test/secp256k1/).
