@@ -53,13 +53,15 @@ In case you just want to obfuscate specific functions, Pluto-Obfuscator also pro
 
 To enable this mechanism, you should pass `-mllvm -filter-mode=include` or `-mllvm -filter-mode=exclude` to clang as an argument. 
 
-- `-filter-mode=include`: only those functions with `include` annotation will be obfuscated.
-- `-filter-mode=exclude`: ignore those functions with `exclude` annotation.
+- `-filter-mode=include`: only those functions with "include" annotation will be obfuscated.
+- `-filter-mode=exclude`: ignore those functions with "exclude" annotation.
 - `-filter-mode=none`: all functions will be processed. (by defualt)
 
 For example:
 ```shell
-clang++ TestFilter.cpp -mllvm -fla -mllvm -filter-mode=include -o TestFilter.include
+clang++ TestFilter.cpp -mllvm -fla -mllvm -filter-mode=include -o TestFilter_include    # include mode
+clang++ TestFilter.cpp -mllvm -fla -mllvm -filter-mode=exclude -o TestFilter_include    # exclude mode
+clang++ TestFilter.cpp -mllvm -fla -mllvm -o TestFilter_include    # default mode
 ```
 
 Following is a self-explanatory snippet showing how to annonate functions. In this case, only foo1 will be obfuscated in `include` mode. Only foo2 will be ignored in `exclude` mode. And foo3 will always be obfuscated:
