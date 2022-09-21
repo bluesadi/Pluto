@@ -21,12 +21,23 @@ bool RandomControlFlow::runOnFunction(Function &F){
         INIT_CONTEXT(F);
         SKIP_IF_SHOULD(F);
         for(int i = 0;i < ObfuTimes;i ++){
+
             vector<BasicBlock*> origBB;
-            for(BasicBlock &BB : F){
+            for(BasicBlock &BB : F)
                 origBB.push_back(&BB);
-            }
-            for(BasicBlock *BB : origBB){
-                randcf(BB);
+            
+            // filter C++ exception handling BBs
+            for(BasicBlock *BB : origBB) {
+                bool isExceptionBB = false;
+                for(Instruction &I : *BB) {
+                    if( is_exceptional_instruction(I) ){
+                        isExceptionBB = true;
+                        break;
+                    }
+                }
+
+                if( isExceptionBB == false )
+                    randcf(BB);
             }
         }
         return true;
