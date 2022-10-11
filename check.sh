@@ -1,3 +1,5 @@
+#!/bin/sh
+
 FLAGS=""
 
 for arg in "$@"; do

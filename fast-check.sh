@@ -1,3 +1,5 @@
+#!/bin/sh
+
 CXXFLAGS=""
 
 for arg in "$@"; do

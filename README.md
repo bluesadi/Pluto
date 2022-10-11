@@ -1,5 +1,5 @@
 # Pluto-Obfuscator
-Pluto is an obfuscator based on LLVM 12.0.1, mainly developed by 34r7h4mn.
+Pluto is an obfuscator based on LLVM 12.0.1, mainly developed by [34r7h4mn](https://github.com/bluesadi) and [za233](https://github.com/za233).
 > Pluto is a dwarf planet in the Kuiper belt, a ring of bodies beyond the orbit of Neptune.
 
 ## Environment
@@ -86,20 +86,20 @@ int main(){
 
 ## Test
 ### Quick Test on AES
-If you want to develop your own passes on top of this project, you can simply execute this script to check whether your passes work well.
-
-For example, `fast-check gle mba mba-prob=40`.
+If you are developing your own passes based on this project, you can simply check your passes using `./fast-check [your-passes]` (e.g., `./fast-check.sh gle mba mba-prob=40`).
 
 See [fast-check.sh](fast-check.sh) and [test/aes](test/aes/).
-### Full Test on libsecp256k1
-We have a full test on a crypto library named libsecp256k1 from [bitcoin-core/secp256k1](https://github.com/bitcoin-core/secp256k1), to insure our passes work fine in most cases.
 
-Passed:
+### Test on libsecp256k1
+You can also utilize the crypto library [libsecp256k1](https://github.com/bitcoin-core/secp256k1) as a test suite to insure your passes work well in most cases before releasing. Use `./check [your-passes]` (e.g., `./check.sh -s -mllvm -mba -mllvm -mba-prob=50 -mllvm -fla-ex -mllvm -gle`) to perform the test. Generally, it will cost several minutes to be done.
+
+Passed Parameters:
 - Flattening: `-O2 -mllvm -fla`
+- FlatteningEnhanced: `-O2 -mllvm -fla-ex`
 - BogusControlFlow: `-O2 -mllvm -bcf`
 - Substitution: `-O2 -mllvm -sub`
 - GlobalsEncryption: `-O2 -mllvm -gle`
 - MBAObfuscation: `-O2 -mllvm -mba -mllvm -mba-prob=100`
-- FullProtection (**HIGHLY RECOMMENDED**): `-s -mllvm -mba -mllvm -mba-prob=50 -mllvm -fla -mllvm -gle`
+- FullProtection (**HIGHLY RECOMMENDED**): `-s -mllvm -mba -mllvm -mba-prob=50 -mllvm -fla-ex -mllvm -gle`
 
 See [check.sh](check.sh) and [test/secp256k1](test/secp256k1/).

@@ -8,6 +8,8 @@
 #include "llvm/Transforms/Obfuscation/FlatteningEnhanced.h"
 #include "llvm/Transforms/Obfuscation/Utils.h"
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
 #include <vector>
 #include<list>
 #include<ctime>
@@ -15,113 +17,58 @@
 #include<cstdlib>
 #include<utility>
 using namespace llvm;
-
-std::list<TreeNode*>::iterator MyFlatten::randomElement(std::list<TreeNode*> *x)
-{
-	std::list<TreeNode*>::iterator iter=x->begin();
-	int val=x->size();
-	for(int i=0;i<rand()%val;i++)
-		iter++;
-	return iter;
-}
-void MyFlatten::expandNode(TreeNode *node)
-{
-	TreeNode *newNode=(TreeNode*)malloc(sizeof(TreeNode));
-	newNode->left=newNode->right=NULL;
-	node->left=newNode;
-	newNode=(TreeNode*)malloc(sizeof(TreeNode));
-	newNode->left=newNode->right=NULL;
-	node->right=newNode;
-}
-int MyFlatten::genRandomTree(TreeNode *node,int node_limit)
-{
-	std::list<TreeNode*> q;
-	q.push_back(node);
-	int node_num=1;
-	while(q.size()!=0 && node_num<node_limit)
-	{
-		std::list<TreeNode*>::iterator tmp=randomElement(&q);
-		TreeNode *node=*tmp;
-		int val=(node->left==NULL)+(node->right==NULL);
-		if(val==2)
-		{
-			expandNode(node);
-			q.push_back(node->left);
-			q.push_back(node->right);
-			q.erase(tmp);
-		}
-		node_num++;
-	}
-	q.clear();
-	return node_num;
-}
-void MyFlatten::walkTree(TreeNode *node)
-{
-	if(node->left!=NULL)	//Traverse all branches
-		walkTree(node->left);
-	if(node->right!=NULL)
-		walkTree(node->right);
-	node->limit=0;
-	if(node->left==NULL && node->right==NULL) //Start to calculate node info
-		node->limit=1;
-	else
-		node->limit=node->left->limit+node->right->limit;
-}
-bool MyFlatten::allocNode(TreeNode *node,unsigned int l,unsigned int r)
-{
-	if(r-l<node->limit)
-		return false;
-	node->l=l;
-	node->r=r;
-	if(node->left==NULL && node->right==NULL)
-		return true;
-	unsigned int var;
-	if(r-l-node->limit==0)
-		var=0;
-	else
-		var=rand()%(r-l-node->limit);
-	unsigned int mid=l+node->left->limit+var;
-	if(!allocNode(node->left,l,mid) || !allocNode(node->right,mid,r))
-		return false;
-	return true;
-}
-BasicBlock *MyFlatten::createRandomBasicBlock(TreeNode *node,Function *f,Value *var,std::vector<BasicBlock*>::iterator &iter,std::map<BasicBlock*,TreeNode*> *bb_info)
-{
-	if(node->left==NULL && node->right==NULL)
-	{
-		BasicBlock *bb=*iter;
-		bb_info->insert(std::pair<BasicBlock*,TreeNode*>(bb,node));
-		iter++;
-		return bb;
-	}
-	BasicBlock *left_bb=createRandomBasicBlock(node->left,f,var,iter,bb_info);
-	BasicBlock *right_bb=createRandomBasicBlock(node->right,f,var,iter,bb_info);
-	BasicBlock *node_bb=BasicBlock::Create(f->getContext(),"knot",f);
-	if(node->left->r!=node->right->l)
-		errs()<<"Error!\n";
-	LoadInst *load=new LoadInst(Type::getInt32Ty(f->getContext()),var,"",node_bb);
-	ICmpInst *condition=new ICmpInst(*node_bb,ICmpInst::ICMP_ULT,load,ConstantInt::get(Type::getInt32Ty(f->getContext()),node->left->r));
-	BranchInst::Create(left_bb,right_bb,(Value*)condition,node_bb);
-	return node_bb;
-}
-bool MyFlatten::spawnRandomIf(BasicBlock *from,std::vector<BasicBlock*> *son,Value *var,std::map<BasicBlock*,TreeNode*> *bb_info)
-{
-	TreeNode tree;
-	genRandomTree(&tree,son->size());
-	walkTree(&tree);
-	if(!allocNode(&tree,0,0x7fffffff))
-		return false;
-	std::vector<BasicBlock*>::iterator iter=son->begin();
-	BasicBlock *head=createRandomBasicBlock(&tree,from->getParent(),var,iter,bb_info);
-	BranchInst::Create(head,from);
-	return true;
-}
 std::vector<BasicBlock*> *MyFlatten::getBlocks(Function *function,std::vector<BasicBlock*> *lists)
 {
 	lists->clear();
 	for(BasicBlock &basicBlock:*function)
 		lists->push_back(&basicBlock);
 	return lists;
+}
+void MyFlatten::getAnalysisUsage(AnalysisUsage &AU)
+{
+	errs()<<"Require LowerSwitchPass\n";
+	AU.addRequiredID(LowerSwitchID);
+	ModulePass::getAnalysisUsage(AU);
+}
+Function *MyFlatten::buildUpdateKeyFunc(Module *m)
+{
+	std::vector<Type*> params;
+	params.push_back(Type::getInt8Ty(m->getContext()));		
+	params.push_back(Type::getInt32Ty(m->getContext()));
+	params.push_back(Type::getInt32Ty(m->getContext())->getPointerTo());
+	params.push_back(Type::getInt32Ty(m->getContext())->getPointerTo());
+	params.push_back(Type::getInt32Ty(m->getContext()));
+	FunctionType *funcType=FunctionType::get(Type::getVoidTy(m->getContext()),params,false);
+	Function *func=Function::Create(funcType,GlobalValue::PrivateLinkage,Twine("ollvm"),m);
+	BasicBlock *entry=BasicBlock::Create(m->getContext(),"entry",func);
+	BasicBlock *cond=BasicBlock::Create(m->getContext(),"cond",func);
+	BasicBlock *update=BasicBlock::Create(m->getContext(),"update",func);
+	BasicBlock *end=BasicBlock::Create(m->getContext(),"end",func);
+	Function::arg_iterator iter=func->arg_begin();
+	Value *flag=iter;
+	Value *len=++iter;
+	Value *posArray=++iter;
+	Value *keyArray=++iter;
+	Value *num=++iter;
+	IRBuilder<> irb(entry);
+	Value *i=irb.CreateAlloca(irb.getInt32Ty());
+	irb.CreateStore(irb.getInt32(0),i);
+	irb.CreateCondBr(irb.CreateICmpEQ(flag,irb.getInt8(0)),cond,end);
+	
+	irb.SetInsertPoint(cond);
+	irb.CreateCondBr(irb.CreateICmpSLT(irb.CreateLoad(i),len),update,end);
+	
+	irb.SetInsertPoint(update);
+	
+	Value *pos=irb.CreateLoad(irb.CreateGEP(posArray,irb.CreateLoad(i)));
+	Value *key=irb.CreateGEP(keyArray,pos);
+	irb.CreateStore(irb.CreateXor(irb.CreateLoad(key),num),key);
+	irb.CreateStore(irb.CreateAdd(irb.CreateLoad(i),irb.getInt32(1)),i);
+	irb.CreateBr(cond);
+	
+	irb.SetInsertPoint(end);
+	irb.CreateRetVoid();
+	return func;
 }
 unsigned int MyFlatten::getUniqueNumber(std::vector<unsigned int> *rand_list)
 {
@@ -141,163 +88,217 @@ unsigned int MyFlatten::getUniqueNumber(std::vector<unsigned int> *rand_list)
 	}
 	return num;
 }
-bool MyFlatten::valueEscapes(Instruction *Inst)
-{
-	const BasicBlock *BB=Inst->getParent();
-	for(const User *U:Inst->users())
-	{
-		const Instruction *UI=cast<Instruction>(U);
-		if (UI->getParent()!=BB || isa<PHINode>(UI))
-			return true;
-	}
-	return false;
-}
-void MyFlatten::DoFlatten(Function *f,int seed,int enderNum)
+void MyFlatten::DoFlatten(Function *f,int seed,Function *updateFunc)
 {
 	srand(seed);
 	std::vector<BasicBlock*> origBB;
 	getBlocks(f,&origBB);
 	if(origBB.size()<=1)
 		return ;
-	unsigned int rand_val=seed;
-	Function::iterator tmp=f->begin();
-	BasicBlock *oldEntry=&*tmp;
-	origBB.erase(origBB.begin());
+	
+	BasicBlock *oldEntry=&f->getEntryBlock();
 	BranchInst *firstBr=NULL;
 	if(isa<BranchInst>(oldEntry->getTerminator()))
 		firstBr=cast<BranchInst>(oldEntry->getTerminator());
 	BasicBlock *firstbb=oldEntry->getTerminator()->getSuccessor(0);
-	if((firstBr!=NULL && firstBr->isConditional()) || oldEntry->getTerminator()->getNumSuccessors()>2)		//Split the first basic block
-	{
-		BasicBlock::iterator iter=oldEntry->end();
+	
+	BasicBlock::iterator iter=oldEntry->end();						//Split the first basic block
+	iter--;
+	if(oldEntry->size()>1)
 		iter--;
-		if(oldEntry->size()>1)
-			iter--;
-		BasicBlock *splited=oldEntry->splitBasicBlock(iter,Twine("FirstBB"));
-		firstbb=splited;
-		origBB.insert(origBB.begin(),splited);
-	}
-	unsigned int retBlockNum=0;
+	BasicBlock *splited=oldEntry->splitBasicBlock(iter,Twine("FirstBB"));
+	firstbb=splited;
+	origBB.insert(origBB.begin(),splited);
+	
+																	// remove the block which contains landingpad inst 
+	std::vector<BasicBlock*> removeBB;
 	for(std::vector<BasicBlock *>::iterator b=origBB.begin();b!=origBB.end();b++)
 	{
-		BasicBlock *bb=*b;
-		if(bb->getTerminator()->getNumSuccessors()==0)
-			retBlockNum++;
+		BasicBlock *block=*b;
+		Value *inst=block->getTerminator();
+		if(isa<InvokeInst>(*inst))
+		{
+			InvokeInst *invoke=(InvokeInst*)inst;
+			//removeBB.push_back(block);
+			removeBB.push_back(invoke->getUnwindDest());
+			
+		}
 	}
-	unsigned int loopEndNum=(enderNum>=(origBB.size()-retBlockNum)?(origBB.size()-retBlockNum):enderNum);
+	
+	for(std::vector<BasicBlock *>::iterator b=removeBB.begin();b!=removeBB.end();b++)
+	{
+		BasicBlock *block=*b;
+		std::vector<BasicBlock *>::iterator find=std::find(origBB.begin(),origBB.end(),block);
+		if(find!=origBB.end())
+			origBB.erase(find);
+	}
+	
+	
+	IRBuilder<> irb(&*oldEntry->getFirstInsertionPt());								// generate context info key for each block
+	Value *visitedArray=irb.CreateAlloca(irb.getInt8Ty(),irb.getInt32(origBB.size()));
+	Value *keyArray=irb.CreateAlloca(irb.getInt32Ty(),irb.getInt32(origBB.size()));
+	irb.CreateMemSet(visitedArray,irb.getInt8(0),origBB.size(),(MaybeAlign)0);
+	irb.CreateMemSet(keyArray,irb.getInt8(0),origBB.size()*4,(MaybeAlign)0);
+	int idx=0;
+	std::vector<unsigned int> key_list;
+	DominatorTree tree(*f);
+	std::map<BasicBlock*,unsigned int> key_map;
+	std::map<BasicBlock*,unsigned int> index_map;
+	for(std::vector<BasicBlock *>::iterator b=origBB.begin();b!=origBB.end();b++)
+	{
+		BasicBlock *block=*b;
+		unsigned int num=getUniqueNumber(&key_list);
+		key_list.push_back(num);
+		key_map[block]=0;
+	}
+	for(std::vector<BasicBlock *>::iterator b=origBB.begin();b!=origBB.end();b++,idx++)
+	{
+		BasicBlock *block=*b;
+		std::vector<Constant*> doms;
+		int i=0;
+		for(std::vector<BasicBlock *>::iterator bb=origBB.begin();bb!=origBB.end();bb++,i++)
+		{
+			BasicBlock *block0=*bb;
+			if(block0!=block && tree.dominates(block,block0))
+			{
+				doms.push_back(irb.getInt32(i));
+				key_map[block0]^=key_list[idx];
+			}
+				
+		}
+		irb.SetInsertPoint(block->getTerminator());
+		Value *ptr=irb.CreateGEP(irb.getInt8Ty(),visitedArray,irb.getInt32(idx));
+		Value *visited=irb.CreateLoad(ptr);
+		if(doms.size()!=0)
+		{
+			ArrayType *arrayType=ArrayType::get(irb.getInt32Ty(),doms.size());
+			Constant *doms_array=ConstantArray::get(arrayType,ArrayRef<Constant*>(doms));
+    		GlobalVariable *dom_variable=new GlobalVariable(*(f->getParent()),arrayType,false,GlobalValue::LinkageTypes::PrivateLinkage,doms_array,"doms");
+    		irb.CreateCall(FunctionCallee(updateFunc),{visited,irb.getInt32(doms.size()),irb.CreateGEP(dom_variable,{irb.getInt32(0),irb.getInt32(0)}),keyArray,irb.getInt32(key_list[idx])});
+		}
+		
+		irb.CreateStore(irb.getInt8(1),ptr);
+		index_map[block]=idx;
+	}
+	
+	//
+	//- patch 1
+	
+	
+	
 	BasicBlock *newEntry=oldEntry;												//Prepare basic block
 	BasicBlock *loopBegin=BasicBlock::Create(f->getContext(),"LoopBegin",f,newEntry);
-	std::vector<BasicBlock*> loopEndBlocks;
-	for(int i=0;i<loopEndNum;i++)
-	{
-		BasicBlock *tmp=BasicBlock::Create(f->getContext(),"LoopEnd",f,newEntry);
-		loopEndBlocks.push_back(tmp);
-		BranchInst::Create(loopBegin,tmp);
-	}
-
+	BasicBlock *defaultCase=BasicBlock::Create(f->getContext(),"DefaultCase",f,newEntry);
+	BasicBlock *loopEnd=BasicBlock::Create(f->getContext(),"LoopEnd",f,newEntry);
 	newEntry->moveBefore(loopBegin);
-	newEntry->getTerminator()->eraseFromParent();
-	BranchInst::Create(loopBegin,newEntry);
-
-	AllocaInst *switchVar=new AllocaInst(Type::getInt32Ty(f->getContext()),0,Twine("switchVar"),newEntry->getTerminator());		//Create switch variable
-	std::map<BasicBlock*,TreeNode*> bb_map;
-	std::map<BasicBlock*,unsigned int> nums_map;
-	spawnRandomIf(loopBegin,&origBB,switchVar,&bb_map);
+	BranchInst::Create(loopEnd,defaultCase);					//Create branch instruction,link basic blocks
+	BranchInst::Create(loopBegin,loopEnd);
+    newEntry->getTerminator()->eraseFromParent();
+    BranchInst::Create(loopBegin,newEntry);
+    AllocaInst *switchVar=new AllocaInst(Type::getInt32Ty(f->getContext()),0,Twine("switchVar"),newEntry->getTerminator());		//Create switch variable
+    LoadInst *swValue=new LoadInst(switchVar->getAllocatedType(),switchVar,"cmd",loopBegin);
+	SwitchInst *sw=SwitchInst::Create(swValue,defaultCase,0,loopBegin);
+	std::vector<unsigned int> rand_list;
 	unsigned int startNum=0;
-	for(std::vector<BasicBlock *>::iterator b=origBB.begin();b!=origBB.end();b++)
+	for(std::vector<BasicBlock *>::iterator b=origBB.begin();b!=origBB.end();b++)							//Put basic blocks into switch structure
 	{
-		BasicBlock *bb=*b;
-		unsigned int l=bb_map[bb]->l,r=bb_map[bb]->r;
-		unsigned int val=rand()%(r-l)+l;
-		nums_map[bb]=val;
-		if(bb==firstbb)
-			startNum=val;
+		BasicBlock *block=*b;
+		unsigned int num=getUniqueNumber(&rand_list);
+		rand_list.push_back(num);
+		if(block==newEntry)
+			continue;
+		block->moveBefore(loopEnd);
+		if(block==firstbb)
+			startNum=num;
+		ConstantInt *numCase=cast<ConstantInt>(ConstantInt::get(sw->getCondition()->getType(),num));
+		sw->addCase(numCase,block);
 	}
-	int every=(int)((double)(origBB.size()-retBlockNum)/(double)loopEndNum);
-
-	int counter=0;
-	std::vector<BasicBlock *>::iterator end_iter=loopEndBlocks.begin();
+	ConstantInt *startVal=cast<ConstantInt>(ConstantInt::get(sw->getCondition()->getType(),startNum));		//Set the entry value
+	new StoreInst(startVal,switchVar,newEntry->getTerminator());
+	//errs()<<"Put Block Into Switch\n";
 	for(std::vector<BasicBlock *>::iterator b=origBB.begin();b!=origBB.end();b++)							//Handle successors
 	{
 		BasicBlock *block=*b;
-		BasicBlock *loopEnd=*end_iter;
-		if(block->getTerminator()->getNumSuccessors()==1)
+		irb.SetInsertPoint(block);
+		if(block==newEntry)
+			continue;
+		if(isa<BranchInst>(*block->getTerminator()))
 		{
-			//errs()<<"This block has 1 successor\n";
-			BasicBlock *succ=block->getTerminator()->getSuccessor(0);
-			ConstantInt *caseNum=cast<ConstantInt>(ConstantInt::get(Type::getInt32Ty(f->getContext()),nums_map[succ]));
-			block->getTerminator()->eraseFromParent();
-			new StoreInst(caseNum,switchVar,block);
-			BranchInst::Create(loopEnd,block);
-			counter++;
-		}
-		else if(block->getTerminator()->getNumSuccessors()==2)
-		{
-			//errs()<<"This block has 2 successors\n";
-			BasicBlock *succTrue=block->getTerminator()->getSuccessor(0);
-			BasicBlock *succFalse=block->getTerminator()->getSuccessor(1);
-			ConstantInt *numTrue=cast<ConstantInt>(ConstantInt::get(Type::getInt32Ty(f->getContext()),nums_map[succTrue]));
-			ConstantInt *numFalse=cast<ConstantInt>(ConstantInt::get(Type::getInt32Ty(f->getContext()),nums_map[succFalse]));
-			BranchInst *oldBr=cast<BranchInst>(block->getTerminator());
-			SelectInst *select=SelectInst::Create(oldBr->getCondition(),numTrue,numFalse,Twine("choice"),block->getTerminator());
-			block->getTerminator()->eraseFromParent();
-			new StoreInst(select,switchVar,block);
-			BranchInst::Create(loopEnd,block);
-			counter++;
-		}
-		if(counter==every)
-		{
-			counter=0;
-			end_iter++;
-			if(end_iter==loopEndBlocks.end())
-				end_iter--;
-		}
-	}
-	ConstantInt *startVal=cast<ConstantInt>(ConstantInt::get(Type::getInt32Ty(f->getContext()),startNum));		//Set the entry value
-	new StoreInst(startVal,switchVar,newEntry->getTerminator());
-	std::vector<PHINode *> tmpPhi;
-	std::vector<Instruction *> tmpReg;
-	BasicBlock *bbEntry = &*f->begin();
-	do
-	{
-		tmpPhi.clear();
-		tmpReg.clear();
-		for(Function::iterator i = f->begin();i!=f->end();i++)
-		{
-			for( BasicBlock::iterator j=i->begin();j!=i->end();j++)
+			if(block->getTerminator()->getNumSuccessors()==1)
 			{
-				if(isa<PHINode>(j))
+				//errs()<<"This block has 1 successor\n";
+				BasicBlock *succ=block->getTerminator()->getSuccessor(0);
+				ConstantInt *caseNum=sw->findCaseDest(succ);
+				
+				if(caseNum==NULL)
 				{
-					PHINode *phi=cast<PHINode>(j);
-					tmpPhi.push_back(phi);
-					continue;
+					unsigned int num=getUniqueNumber(&rand_list);
+					rand_list.push_back(num);
+					caseNum=cast<ConstantInt>(ConstantInt::get(sw->getCondition()->getType(),num));
+					errs()<<"WTF!\n";
 				}
-				if (!(isa<AllocaInst>(j) && j->getParent()==bbEntry) && (valueEscapes(&*j) || j->isUsedOutsideOfBlock(&*i)))
+				unsigned int fixNum=caseNum->getValue().getZExtValue()^key_map[succ];
+				block->getTerminator()->eraseFromParent();
+				
+				irb.SetInsertPoint(block);
+				irb.CreateStore(irb.CreateXor(irb.CreateLoad(irb.CreateGEP(keyArray,irb.getInt32(index_map[succ]))),ConstantInt::get(sw->getCondition()->getType(),fixNum)),switchVar);
+				BranchInst::Create(loopEnd,block);
+			}
+			else if(block->getTerminator()->getNumSuccessors()==2)
+			{
+				//errs()<<"This block has 2 successors\n";
+				BasicBlock *succTrue=block->getTerminator()->getSuccessor(0);
+				BasicBlock *succFalse=block->getTerminator()->getSuccessor(1);
+				ConstantInt *numTrue=sw->findCaseDest(succTrue);
+				ConstantInt *numFalse=sw->findCaseDest(succFalse);
+				
+				if(numTrue==NULL)
 				{
-					tmpReg.push_back(&*j);
-					continue;
+					unsigned int num=getUniqueNumber(&rand_list);
+					rand_list.push_back(num);
+					numTrue=cast<ConstantInt>(ConstantInt::get(sw->getCondition()->getType(),num));
+					errs()<<"WTF!\n";
 				}
+				if(numFalse==NULL)
+				{
+					unsigned int num=getUniqueNumber(&rand_list);
+					rand_list.push_back(num);
+					numFalse=cast<ConstantInt>(ConstantInt::get(sw->getCondition()->getType(),num));
+					errs()<<"WTF!\n";
+				}
+				unsigned int fixNumTrue=numTrue->getValue().getZExtValue()^key_map[succTrue];
+				unsigned int fixNumFalse=numFalse->getValue().getZExtValue()^key_map[succFalse];
+				BranchInst *oldBr=cast<BranchInst>(block->getTerminator());
+				SelectInst *select=SelectInst::Create(oldBr->getCondition(),ConstantInt::get(sw->getCondition()->getType(),fixNumTrue),ConstantInt::get(sw->getCondition()->getType(),fixNumFalse),Twine("choice"),block->getTerminator());
+				SelectInst *pos=SelectInst::Create(oldBr->getCondition(),ConstantInt::get(sw->getCondition()->getType(),index_map[succTrue]),ConstantInt::get(sw->getCondition()->getType(),index_map[succFalse]),Twine("choice2"),block->getTerminator());
+				
+				block->getTerminator()->eraseFromParent();
+				
+				irb.SetInsertPoint(block);
+				//SelectInst *pos=SelectInst::Create(oldBr->getCondition(),ConstantInt::get(sw->getCondition()->getType(),7),ConstantInt::get(sw->getCondition()->getType(),8),Twine(""),block->getTerminator());
+				irb.CreateStore(irb.CreateXor(irb.CreateLoad(irb.CreateGEP(keyArray,pos)),select),switchVar);
+				BranchInst::Create(loopEnd,block);
 			}
 		}
-		for(unsigned int i=0;i<tmpReg.size();i++)
-			DemoteRegToStack(*tmpReg.at(i),f->begin()->getTerminator());
-		for(unsigned int i=0;i<tmpPhi.size();i++)
-			DemotePHIToStack(tmpPhi.at(i),f->begin()->getTerminator());
+		else
+			continue;	
 	}
-	while(tmpReg.size()!= 0 || tmpPhi.size()!= 0);
+	fixStack(*f);
 }
-bool MyFlatten::runOnFunction(Function &function)
+bool MyFlatten::runOnModule(Module &module)
 {
-	if(enable && readAnnotation(&function).find("fla2"))
+	Function *updateFunc=buildUpdateKeyFunc(&module);
+	for(Function &f:module)
 	{
-		DoFlatten(&function,time(0),10);
-		return true;
+		if(&f==updateFunc)
+			continue;
+		DoFlatten(&f,0,updateFunc);
 	}
+	
 	return false;
 }
-
 char MyFlatten::ID=0;
-FunctionPass* llvm::createFlatteningEnhancedPass(bool enable)
+ModulePass* llvm::createFlatteningEnhancedPass(bool enable)
 {
 	return new MyFlatten(enable);
 }

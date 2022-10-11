@@ -47,6 +47,7 @@ static cl::opt<bool> RunMBAObfuscation(
 
 void llvm::registerModulePasses(legacy::PassManagerBase &MPM){
     MPM.add(createGlobalsEncryptionPass(RunGlobalsEncryption));
+    MPM.add(createFlatteningEnhancedPass(RunFlatteningEnhanced));
 }
 
 void llvm::registerFunctionPasses(legacy::PassManagerBase &FPM){
@@ -54,7 +55,6 @@ void llvm::registerFunctionPasses(legacy::PassManagerBase &FPM){
     FPM.add(createSplitBasicBlockPass());
     FPM.add(createLowerSwitchPass());
     FPM.add(createFlatteningPass(RunFlattening));
-    FPM.add(createFlatteningEnhancedPass(RunFlatteningEnhanced));
     FPM.add(craeteBogusControlFlow(RunBogusControlFlow));
     FPM.add(createSubstitutionPass(RunSubstitution));
     FPM.add(createVariableSubstitutionPass(RunVariableSubstitution));
