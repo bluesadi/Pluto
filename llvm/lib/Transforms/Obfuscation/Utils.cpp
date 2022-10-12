@@ -119,18 +119,3 @@ std::string llvm::readAnnotation(Function *F) {
     }
     return annotation;
 }
-
-bool llvm::is_exceptional_instruction(Instruction &I) {
-
-    if( isa<LandingPadInst>(I)  ||
-        isa<CatchPadInst>(I)    ||
-        isa<CatchSwitchInst>(I) ||
-        isa<CatchReturnInst>(I) ||
-        isa<CleanupPadInst>(I)  ||
-        isa<CleanupReturnInst>(I) ){
-        
-        return true;
-    }
-    
-    return false;
-}
