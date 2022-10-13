@@ -3,6 +3,7 @@
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Instruction.h"
 
 #define INIT_CONTEXT(X) CONTEXT=&X.getContext()
 #define TYPE_I64 Type::getInt64Ty(*CONTEXT)
@@ -34,6 +35,9 @@ namespace llvm{
     void fixStack(Function &F);
     BasicBlock* createCloneBasicBlock(BasicBlock *BB);
     std::string readAnnotation(Function *f);
+
+    // Check whether the instruction is a CXX Exceptions Instruction
+    bool is_exceptional_instruction(llvm::Instruction &I);
 }
 
 #endif // LLVM_UTILS_H

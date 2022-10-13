@@ -161,12 +161,6 @@ FunctionPass *createAssumeSimplifyPass();
 // don't block SCEV.
 //
 Pass *createCanonicalizeFreezeInLoopsPass();
-
-//===----------------------------------------------------------------------===//
-//
-// Check whether the instruction is a CXX Exceptions Instruction
-//
-bool is_exceptional_instruction(Instruction &I)
 } // namespace llvm
 
 #endif
