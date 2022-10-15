@@ -237,11 +237,11 @@ void MyFlatten::DoFlatten(Function *f,int seed,Function *updateFunc)
 					caseNum=cast<ConstantInt>(ConstantInt::get(sw->getCondition()->getType(),num));
 					errs()<<"WTF!\n";
 				}
-				unsigned int fixNum=caseNum->getValue().getZExtValue()^key_map[succ];
+				unsigned int fixNum=caseNum->getValue().getZExtValue()^key_map[block];
 				block->getTerminator()->eraseFromParent();
 				
 				irb.SetInsertPoint(block);
-				irb.CreateStore(irb.CreateXor(irb.CreateLoad(irb.CreateGEP(keyArray,irb.getInt32(index_map[succ]))),ConstantInt::get(sw->getCondition()->getType(),fixNum)),switchVar);
+				irb.CreateStore(irb.CreateXor(irb.CreateLoad(irb.CreateGEP(keyArray,irb.getInt32(index_map[block]))),ConstantInt::get(sw->getCondition()->getType(),fixNum)),switchVar);
 				BranchInst::Create(loopEnd,block);
 			}
 			else if(block->getTerminator()->getNumSuccessors()==2)
@@ -266,17 +266,17 @@ void MyFlatten::DoFlatten(Function *f,int seed,Function *updateFunc)
 					numFalse=cast<ConstantInt>(ConstantInt::get(sw->getCondition()->getType(),num));
 					errs()<<"WTF!\n";
 				}
-				unsigned int fixNumTrue=numTrue->getValue().getZExtValue()^key_map[succTrue];
-				unsigned int fixNumFalse=numFalse->getValue().getZExtValue()^key_map[succFalse];
+				unsigned int fixNumTrue=numTrue->getValue().getZExtValue()^key_map[block];
+				unsigned int fixNumFalse=numFalse->getValue().getZExtValue()^key_map[block];
 				BranchInst *oldBr=cast<BranchInst>(block->getTerminator());
 				SelectInst *select=SelectInst::Create(oldBr->getCondition(),ConstantInt::get(sw->getCondition()->getType(),fixNumTrue),ConstantInt::get(sw->getCondition()->getType(),fixNumFalse),Twine("choice"),block->getTerminator());
-				SelectInst *pos=SelectInst::Create(oldBr->getCondition(),ConstantInt::get(sw->getCondition()->getType(),index_map[succTrue]),ConstantInt::get(sw->getCondition()->getType(),index_map[succFalse]),Twine("choice2"),block->getTerminator());
+				//SelectInst *pos=SelectInst::Create(oldBr->getCondition(),ConstantInt::get(sw->getCondition()->getType(),index_map[succTrue]),ConstantInt::get(sw->getCondition()->getType(),index_map[succFalse]),Twine("choice2"),block->getTerminator());
 				
 				block->getTerminator()->eraseFromParent();
 				
 				irb.SetInsertPoint(block);
 				//SelectInst *pos=SelectInst::Create(oldBr->getCondition(),ConstantInt::get(sw->getCondition()->getType(),7),ConstantInt::get(sw->getCondition()->getType(),8),Twine(""),block->getTerminator());
-				irb.CreateStore(irb.CreateXor(irb.CreateLoad(irb.CreateGEP(keyArray,pos)),select),switchVar);
+				irb.CreateStore(irb.CreateXor(irb.CreateLoad(irb.CreateGEP(keyArray,irb.getInt32(index_map[block]))),select),switchVar);
 				BranchInst::Create(loopEnd,block);
 			}
 		}
