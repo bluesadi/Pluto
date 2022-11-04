@@ -6,7 +6,7 @@ for arg in "$@"; do
     FLAGS="-mllvm -$arg $FLAGS"
 done
 
-export CC=`pwd`/build/bin/clang
+export CC=`pwd`/install/bin/clang
 export CFLAGS="-O2 $FLAGS"
 
 cd test/secp256k1
