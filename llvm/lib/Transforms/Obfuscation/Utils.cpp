@@ -85,59 +85,58 @@ BasicBlock *llvm::createCloneBasicBlock(BasicBlock *BB) {
 // Reference:
 // https://github.com/obfuscator-llvm/obfuscator/blob/llvm-4.0/lib/Transforms/Utils/Utils.cpp
 std::string llvm::readAnnotation(Function *F) {
-  std::string annotation = "";
-  /* Get annotation variable */
-  GlobalVariable *glob =
-      F->getParent()->getGlobalVariable("llvm.global.annotations");
-  if (glob != NULL) {
-    /* Get the array */
-    if (ConstantArray *ca = dyn_cast<ConstantArray>(glob->getInitializer())) {
-      for (unsigned i = 0; i < ca->getNumOperands(); ++i) {
-        /* Get the struct */
-        if (ConstantStruct *structAn =
-                dyn_cast<ConstantStruct>(ca->getOperand(i))) {
-          if (ConstantExpr *expr =
-                  dyn_cast<ConstantExpr>(structAn->getOperand(0))) {
-            /*
-             * If it's a bitcast we can check if the annotation is concerning
-             * the current function
-             */
-            if (expr->getOpcode() == Instruction::BitCast &&
-                expr->getOperand(0) == F) {
-              ConstantExpr *note = cast<ConstantExpr>(structAn->getOperand(1));
-              /*
-               * If it's a GetElementPtr, that means we found the variable
-               * containing the annotations
-               */
-              if (note->getOpcode() == Instruction::GetElementPtr) {
-                if (GlobalVariable *annoteStr =
-                        dyn_cast<GlobalVariable>(note->getOperand(0))) {
-                  if (ConstantDataSequential *data =
-                          dyn_cast<ConstantDataSequential>(
-                              annoteStr->getInitializer())) {
-                    if (data->isString()) {
-                      annotation += data->getAsString().lower() + " ";
+    std::string annotation = "";
+    /* Get annotation variable */
+    GlobalVariable *glob =
+        F->getParent()->getGlobalVariable("llvm.global.annotations");
+    if (glob != NULL) {
+        /* Get the array */
+        if (ConstantArray *ca = dyn_cast<ConstantArray>(glob->getInitializer())) {
+            for (unsigned i = 0; i < ca->getNumOperands(); ++i) {
+                /* Get the struct */
+                if (ConstantStruct *structAn =
+                        dyn_cast<ConstantStruct>(ca->getOperand(i))) {
+                    if (ConstantExpr *expr =
+                            dyn_cast<ConstantExpr>(structAn->getOperand(0))) {
+                        /*
+                        * If it's a bitcast we can check if the annotation is concerning
+                        * the current function
+                        */
+                        if (expr->getOpcode() == Instruction::BitCast &&
+                            expr->getOperand(0) == F) {
+                            ConstantExpr *note = cast<ConstantExpr>(structAn->getOperand(1));
+                            /*
+                            * If it's a GetElementPtr, that means we found the variable
+                            * containing the annotations
+                            */
+                            if (note->getOpcode() == Instruction::GetElementPtr) {
+                                if (GlobalVariable *annoteStr =
+                                        dyn_cast<GlobalVariable>(note->getOperand(0))) {
+                                    if (ConstantDataSequential *data =
+                                            dyn_cast<ConstantDataSequential>(annoteStr->getInitializer())) {
+                                        if (data->isString()) {
+                                            annotation += data->getAsString().lower() + " ";
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
-                  }
                 }
-              }
             }
-          }
         }
-      }
     }
-  }
-  return annotation;
+    return annotation;
 }
 
 bool llvm::is_exceptional_instruction(Instruction &I) {
 
-  if (isa<LandingPadInst>(I) || isa<CatchPadInst>(I) ||
-      isa<CatchSwitchInst>(I) || isa<CatchReturnInst>(I) ||
-      isa<CleanupPadInst>(I) || isa<CleanupReturnInst>(I)) {
+    if (isa<LandingPadInst>(I) || isa<CatchPadInst>(I) ||
+        isa<CatchSwitchInst>(I) || isa<CatchReturnInst>(I) ||
+        isa<CleanupPadInst>(I) || isa<CleanupReturnInst>(I)) {
 
-    return true;
-  }
+        return true;
+    }
 
-  return false;
+    return false;
 }

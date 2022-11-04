@@ -1,5 +1,5 @@
 # Pluto-Obfuscator
-Pluto-Obfuscator is an obfuscator based on LLVM 12.0.1, mainly developed by [34r7h4mn](https://github.com/bluesadi) and [za233](https://github.com/za233).
+Pluto-Obfuscator is an obfuscator based on LLVM 12.0.1 by [34r7h4mn](https://github.com/bluesadi) and [za233](https://github.com/za233).
 
 ## Environment
 This project was developed and tested on the following environment:
@@ -11,16 +11,18 @@ This project was developed and tested on the following environment:
 You can also build this project on Windows and MacOS, or even merge it into Android NDK toolchain (tested on Android NDK r23).
 
 ## Features
+Pluto-Obfuscator encompasses multiple passes as follows (`*` denotes highly recommended passes):
+
 - Control Flow Flattening ([Ref: Obfuscator-LLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Control-Flow-Flattening))
-- Control Flow Flattening Enhanced ([Chinese documentation](https://bbs.pediy.com/thread-274778.htm))
+- \*Control Flow Flattening Enhanced ([Chinese documentation](https://bbs.pediy.com/thread-274778.htm))
 - Bogus Control Flow ([Ref: Obfuscator-LLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Bogus-Control-Flow))
 - Instruction Substitution ([Ref: Obfuscator-LLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Instructions-Substitution))
 - Random Control Flow
 - Variable Substitution
 - String Encryption
-- Globals Encryption
+- \*Globals Encryption
 - [Trap Angr (Experimental)](docs/TrapAngr.md)
-- MBA Obfuscation ([Chinese documentation](https://bbs.pediy.com/thread-271574.htm))
+- \*MBA Obfuscation ([Chinese documentation](https://bbs.pediy.com/thread-271574.htm))
 
 > 34r7hm4n: The documentation of this project is still lacking. I will work on it when I am available.
 
@@ -51,6 +53,11 @@ cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" \
 ninja -j$(sysctl -n hw.logicalcpu)
 ninja install # Comment it out if you already have another version of LLVM installed on your machine
 ```
+
+### Compile
+// TODO
+
+`-s -mllvm -mba -mllvm -mba-prob=50 -mllvm -fla-ex -mllvm -gle`
 
 ### Filter Mode
 In case you just want to obfuscate specific functions, Pluto-Obfuscator also provides a filter mechanism using annotation, to help you specify which functions should or should not be obfuscated.
@@ -92,22 +99,21 @@ int main(){
 **IMPORTANT:** If you would like to improve this project by creating pull requests, please make sure your modified code can pass the tests as follows.
 
 ### Quick Test on AES
-Usage: `./fast-check [your-passes]` (e.g., `./fast-check.sh gle mba mba-prob=40`).
+Usage: `./fast-check [your-passes]` (e.g., `./fast-check.sh mba mba-prob=50 fla-ex gle`).
 
 See [fast-check.sh](fast-check.sh) and [test/aes](test/aes/).
 
 ### Test on libsecp256k1
-Usage: `./check [your-passes]` (e.g., `./check.sh -s -mllvm -mba -mllvm -mba-prob=50 -mllvm -fla-ex -mllvm -gle`)
+Usage: `./check.sh [your-passes]` (e.g., `./check.sh mba mba-prob=50 fla-ex gle`)
 
-Generally, it will cost several minutes to be done, much slower compared to test on AES.
+Generally, it will cost several minutes to be done, much slower compared to AES test.
 
 Passed Parameters:
-- Flattening: `-O2 -mllvm -fla`
-- FlatteningEnhanced: `-O2 -mllvm -fla-ex`
-- BogusControlFlow: `-O2 -mllvm -bcf`
-- Substitution: `-O2 -mllvm -sub`
-- GlobalsEncryption: `-O2 -mllvm -gle`
-- MBAObfuscation: `-O2 -mllvm -mba -mllvm -mba-prob=100`
-- FullProtection (**HIGHLY RECOMMENDED**): `-s -mllvm -mba -mllvm -mba-prob=50 -mllvm -fla-ex -mllvm -gle`
+- Flattening: `-fla`
+- FlatteningEnhanced: `-fla-ex`
+- Substitution: `sub`
+- GlobalsEncryption: `gle`
+- MBAObfuscation: `-mba -mba-prob=100`
+- FullProtection (**HIGHLY RECOMMENDED**): `-mba -mllvm -mba-prob=50 -fla-ex -gle`
 
 See [check.sh](check.sh) and [test/secp256k1](test/secp256k1/).

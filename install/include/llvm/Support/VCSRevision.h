@@ -1,2 +1,2 @@
-#define LLVM_REVISION "7617bb57559af5b452899945bed164f0c1b7a721"
+#define LLVM_REVISION "7d9e051b88e69a7185a76fdac08a77da86280075"
 #define LLVM_REPOSITORY "git@github.com:bluesadi/Pluto-Obfuscator.git"
