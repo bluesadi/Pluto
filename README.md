@@ -111,11 +111,11 @@ Usage: `./check.sh [your-passes]` (e.g., `./check.sh mba mba-prob=50 fla-ex gle`
 Generally, it will cost several minutes to be done, much slower compared to AES test.
 
 Passed Parameters:
-- Flattening: `-fla`
-- FlatteningEnhanced: `-fla-ex`
+- Flattening: `fla`
+- FlatteningEnhanced: `fla-ex`
 - Substitution: `sub`
 - GlobalsEncryption: `gle`
-- MBAObfuscation: `-mba -mba-prob=100`
-- FullProtection (**HIGHLY RECOMMENDED**): `-mba -mllvm -mba-prob=50 -fla-ex -gle`
+- MBAObfuscation: `mba mba-prob=100`
+- FullProtection (**HIGHLY RECOMMENDED**): `mba mba-prob=50 fla-ex gle`
 
 See [check.sh](check.sh) and [test/secp256k1](test/secp256k1/).
