@@ -13,6 +13,7 @@ You can also build this project on Windows and MacOS, or even merge it into Andr
 
 ## Features
 - Control Flow Flattening
+- Control Flow Flattening Enhanced
 - Bogus Control Flow
 - Instruction Substitution
 - Random Control Flow
