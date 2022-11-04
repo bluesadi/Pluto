@@ -11,7 +11,7 @@ This project was developed and tested on the following environment:
 You can also build this project on Windows and MacOS, or even merge it into Android NDK toolchain (tested on Android NDK r23).
 
 ## Features
-Pluto-Obfuscator encompasses multiple passes as follows (`*` denotes highly recommended passes):
+Pluto-Obfuscator encompasses multiple passes as follows (`*` indicates highly recommended passes):
 
 - Control Flow Flattening ([Ref: Obfuscator-LLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Control-Flow-Flattening))
 - \*Control Flow Flattening Enhanced ([Chinese documentation](https://bbs.pediy.com/thread-274778.htm))
@@ -30,12 +30,14 @@ Pluto-Obfuscator encompasses multiple passes as follows (`*` denotes highly reco
 ### Build on Linux/Windows
 The following commands work on both Linux and Windows:
 ```shell
+mkdir -p build
 cd build
 cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" \
     -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86" \
-    -DBUILD_SHARED_LIBS=On ../llvm
+    -DBUILD_SHARED_LIBS=On -DCMAKE_INSTALL_PREFIX="../install" ../llvm
+
 ninja -j$(nproc)
-ninja install   # Comment it out if you already have another version of LLVM installed on your machine
+ninja install
 ```
 ### Build on MacOS
 
@@ -51,7 +53,7 @@ cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" \
     ../llvm
 
 ninja -j$(sysctl -n hw.logicalcpu)
-ninja install # Comment it out if you already have another version of LLVM installed on your machine
+ninja install
 ```
 
 ### Compile
