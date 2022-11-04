@@ -8,5 +8,5 @@ cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" \
     -DCMAKE_INSTALL_PREFIX="../install" \
     ../llvm
 
-ninja
+ninja -j$(sysctl -n hw.logicalcpu)
 ninja install

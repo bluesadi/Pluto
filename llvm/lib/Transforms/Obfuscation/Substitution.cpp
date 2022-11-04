@@ -1,31 +1,33 @@
 
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Obfuscation/Utils.h"
 #include "llvm/Transforms/Obfuscation/Substitution.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
+#include "llvm/Transforms/Obfuscation/Utils.h"
 #include <vector>
 using namespace llvm;
 using std::vector;
 
 // 混淆次数，混淆次数越多混淆结果越复杂
-static cl::opt<int> ObfuTimes("sub-times", cl::init(1), cl::desc("Run Substitution pass <sub-times> time(s)"));
+static cl::opt<int>
+    ObfuTimes("sub-times", cl::init(1),
+              cl::desc("Run Substitution pass <sub-times> time(s)"));
 static IRBuilder<> *builder = nullptr;
 
-bool Substitution::runOnFunction(Function &F){
-    if(enable){
+bool Substitution::runOnFunction(Function &F) {
+    if (enable) {
         INIT_CONTEXT(F);
         SKIP_IF_SHOULD(F);
         builder = new IRBuilder<>(*CONTEXT);
-        for(int i = 0;i < ObfuTimes;i ++){
-            for(BasicBlock &BB : F){
-                vector<Instruction*> origInst;
-                for(Instruction &I : BB){
+        for (int i = 0; i < ObfuTimes; i++) {
+            for (BasicBlock &BB : F) {
+                vector<Instruction *> origInst;
+                for (Instruction &I : BB) {
                     origInst.push_back(&I);
                 }
-                for(Instruction *I : origInst){
-                    if(isa<BinaryOperator>(I)){
+                for (Instruction *I : origInst) {
+                    if (isa<BinaryOperator>(I)) {
                         BinaryOperator *BI = cast<BinaryOperator>(I);
                         substitute(BI);
                     }
@@ -37,7 +39,7 @@ bool Substitution::runOnFunction(Function &F){
     return false;
 }
 
-void Substitution::substitute(BinaryOperator *BI){
+void Substitution::substitute(BinaryOperator *BI) {
     builder->SetInsertPoint(BI);
     switch (BI->getOpcode()) {
         case BinaryOperator::Add:
@@ -60,8 +62,7 @@ void Substitution::substitute(BinaryOperator *BI){
     }
 }
 
-
-void Substitution::substituteAdd(BinaryOperator *BI){
+void Substitution::substituteAdd(BinaryOperator *BI) {
     int choice = cryptoutils->get_uint32_t() % NUMBER_ADD_SUBST;
     switch (choice) {
         case 0:
@@ -81,14 +82,14 @@ void Substitution::substituteAdd(BinaryOperator *BI){
     }
 }
 
-void Substitution::addNeg(BinaryOperator *BI){
+void Substitution::addNeg(BinaryOperator *BI) {
     Value *op;
     op = builder->CreateNeg(BI->getOperand(1));
     op = builder->CreateSub(BI->getOperand(0), op);
     BI->replaceAllUsesWith(op);
 }
 
-void Substitution::addDoubleNeg(BinaryOperator *BI){
+void Substitution::addDoubleNeg(BinaryOperator *BI) {
     Value *op, *op1, *op2;
     op1 = builder->CreateNeg(BI->getOperand(0));
     op2 = builder->CreateNeg(BI->getOperand(1));
@@ -97,8 +98,9 @@ void Substitution::addDoubleNeg(BinaryOperator *BI){
     BI->replaceAllUsesWith(op);
 }
 
-void Substitution::addRand(BinaryOperator *BI){
-    ConstantInt *r = (ConstantInt*)CONST(BI->getType(), cryptoutils->get_uint32_t());
+void Substitution::addRand(BinaryOperator *BI) {
+    ConstantInt *r =
+        (ConstantInt *)CONST(BI->getType(), cryptoutils->get_uint32_t());
     Value *op;
     op = builder->CreateAdd(BI->getOperand(0), r);
     op = builder->CreateAdd(op, BI->getOperand(1));
@@ -106,8 +108,9 @@ void Substitution::addRand(BinaryOperator *BI){
     BI->replaceAllUsesWith(op);
 }
 
-void Substitution::addRand2(BinaryOperator *BI){
-    ConstantInt *r = (ConstantInt*)CONST(BI->getType(), cryptoutils->get_uint32_t());
+void Substitution::addRand2(BinaryOperator *BI) {
+    ConstantInt *r =
+        (ConstantInt *)CONST(BI->getType(), cryptoutils->get_uint32_t());
     Value *op;
     op = builder->CreateSub(BI->getOperand(0), r);
     op = builder->CreateAdd(op, BI->getOperand(1));
@@ -115,32 +118,33 @@ void Substitution::addRand2(BinaryOperator *BI){
     BI->replaceAllUsesWith(op);
 }
 
-void Substitution::substituteSub(BinaryOperator *BI){
+void Substitution::substituteSub(BinaryOperator *BI) {
     int choice = cryptoutils->get_uint32_t() % NUMBER_SUB_SUBST;
     switch (choice) {
-        case 0:
-            subNeg(BI);
-            break;
-        case 1:
-            subRand(BI);
-            break;
-        case 2:
-            subRand2(BI);
-            break;
-        default:
-            break;
+    case 0:
+        subNeg(BI);
+        break;
+    case 1:
+        subRand(BI);
+        break;
+    case 2:
+        subRand2(BI);
+        break;
+    default:
+        break;
     }
 }
 
-void Substitution::subNeg(BinaryOperator *BI){
+void Substitution::subNeg(BinaryOperator *BI) {
     Value *op;
     op = builder->CreateNeg(BI->getOperand(1));
     op = builder->CreateAdd(BI->getOperand(0), op);
     BI->replaceAllUsesWith(op);
 }
 
-void Substitution::subRand(BinaryOperator *BI){
-    ConstantInt *r = (ConstantInt*)CONST(BI->getType(), cryptoutils->get_uint32_t());
+void Substitution::subRand(BinaryOperator *BI) {
+    ConstantInt *r =
+        (ConstantInt *)CONST(BI->getType(), cryptoutils->get_uint32_t());
     Value *op;
     op = builder->CreateAdd(BI->getOperand(0), r);
     op = builder->CreateSub(op, BI->getOperand(1));
@@ -148,8 +152,9 @@ void Substitution::subRand(BinaryOperator *BI){
     BI->replaceAllUsesWith(op);
 }
 
-void Substitution::subRand2(BinaryOperator *BI){
-    ConstantInt *r = (ConstantInt*)CONST(BI->getType(), cryptoutils->get_uint32_t());
+void Substitution::subRand2(BinaryOperator *BI) {
+    ConstantInt *r =
+        (ConstantInt *)CONST(BI->getType(), cryptoutils->get_uint32_t());
     Value *op;
     op = builder->CreateSub(BI->getOperand(0), r);
     op = builder->CreateSub(op, BI->getOperand(1));
@@ -157,7 +162,7 @@ void Substitution::subRand2(BinaryOperator *BI){
     BI->replaceAllUsesWith(op);
 }
 
-void Substitution::substituteXor(BinaryOperator *BI){
+void Substitution::substituteXor(BinaryOperator *BI) {
     int choice = cryptoutils->get_uint32_t() % NUMBER_XOR_SUBST;
     switch (choice) {
         case 0:
@@ -171,7 +176,7 @@ void Substitution::substituteXor(BinaryOperator *BI){
     }
 }
 
-void Substitution::xorSubstitute(BinaryOperator *BI){
+void Substitution::xorSubstitute(BinaryOperator *BI) {
     Value *op, *op1, *op2, *op3;
     op1 = builder->CreateNot(BI->getOperand(0));
     op1 = builder->CreateAnd(op1, BI->getOperand(1));
@@ -181,8 +186,9 @@ void Substitution::xorSubstitute(BinaryOperator *BI){
     BI->replaceAllUsesWith(op);
 }
 
-void Substitution::xorSubstituteRand(BinaryOperator *BI){
-    ConstantInt *r = (ConstantInt*)CONST(BI->getType(), cryptoutils->get_uint32_t());
+void Substitution::xorSubstituteRand(BinaryOperator *BI) {
+    ConstantInt *r =
+        (ConstantInt *)CONST(BI->getType(), cryptoutils->get_uint32_t());
     Value *op, *op1, *op2, *op3;
     op1 = builder->CreateNot(BI->getOperand(0));
     op1 = builder->CreateAnd(op1, r);
@@ -198,7 +204,7 @@ void Substitution::xorSubstituteRand(BinaryOperator *BI){
     BI->replaceAllUsesWith(op);
 }
 
-void Substitution::substituteAnd(BinaryOperator *BI){
+void Substitution::substituteAnd(BinaryOperator *BI) {
     int choice = cryptoutils->get_uint32_t() % NUMBER_AND_SUBST;
     switch (choice) {
         case 0:
@@ -212,7 +218,7 @@ void Substitution::substituteAnd(BinaryOperator *BI){
     }
 }
 
-void Substitution::andSubstitute(BinaryOperator *BI){
+void Substitution::andSubstitute(BinaryOperator *BI) {
     Value *op;
     op = builder->CreateNot(BI->getOperand(1));
     op = builder->CreateXor(BI->getOperand(0), op);
@@ -220,8 +226,9 @@ void Substitution::andSubstitute(BinaryOperator *BI){
     BI->replaceAllUsesWith(op);
 }
 
-void Substitution::andSubstituteRand(BinaryOperator *BI){
-    ConstantInt *r = (ConstantInt*)CONST(BI->getType(), cryptoutils->get_uint32_t());
+void Substitution::andSubstituteRand(BinaryOperator *BI) {
+    ConstantInt *r =
+        (ConstantInt *)CONST(BI->getType(), cryptoutils->get_uint32_t());
     Value *op, *op1;
     op = builder->CreateNot(BI->getOperand(0));
     op1 = builder->CreateNot(BI->getOperand(1));
@@ -233,7 +240,7 @@ void Substitution::andSubstituteRand(BinaryOperator *BI){
     BI->replaceAllUsesWith(op);
 }
 
-void Substitution::substituteOr(BinaryOperator *BI){
+void Substitution::substituteOr(BinaryOperator *BI) {
     int choice = cryptoutils->get_uint32_t() % NUMBER_OR_SUBST;
     switch (choice) {
         case 0:
@@ -247,7 +254,7 @@ void Substitution::substituteOr(BinaryOperator *BI){
     }
 }
 
-void Substitution::orSubstitute(BinaryOperator *BI){
+void Substitution::orSubstitute(BinaryOperator *BI) {
     Value *op, *op1;
     op = builder->CreateAnd(BI->getOperand(0), BI->getOperand(1));
     op1 = builder->CreateXor(BI->getOperand(0), BI->getOperand(1));
@@ -255,8 +262,9 @@ void Substitution::orSubstitute(BinaryOperator *BI){
     BI->replaceAllUsesWith(op);
 }
 
-void Substitution::orSubstituteRand(BinaryOperator *BI){
-    ConstantInt *r = (ConstantInt*)CONST(BI->getType(), cryptoutils->get_uint32_t());
+void Substitution::orSubstituteRand(BinaryOperator *BI) {
+    ConstantInt *r =
+        (ConstantInt *)CONST(BI->getType(), cryptoutils->get_uint32_t());
     Value *op, *op1;
     op = builder->CreateNot(BI->getOperand(0));
     op1 = builder->CreateNot(BI->getOperand(1));
@@ -268,7 +276,7 @@ void Substitution::orSubstituteRand(BinaryOperator *BI){
     BI->replaceAllUsesWith(op);
 }
 
-FunctionPass* llvm::createSubstitutionPass(bool enable){
+FunctionPass *llvm::createSubstitutionPass(bool enable) {
     return new Substitution(enable);
 }
 

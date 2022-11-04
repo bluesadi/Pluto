@@ -1,19 +1,19 @@
-#include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/ADT/Statistic.h"
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/Twine.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/raw_ostream.h"
 
-#include <fstream>
-#include <string>
-#include <cstdlib>
 #include <cassert>
-#include <cstring>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
 #include <random>
+#include <string>
 
 // Stats
 #define DEBUG_TYPE "CryptoUtils"
@@ -24,10 +24,9 @@ namespace llvm {
 ManagedStatic<CryptoUtils> cryptoutils;
 }
 
-const uint32_t AES_RCON[10] = { 0x01000000UL, 0x02000000UL, 0x04000000UL,
-                                                                0x08000000UL, 0x10000000UL, 0x20000000UL,
-                                                                0x40000000UL, 0x80000000UL, 0x1b000000UL,
-                                                                0x36000000UL };
+const uint32_t AES_RCON[10] = {
+    0x01000000UL, 0x02000000UL, 0x04000000UL, 0x08000000UL, 0x10000000UL,
+    0x20000000UL, 0x40000000UL, 0x80000000UL, 0x1b000000UL, 0x36000000UL};
 
 const uint32_t AES_PRECOMP_TE0[256] = {
     0xc66363a5UL, 0xf87c7c84UL, 0xee777799UL, 0xf67b7b8dUL, 0xfff2f20dUL,
@@ -81,8 +80,7 @@ const uint32_t AES_PRECOMP_TE0[256] = {
     0x038c8c8fUL, 0x59a1a1f8UL, 0x09898980UL, 0x1a0d0d17UL, 0x65bfbfdaUL,
     0xd7e6e631UL, 0x844242c6UL, 0xd06868b8UL, 0x824141c3UL, 0x299999b0UL,
     0x5a2d2d77UL, 0x1e0f0f11UL, 0x7bb0b0cbUL, 0xa85454fcUL, 0x6dbbbbd6UL,
-    0x2c16163aUL
-};
+    0x2c16163aUL};
 
 const uint32_t AES_PRECOMP_TE1[256] = {
     0xa5c66363UL, 0x84f87c7cUL, 0x99ee7777UL, 0x8df67b7bUL, 0x0dfff2f2UL,
@@ -136,8 +134,7 @@ const uint32_t AES_PRECOMP_TE1[256] = {
     0x8f038c8cUL, 0xf859a1a1UL, 0x80098989UL, 0x171a0d0dUL, 0xda65bfbfUL,
     0x31d7e6e6UL, 0xc6844242UL, 0xb8d06868UL, 0xc3824141UL, 0xb0299999UL,
     0x775a2d2dUL, 0x111e0f0fUL, 0xcb7bb0b0UL, 0xfca85454UL, 0xd66dbbbbUL,
-    0x3a2c1616UL
-};
+    0x3a2c1616UL};
 
 const uint32_t AES_PRECOMP_TE2[256] = {
     0x63a5c663UL, 0x7c84f87cUL, 0x7799ee77UL, 0x7b8df67bUL, 0xf20dfff2UL,
@@ -191,8 +188,7 @@ const uint32_t AES_PRECOMP_TE2[256] = {
     0x8c8f038cUL, 0xa1f859a1UL, 0x89800989UL, 0x0d171a0dUL, 0xbfda65bfUL,
     0xe631d7e6UL, 0x42c68442UL, 0x68b8d068UL, 0x41c38241UL, 0x99b02999UL,
     0x2d775a2dUL, 0x0f111e0fUL, 0xb0cb7bb0UL, 0x54fca854UL, 0xbbd66dbbUL,
-    0x163a2c16UL
-};
+    0x163a2c16UL};
 
 const uint32_t AES_PRECOMP_TE3[256] = {
     0x6363a5c6UL, 0x7c7c84f8UL, 0x777799eeUL, 0x7b7b8df6UL, 0xf2f20dffUL,
@@ -246,8 +242,7 @@ const uint32_t AES_PRECOMP_TE3[256] = {
     0x8c8c8f03UL, 0xa1a1f859UL, 0x89898009UL, 0x0d0d171aUL, 0xbfbfda65UL,
     0xe6e631d7UL, 0x4242c684UL, 0x6868b8d0UL, 0x4141c382UL, 0x9999b029UL,
     0x2d2d775aUL, 0x0f0f111eUL, 0xb0b0cb7bUL, 0x5454fca8UL, 0xbbbbd66dUL,
-    0x16163a2cUL
-};
+    0x16163a2cUL};
 
 const uint32_t AES_PRECOMP_TE4_0[256] = {
     0x00000063UL, 0x0000007cUL, 0x00000077UL, 0x0000007bUL, 0x000000f2UL,
@@ -301,8 +296,7 @@ const uint32_t AES_PRECOMP_TE4_0[256] = {
     0x0000008cUL, 0x000000a1UL, 0x00000089UL, 0x0000000dUL, 0x000000bfUL,
     0x000000e6UL, 0x00000042UL, 0x00000068UL, 0x00000041UL, 0x00000099UL,
     0x0000002dUL, 0x0000000fUL, 0x000000b0UL, 0x00000054UL, 0x000000bbUL,
-    0x00000016UL
-};
+    0x00000016UL};
 
 const uint32_t AES_PRECOMP_TE4_1[256] = {
     0x00006300UL, 0x00007c00UL, 0x00007700UL, 0x00007b00UL, 0x0000f200UL,
@@ -356,8 +350,7 @@ const uint32_t AES_PRECOMP_TE4_1[256] = {
     0x00008c00UL, 0x0000a100UL, 0x00008900UL, 0x00000d00UL, 0x0000bf00UL,
     0x0000e600UL, 0x00004200UL, 0x00006800UL, 0x00004100UL, 0x00009900UL,
     0x00002d00UL, 0x00000f00UL, 0x0000b000UL, 0x00005400UL, 0x0000bb00UL,
-    0x00001600UL
-};
+    0x00001600UL};
 
 const uint32_t AES_PRECOMP_TE4_2[256] = {
     0x00630000UL, 0x007c0000UL, 0x00770000UL, 0x007b0000UL, 0x00f20000UL,
@@ -411,8 +404,7 @@ const uint32_t AES_PRECOMP_TE4_2[256] = {
     0x008c0000UL, 0x00a10000UL, 0x00890000UL, 0x000d0000UL, 0x00bf0000UL,
     0x00e60000UL, 0x00420000UL, 0x00680000UL, 0x00410000UL, 0x00990000UL,
     0x002d0000UL, 0x000f0000UL, 0x00b00000UL, 0x00540000UL, 0x00bb0000UL,
-    0x00160000UL
-};
+    0x00160000UL};
 
 const uint32_t AES_PRECOMP_TE4_3[256] = {
     0x63000000UL, 0x7c000000UL, 0x77000000UL, 0x7b000000UL, 0xf2000000UL,
@@ -466,8 +458,7 @@ const uint32_t AES_PRECOMP_TE4_3[256] = {
     0x8c000000UL, 0xa1000000UL, 0x89000000UL, 0x0d000000UL, 0xbf000000UL,
     0xe6000000UL, 0x42000000UL, 0x68000000UL, 0x41000000UL, 0x99000000UL,
     0x2d000000UL, 0x0f000000UL, 0xb0000000UL, 0x54000000UL, 0xbb000000UL,
-    0x16000000UL
-};
+    0x16000000UL};
 
 const uint32_t masks[32] = {
     0x80000000UL, 0x40000000UL, 0x20000000UL, 0x10000000UL, 0x08000000UL,
@@ -476,12 +467,9 @@ const uint32_t masks[32] = {
     0x00010000UL, 0x00008000UL, 0x00004000UL, 0x00002000UL, 0x00001000UL,
     0x00000800UL, 0x00000400UL, 0x00000200UL, 0x00000100UL, 0x00000080UL,
     0x00000040UL, 0x00000020UL, 0x00000010UL, 0x00000008UL, 0x00000004UL,
-    0x00000002UL, 0x00000001UL
-};
+    0x00000002UL, 0x00000001UL};
 
-CryptoUtils::CryptoUtils():gen(0x1) {
-    seeded = false;
-}
+CryptoUtils::CryptoUtils() : gen(0x1) { seeded = false; }
 
 unsigned CryptoUtils::scramble32(const unsigned in, const char key[16]) {
     assert(key != NULL && "CryptoUtils::scramble key=NULL");
@@ -522,7 +510,9 @@ unsigned CryptoUtils::scramble32(const unsigned in, const char key[16]) {
 
     LOAD32H(tmpA, key);
 
-    DEBUG_WITH_TYPE("cryptoutils", dbgs() << "scramble32 out with " << static_cast<unsigned>(tmpA ^ tmpB) << "\n");
+    DEBUG_WITH_TYPE("cryptoutils", dbgs() << "scramble32 out with "
+                                            << static_cast<unsigned>(tmpA ^ tmpB)
+                                            << "\n");
     return tmpA ^ tmpB;
 }
 
@@ -533,8 +523,7 @@ void CryptoUtils::prng_seed(const std::string _seed) {
     /* We accept a prefix "0x" */
     if (!(_seed.size() == 10 || _seed.size() == 8)) {
         LLVMContext ctx;
-        ctx.emitError(
-                Twine("The  seeding mechanism is expecting a 4-byte value "
+        ctx.emitError(Twine("The  seeding mechanism is expecting a 4-byte value "
                             "expressed in hexadecimal, like DEADBEEF"));
     }
 
@@ -553,7 +542,7 @@ void CryptoUtils::prng_seed(const std::string _seed) {
     // _seed is defined to be the
     // key initial value
     memcpy(key, s, 4);
-    unsigned seeds = *((unsigned*)key);
+    unsigned seeds = *((unsigned *)key);
     // Once the seed is there, we compute the
     // AES128 key-schedule
     std::mt19937 gens(seeds);
@@ -578,8 +567,6 @@ void CryptoUtils::prng_seed() {
 }
 
 void CryptoUtils::populate_pool() {
-
-
     for (int i = 0; i < CryptoUtils_POOL_SIZE; i += 4) {
         unsigned r = gen();
         memcpy(pool + i, &r, 4);
@@ -593,7 +580,6 @@ void CryptoUtils::get_bytes(char *buffer, const int len) {
 
     assert(buffer != NULL && "CryptoUtils::get_bytes buffer=NULL");
     assert(len > 0 && "CryptoUtils::get_bytes len <= 0");
-
 
     if (len > 0) {
 
@@ -624,7 +610,6 @@ void CryptoUtils::get_bytes(char *buffer, const int len) {
 uint8_t CryptoUtils::get_uint8_t() {
     char ret;
 
-
     get_bytes(&ret, 1);
 
     return (uint8_t)ret;
@@ -632,7 +617,6 @@ uint8_t CryptoUtils::get_uint8_t() {
 
 char CryptoUtils::get_char() {
     char ret;
-
 
     get_bytes(&ret, 1);
 
@@ -642,7 +626,6 @@ char CryptoUtils::get_char() {
 uint32_t CryptoUtils::get_uint32_t() {
     char tmp[4];
     uint32_t ret = 0;
-
 
     get_bytes(tmp, 4);
 
@@ -654,7 +637,6 @@ uint32_t CryptoUtils::get_uint32_t() {
 uint64_t CryptoUtils::get_uint64_t() {
     char tmp[8];
     uint64_t ret = 0;
-
 
     get_bytes(tmp, 8);
 

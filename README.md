@@ -1,6 +1,5 @@
 # Pluto-Obfuscator
-Pluto is an obfuscator based on LLVM 12.0.1, mainly developed by [34r7h4mn](https://github.com/bluesadi) and [za233](https://github.com/za233).
-> Pluto is a dwarf planet in the Kuiper belt, a ring of bodies beyond the orbit of Neptune.
+Pluto-Obfuscator is an obfuscator based on LLVM 12.0.1, mainly developed by [34r7h4mn](https://github.com/bluesadi) and [za233](https://github.com/za233).
 
 ## Environment
 This project was developed and tested on the following environment:
@@ -12,16 +11,18 @@ This project was developed and tested on the following environment:
 You can also build this project on Windows and MacOS, or even merge it into Android NDK toolchain (tested on Android NDK r23).
 
 ## Features
-- Control Flow Flattening
-- Control Flow Flattening Enhanced
-- Bogus Control Flow
-- Instruction Substitution
+- Control Flow Flattening ([Ref: Obfuscator-LLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Control-Flow-Flattening))
+- Control Flow Flattening Enhanced ([Chinese documentation](https://bbs.pediy.com/thread-274778.htm))
+- Bogus Control Flow ([Ref: Obfuscator-LLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Bogus-Control-Flow))
+- Instruction Substitution ([Ref: Obfuscator-LLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Instructions-Substitution))
 - Random Control Flow
 - Variable Substitution
 - String Encryption
 - Globals Encryption
 - [Trap Angr (Experimental)](docs/TrapAngr.md)
-- MBA Obfuscation
+- MBA Obfuscation ([Chinese documentation](https://bbs.pediy.com/thread-271574.htm))
+
+> 34r7hm4n: The documentation of this project is still lacking. I will work on it when I am available.
 
 ## Usage
 ### Build on Linux/Windows
@@ -31,7 +32,7 @@ cd build
 cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" \
     -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86" \
     -DBUILD_SHARED_LIBS=On ../llvm
-ninja
+ninja -j$(nproc)
 ninja install   # Comment it out if you already have another version of LLVM installed on your machine
 ```
 ### Build on MacOS
@@ -42,10 +43,12 @@ cd build
 cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" \
     -DCMAKE_BUILD_TYPE=Release \
     -DDEFAULT_SYSROOT=$(xcrun --show-sdk-path) \
-    -DCMAKE_OSX_SYSROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX11.3.sdk \
+    -DCMAKE_OSX_SYSROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX$(xcrun --show-sdk-version).sdk \
     -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+    -DCMAKE_INSTALL_PREFIX="../install" \
     ../llvm
-ninja
+
+ninja -j$(sysctl -n hw.logicalcpu)
 ninja install # Comment it out if you already have another version of LLVM installed on your machine
 ```
 
@@ -85,14 +88,18 @@ int main(){
 }
 ```
 
-## Test
+## Test suite
+**IMPORTANT:** If you would like to improve this project by creating pull requests, please make sure your modified code can pass the tests as follows.
+
 ### Quick Test on AES
-If you are developing your own passes based on this project, you can simply check your passes using `./fast-check [your-passes]` (e.g., `./fast-check.sh gle mba mba-prob=40`).
+Usage: `./fast-check [your-passes]` (e.g., `./fast-check.sh gle mba mba-prob=40`).
 
 See [fast-check.sh](fast-check.sh) and [test/aes](test/aes/).
 
 ### Test on libsecp256k1
-You can also utilize the crypto library [libsecp256k1](https://github.com/bitcoin-core/secp256k1) as a test suite to insure your passes work well in most cases before releasing. Use `./check [your-passes]` (e.g., `./check.sh -s -mllvm -mba -mllvm -mba-prob=50 -mllvm -fla-ex -mllvm -gle`) to perform the test. Generally, it will cost several minutes to be done.
+Usage: `./check [your-passes]` (e.g., `./check.sh -s -mllvm -mba -mllvm -mba-prob=50 -mllvm -fla-ex -mllvm -gle`)
+
+Generally, it will cost several minutes to be done, much slower compared to test on AES.
 
 Passed Parameters:
 - Flattening: `-O2 -mllvm -fla`
