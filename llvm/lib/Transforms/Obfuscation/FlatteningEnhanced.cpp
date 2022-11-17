@@ -311,13 +311,15 @@ void MyFlatten::DoFlatten(Function *f, int seed, Function *updateFunc) {
     fixStack(*f);
 }
 bool MyFlatten::runOnModule(Module &module) {
-    Function *updateFunc = buildUpdateKeyFunc(&module);
-    for (Function &f : module) {
-        if (&f == updateFunc)
-        continue;
-        DoFlatten(&f, 0, updateFunc);
+    if(enable){
+        Function *updateFunc = buildUpdateKeyFunc(&module);
+        for (Function &f : module) {
+            if (&f == updateFunc)
+            continue;
+            DoFlatten(&f, 0, updateFunc);
+        }
+        return true;
     }
-
     return false;
 }
 char MyFlatten::ID = 0;
