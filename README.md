@@ -11,7 +11,7 @@ This project was developed and tested on the following environment:
 You can also build this project on Windows and MacOS, or even merge it into Android NDK toolchain (tested on Android NDK r23).
 
 ## Features
-Pluto-Obfuscator encompasses multiple passes as follows (`*` indicates highly recommended passes):
+Pluto-Obfuscator encompasses multiple passes as follows (`*` indicates the most recommended passes):
 
 - Control Flow Flattening ([Ref: Obfuscator-LLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Control-Flow-Flattening))
 - \*Control Flow Flattening Enhanced ([Chinese documentation](https://bbs.pediy.com/thread-274778.htm))
@@ -56,9 +56,8 @@ ninja -j$(sysctl -n hw.logicalcpu)
 ninja install
 ```
 
-### Compile
+### Compile with the Most Recommended Obfuscation
 // TODO
-
 `-s -mllvm -mba -mllvm -mba-prob=50 -mllvm -fla-ex -mllvm -gle`
 
 ### Filter Mode
@@ -98,7 +97,7 @@ int main(){
 ```
 
 ## Test suite
-**IMPORTANT:** If you would like to improve this project by creating pull requests, please make sure your modified code can pass the tests as follows.
+**IMPORTANT:** If you would like to improve this project by creating pull requests, please make sure your modified code can pass the tests as follows. Issues and pull requests about the most recommended passes will be prioritized.
 
 ### Quick Test on AES
 Usage: `./fast-check [your-passes]` (e.g., `./fast-check.sh mba mba-prob=50 fla-ex gle`).
@@ -111,11 +110,11 @@ Usage: `./check.sh [your-passes]` (e.g., `./check.sh mba mba-prob=50 fla-ex gle`
 Generally, it will cost several minutes to be done, much slower compared to AES test.
 
 Passed Parameters:
-- Flattening: `-fla`
-- FlatteningEnhanced: `-fla-ex`
+- Flattening: `fla`
+- FlatteningEnhanced: `fla-ex`
 - Substitution: `sub`
 - GlobalsEncryption: `gle`
-- MBAObfuscation: `-mba -mba-prob=100`
-- FullProtection (**HIGHLY RECOMMENDED**): `-mba -mllvm -mba-prob=50 -fla-ex -gle`
+- MBAObfuscation: `mba mba-prob=100`
+- FullProtection (**HIGHLY RECOMMENDED**): `mba mba-prob=50 fla-ex gle`
 
 See [check.sh](check.sh) and [test/secp256k1](test/secp256k1/).
