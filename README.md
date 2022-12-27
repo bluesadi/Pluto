@@ -1,10 +1,14 @@
 # Pluto-Obfuscator
 Pluto-Obfuscator is a code obfuscator based on LLVM 12.0.1 and its LLVM Pass framework. Briefly speaking, Pluto-Obfuscator converts the source code into a functionally equivalent but much less understandable version at compile-time, protecting your software from reverse engineering.
+> 34r7hm4n: The documentation of this project is still lacking. I will work on it when I am available.
 
 ## Features
-Pluto-Obfuscator implements multiple algorithms for obfuscation. The first three bold ones are the most recommended as they are relatively more stable and efficient compared to the other:
+Pluto-Obfuscator implements multiple algorithms for obfuscation. The first three bold ones are the most recommended as they are relatively stabler and more efficient compared to the other:
 
-- [**Control Flow Flattening Enhanced**](https://bbs.pediy.com/thread-274778.htm) by [@za233](https://github.com/za233)
+|  Algorithm  | Identifier | Documents | Authors |
+|  ----  | ----  | ---- | ---- |
+| **Control Flow Flattening Enhanced** | fla-ex | [Chinese Document](https://bbs.pediy.com/thread-274778.htm) | [@za233]((https://github.com/za233)) |
+
 - **Globals Encryption**
 - [**MBA Obfuscation**](https://bbs.pediy.com/thread-271574.htm)
 - [Control Flow Flattening](https://github.com/obfuscator-llvm/obfuscator/wiki/Control-Flow-Flattening)
@@ -30,14 +34,9 @@ $ sudo apt install gcc g++ cmake make ninja-build
 
 The final step is to execute `./build.sh`, which is a shell script that automatically compiles this project and install it in the [/install](/install) directory. Such scripts for MacOS and Windows are also available at [build_macos.sh](build_macos.sh) and [build_win.bat](build_win.bat). Please feel free to use them!
 
-> 34r7hm4n: The documentation of this project is still lacking. I will work on it when I am available.
-
 ## Usage
 
 
-### Compile with the Most Recommended Obfuscation
-// TODO
-`-s -mllvm -mba -mllvm -mba-prob=50 -mllvm -fla-ex -mllvm -gle`
 
 ### Filter Mode
 In case you just want to obfuscate specific functions, Pluto-Obfuscator also provides a filter mechanism using annotation, to help you specify which functions should or should not be obfuscated.
