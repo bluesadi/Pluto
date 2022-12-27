@@ -7,9 +7,9 @@ Pluto-Obfuscator implements multiple algorithms for obfuscation. The first three
 
 |  Name  | Identifier |  Documentation | Authors |
 |  ----  | ----  | ---- | ---- |
-| **Control Flow Flattening Enhanced** | fla-ex | [Chinese  Documentation](https://bbs.pediy.com/thread-274778.htm) | [@za233](https://github.com/za233) |
+| **Control Flow Flattening Enhanced** | fla-ex | - English Documentation<br>- [Chinese Blog](https://bbs.pediy.com/thread-274778.htm) | [@za233](https://github.com/za233) |
 | **Globals Encryption** | gle | None | [@34r7hm4n](https://github.com/bluesadi) |
-| **MBA Obfuscation** | mba | [Chinese  Documentation](https://bbs.pediy.com/thread-271574.htm) | [@34r7hm4n](https://github.com/bluesadi) |
+| **MBA Obfuscation** | mba | - English Documentation<br>- [Chinese Blog](https://bbs.pediy.com/thread-271574.htm) | [@34r7hm4n](https://github.com/bluesadi) |
 | Control Flow Flattening| fla | [Ref: OLLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Control-Flow-Flattening) | [@34r7hm4n](https://github.com/bluesadi) |
 | Bogus Control Flow | bcf | [Ref: OLLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Bogus-Control-Flow) | [@34r7hm4n](https://github.com/bluesadi) |
 | Instruction Substitution | sub | [Ref: OLLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/) | [@34r7hm4n](https://github.com/bluesadi) |
