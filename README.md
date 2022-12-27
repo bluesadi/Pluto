@@ -1,5 +1,19 @@
 # Pluto-Obfuscator
-Pluto-Obfuscator is a code obfuscator based on LLVM 12.0.1 and its LLVM Pass framework. Briefly speaking, Pluto-Obfuscator converts the source code into a functionally equivalent but much less understandable version at compile-time, protecting your software from reversing engineering.
+Pluto-Obfuscator is a code obfuscator based on LLVM 12.0.1 and its LLVM Pass framework. Briefly speaking, Pluto-Obfuscator converts the source code into a functionally equivalent but much less understandable version at compile-time, protecting your software from reverse engineering.
+
+## Features
+Pluto-Obfuscator implements multiple algorithms for obfuscation. The first three bold ones are the most recommended as they are relatively more stable and efficient compared to the other:
+
+- \*[Control Flow Flattening Enhanced](https://bbs.pediy.com/thread-274778.htm) by [@za233](https://github.com/za233)
+- \*Globals Encryption
+- \*[MBA Obfuscation](https://bbs.pediy.com/thread-271574.htm)
+- [Control Flow Flattening](https://github.com/obfuscator-llvm/obfuscator/wiki/Control-Flow-Flattening)
+- [Bogus Control Flow](https://github.com/obfuscator-llvm/obfuscator/wiki/Bogus-Control-Flow)
+- [Instruction Substitution](https://github.com/obfuscator-llvm/obfuscator/wiki/Instructions-Substitution)
+- Random Control Flow
+- Variable Substitution
+- String Encryption
+- [Trap Angr (MORE OF A TOY)](docs/TrapAngr.md)
 
 ## Installation
 No matter what OS you are using, first make sure you include all the following commands in the PATH environment variable:
@@ -15,20 +29,6 @@ $ sudo apt install gcc g++ cmake make ninja-build
 ```
 
 The final step is to execute `./build.sh`, which is a shell script that automatically compiles this project and install it in the [/install](/install) directory. Such scripts for MacOS and Windows are also available at [build_macos.sh](build_macos.sh) and [build_win.bat](build_win.bat). Please feel free to use them!
-
-## Features
-Pluto-Obfuscator encompasses multiple passes as follows (`*` indicates the most recommended passes):
-
-- Control Flow Flattening ([Ref: Obfuscator-LLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Control-Flow-Flattening))
-- \*Control Flow Flattening Enhanced ([Chinese documentation](https://bbs.pediy.com/thread-274778.htm))
-- Bogus Control Flow ([Ref: Obfuscator-LLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Bogus-Control-Flow))
-- Instruction Substitution ([Ref: Obfuscator-LLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Instructions-Substitution))
-- Random Control Flow
-- Variable Substitution
-- String Encryption
-- \*Globals Encryption
-- [Trap Angr (Experimental)](docs/TrapAngr.md)
-- \*MBA Obfuscation ([Chinese documentation](https://bbs.pediy.com/thread-271574.htm))
 
 > 34r7hm4n: The documentation of this project is still lacking. I will work on it when I am available.
 
