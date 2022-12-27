@@ -5,17 +5,17 @@ Pluto-Obfuscator is a code obfuscator based on LLVM 12.0.1 and its LLVM Pass fra
 ## Features
 Pluto-Obfuscator implements multiple algorithms for obfuscation. The first three bold ones are the most recommended as they are relatively stabler and more efficient compared to the other:
 
-|  Name  | Identifier | Documents | Authors |
+|  Name  | Identifier |  Documentation | Authors |
 |  ----  | ----  | ---- | ---- |
-| **Control Flow Flattening Enhanced** | fla-ex | [Chinese Document](https://bbs.pediy.com/thread-274778.htm) | [@za233](https://github.com/za233) |
+| **Control Flow Flattening Enhanced** | fla-ex | [Chinese  Documentation](https://bbs.pediy.com/thread-274778.htm) | [@za233](https://github.com/za233) |
 | **Globals Encryption** | gle | None | [@34r7hm4n](https://github.com/bluesadi) |
-| **MBA Obfuscation** | mba | [Chinese Document](https://bbs.pediy.com/thread-271574.htm) | [@34r7hm4n](https://github.com/bluesadi) |
+| **MBA Obfuscation** | mba | [Chinese  Documentation](https://bbs.pediy.com/thread-271574.htm) | [@34r7hm4n](https://github.com/bluesadi) |
 | Control Flow Flattening| fla | [Ref: OLLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Control-Flow-Flattening) | [@34r7hm4n](https://github.com/bluesadi) |
 | Bogus Control Flow | bcf | [Ref: OLLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Bogus-Control-Flow) | [@34r7hm4n](https://github.com/bluesadi) |
 | Instruction Substitution | sub | [Ref: OLLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/) | [@34r7hm4n](https://github.com/bluesadi) |
 | Random Control Flow | rcf | None | [@34r7hm4n](https://github.com/bluesadi) |
 | Variable Substitution | vsb | None | [@34r7hm4n](https://github.com/bluesadi) |
-| Trap Angr | trap-angr | [English Document](docs/TrapAngr.md) | [@34r7hm4n](https://github.com/bluesadi) |
+| Trap Angr | trap-angr | [English Documentation](docs/TrapAngr.md) | [@34r7hm4n](https://github.com/bluesadi) |
 
 ## Installation
 No matter what OS you are using, first make sure you include all the following commands in the PATH environment variable:
