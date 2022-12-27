@@ -1,20 +1,20 @@
 # Pluto-Obfuscator
-Pluto-Obfuscator is an obfuscator based on LLVM 12.0.1 by [34r7h4mn](https://github.com/bluesadi) and [za233](https://github.com/za233).
+Pluto-Obfuscator is a code obfuscator based on LLVM 12.0.1 and its LLVM Pass framework. Briefly speaking, Pluto-Obfuscator converts the source code into a functionally equivalent but much less understandable version at compile-time, protecting your software from reversing engineering.
 
 ## Installation
-No matter what OS you are using, first make sure your environment path contains the following commands:
+No matter what OS you are using, first make sure you include all the following commands in the PATH environment variable:
 ```
 gcc g++ cmake make ninja
 ```
 
-I compiled this project on Ubuntu 20.04 (WSL2), so I will assume you are also using Ubuntu for the next steps.
+I compiled this project on Ubuntu 20.04 (WSL2), so I would assume you are also using Ubuntu for the next steps.
 
-To install all the required packages, you may simply use:
+You may install all the required packages using:
 ```shell
 $ sudo apt install gcc g++ cmake make ninja-build
 ```
 
-The final step is to execute `./build.sh`, which is a shell script that automatically compiles this project and install it on the [/install](/install) directory. Such scripts for MacOS and Windows are also available at [build_macos.sh](build_macos.sh) and [build_win.bat](build_win.bat). Feel free to use them!
+The final step is to execute `./build.sh`, which is a shell script that automatically compiles this project and install it in the [/install](/install) directory. Such scripts for MacOS and Windows are also available at [build_macos.sh](build_macos.sh) and [build_win.bat](build_win.bat). Please feel free to use them!
 
 ## Features
 Pluto-Obfuscator encompasses multiple passes as follows (`*` indicates the most recommended passes):
