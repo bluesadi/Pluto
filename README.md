@@ -3,7 +3,7 @@ Pluto-Obfuscator is a code obfuscator based on LLVM 12.0.1 and its LLVM Pass fra
 > 34r7hm4n: The documentation of this project is still lacking. I will work on it when I am available.
 
 ## Features
-Pluto-Obfuscator implements multiple algorithms for obfuscation. The first three bold ones are the most recommended as they are relatively stabler and more efficient compared to the other:
+Pluto-Obfuscator implements multiple algorithms for obfuscation. The first three bold ones are the most recommended as they are relatively stabler and more effective compared to the other:
 
 |  Name  | Identifier |  Documentation | Authors |
 |  ----  | ----  | ---- | ---- |
@@ -34,7 +34,9 @@ The final step is to execute `./build.sh`, which is a shell script that automati
 
 ## Usage
 
-
+```
+./install/clang[++] [-mllvm <identifier>] [-mllvm <another option>] <source files> [-o <output file>]
+```
 
 ### Filter Mode
 In case you just want to obfuscate specific functions, Pluto-Obfuscator also provides a filter mechanism using annotation, to help you specify which functions should or should not be obfuscated.
