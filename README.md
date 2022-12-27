@@ -10,9 +10,9 @@ Pluto-Obfuscator implements multiple algorithms for obfuscation. The first three
 | **Control Flow Flattening Enhanced** | fla-ex | - English Documentation<br>- [Chinese Blog](https://bbs.pediy.com/thread-274778.htm) | [@za233](https://github.com/za233) |
 | **Globals Encryption** | gle | None | [@34r7hm4n](https://github.com/bluesadi) |
 | **MBA Obfuscation** | mba | - English Documentation<br>- [Chinese Blog](https://bbs.pediy.com/thread-271574.htm) | [@34r7hm4n](https://github.com/bluesadi) |
-| Control Flow Flattening| fla | [Ref: OLLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Control-Flow-Flattening) | [@34r7hm4n](https://github.com/bluesadi) |
-| Bogus Control Flow | bcf | [Ref: OLLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/Bogus-Control-Flow) | [@34r7hm4n](https://github.com/bluesadi) |
-| Instruction Substitution | sub | [Ref: OLLVM](https://github.com/obfuscator-llvm/obfuscator/wiki/) | [@34r7hm4n](https://github.com/bluesadi) |
+| Control Flow Flattening| fla | [Ref: obfuscator-llvm/obfuscator](https://github.com/obfuscator-llvm/obfuscator/wiki/Control-Flow-Flattening) | [@34r7hm4n](https://github.com/bluesadi) |
+| Bogus Control Flow | bcf | [Ref: obfuscator-llvm/obfuscator](https://github.com/obfuscator-llvm/obfuscator/wiki/Bogus-Control-Flow) | [@34r7hm4n](https://github.com/bluesadi) |
+| Instruction Substitution | sub | [Ref: obfuscator-llvm/obfuscator](https://github.com/obfuscator-llvm/obfuscator/wiki/) | [@34r7hm4n](https://github.com/bluesadi) |
 | Random Control Flow | rcf | None | [@34r7hm4n](https://github.com/bluesadi) |
 | Variable Substitution | vsb | None | [@34r7hm4n](https://github.com/bluesadi) |
 | Trap Angr | trap-angr | [English Documentation](docs/TrapAngr.md) | [@34r7hm4n](https://github.com/bluesadi) |
