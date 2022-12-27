@@ -4,9 +4,9 @@ Pluto-Obfuscator is a code obfuscator based on LLVM 12.0.1 and its LLVM Pass fra
 ## Features
 Pluto-Obfuscator implements multiple algorithms for obfuscation. The first three bold ones are the most recommended as they are relatively more stable and efficient compared to the other:
 
-- \*[Control Flow Flattening Enhanced](https://bbs.pediy.com/thread-274778.htm) by [@za233](https://github.com/za233)
-- \*Globals Encryption
-- \*[MBA Obfuscation](https://bbs.pediy.com/thread-271574.htm)
+- [**Control Flow Flattening Enhanced**](https://bbs.pediy.com/thread-274778.htm) by [@za233](https://github.com/za233)
+- **Globals Encryption**
+- [**MBA Obfuscation**](https://bbs.pediy.com/thread-271574.htm)
 - [Control Flow Flattening](https://github.com/obfuscator-llvm/obfuscator/wiki/Control-Flow-Flattening)
 - [Bogus Control Flow](https://github.com/obfuscator-llvm/obfuscator/wiki/Bogus-Control-Flow)
 - [Instruction Substitution](https://github.com/obfuscator-llvm/obfuscator/wiki/Instructions-Substitution)
