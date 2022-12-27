@@ -14,7 +14,7 @@ To install all the required packages, you may simply use:
 $ sudo apt install gcc g++ cmake make ninja-build
 ```
 
-The final step is to execute `./build.sh`, which is a shell script that automatically compiles this project and install it on the [/install](/install) directory. Such scripts for MacOS and Windows are also available at [build_macos.sh](build_macos.sh) and [./build_win.bat](build_win.bat). Feel free to use them!
+The final step is to execute `./build.sh`, which is a shell script that automatically compiles this project and install it on the [/install](/install) directory. Such scripts for MacOS and Windows are also available at [build_macos.sh](build_macos.sh) and [build_win.bat](build_win.bat). Feel free to use them!
 
 ## Features
 Pluto-Obfuscator encompasses multiple passes as follows (`*` indicates the most recommended passes):
