@@ -1,14 +1,20 @@
 # Pluto-Obfuscator
 Pluto-Obfuscator is an obfuscator based on LLVM 12.0.1 by [34r7h4mn](https://github.com/bluesadi) and [za233](https://github.com/za233).
 
-## Environment
-This project was developed and tested on the following environment:
-- Ubuntu 20.04.3 LTS
-- Clang/LLVM 12.0.1
-- CMake 3.16.3
-- Ninja 1.10.0
+## Installation
+No matter what OS you are using, first make sure your environment path contains the following commands:
+```
+gcc g++ cmake make ninja
+```
 
-You can also build this project on Windows and MacOS, or even merge it into Android NDK toolchain (tested on Android NDK r23).
+I compiled this project on Ubuntu 20.04 (WSL2), so I will assume you are also using Ubuntu for the next steps.
+
+To install all the required packages, you may simply use:
+```shell
+$ sudo apt install gcc g++ cmake make ninja-build
+```
+
+The final step is to execute `./build.sh`, which is a shell script that automatically compiles this project and install it on the [/install](/install) directory. Such scripts for MacOS and Windows are also available at [build_macos.sh](build_macos.sh) and [./build_win.bat](build_win.bat). Feel free to use them!
 
 ## Features
 Pluto-Obfuscator encompasses multiple passes as follows (`*` indicates the most recommended passes):
@@ -27,34 +33,7 @@ Pluto-Obfuscator encompasses multiple passes as follows (`*` indicates the most 
 > 34r7hm4n: The documentation of this project is still lacking. I will work on it when I am available.
 
 ## Usage
-### Build on Linux/Windows
-The following commands work on both Linux and Windows:
-```shell
-mkdir -p build
-cd build
-cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" \
-    -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86" \
-    -DBUILD_SHARED_LIBS=On -DCMAKE_INSTALL_PREFIX="../install" ../llvm
 
-ninja -j$(nproc)
-ninja install
-```
-### Build on MacOS
-
-```shell
-mkdir -p build
-cd build
-cmake -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang" \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DDEFAULT_SYSROOT=$(xcrun --show-sdk-path) \
-    -DCMAKE_OSX_SYSROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX$(xcrun --show-sdk-version).sdk \
-    -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
-    -DCMAKE_INSTALL_PREFIX="../install" \
-    ../llvm
-
-ninja -j$(sysctl -n hw.logicalcpu)
-ninja install
-```
 
 ### Compile with the Most Recommended Obfuscation
 // TODO
