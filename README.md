@@ -1,6 +1,6 @@
 # Pluto-Obfuscator
 Pluto-Obfuscator is a code obfuscator based on LLVM 12.0.1 and its LLVM Pass framework. Briefly speaking, Pluto-Obfuscator converts the source code into a functionally equivalent but much less understandable version at compile-time, protecting your software from reverse engineering.
-> 34r7hm4n: The documentation of this project is still lacking. I will work on it when I am available.
+> The documentation of Pluto-Obfuscator is still lacking. I will work on it when I am available.
 
 ## Features
 Pluto-Obfuscator implements multiple algorithms for obfuscation. The first three bold ones are the most recommended as they are relatively stabler and more effective compared to the other:
@@ -18,24 +18,30 @@ Pluto-Obfuscator implements multiple algorithms for obfuscation. The first three
 | Trap Angr | trap-angr | [English Documentation](docs/TrapAngr.md) | [@34r7hm4n](https://github.com/bluesadi) |
 
 ## Installation
-No matter what OS you are using, first make sure you include all the following commands in the PATH environment variable:
+The first step is always to clone this repository:
 ```
-gcc g++ cmake make ninja
+$ git clone https://github.com/bluesadi/Pluto-Obfuscator.git
+$ cd Pluto-Obfuscator
 ```
 
-I compiled this project on Ubuntu 20.04 (WSL2), so I would assume you are also using Ubuntu for the next steps.
+No matter which OS you are using, make sure you include all the following commands in the PATH environment variable:
+```
+gcc g++ cmake ninja
+```
 
-You may install all the required packages using:
+If you are using Ubuntu, you may install all the required packages by:
 ```shell
-$ sudo apt install gcc g++ cmake make ninja-build
+$ sudo apt install gcc g++ cmake ninja-build
 ```
 
-The final step is to execute `./build.sh`, which is a shell script that automatically compiles this project and install it in the [/install](/install) directory. Such scripts for MacOS and Windows are also available at [build_macos.sh](build_macos.sh) and [build_win.bat](build_win.bat). Please feel free to use them!
+The final step is to execute `./build.sh`, which is a shell script that automatically compiles this project and install it in the [/install](/install) directory. Such script for MacOS are also available at [build_macos.sh](build_macos.sh). As of Windows, you may execute `./build.sh` on Git Bash (you must have installed it if you get this project by `git clone`). By default the script utilizes all CPU cores of your machine to compile as fast as possible. If you don't want the compilation occupies all the CPU cores, making your computer laggy, you may specify the maximum cores you want to allocate. Let's say your computer has 16 CPU cores, you can use `./build.sh 12` to tell the script only to use 8 cores for compilation.
+
+**TROUBLE SHOOTING:** LLVM is a rather large project, please allocate enough memory (at least 8GB) for your virtual machine or WSL during compilation, otherwise you will probably encounter an error message `g++: fatal error: Killed signal terminated program cc1plus` caused by insufficient memory.
 
 ## Usage
 
-```
-./install/clang[++] [-mllvm <identifier>] [-mllvm <another option>] <source files> [-o <output file>]
+```shell
+$ ./install/clang[++] [-mllvm <identifier>] [-mllvm <another option>] <source files> [-o <output file>]
 ```
 
 ### Filter Mode
