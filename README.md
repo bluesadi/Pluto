@@ -8,13 +8,13 @@ Pluto-Obfuscator implements multiple algorithms for obfuscation. The first three
 |  Name  | Identifier |  Documentation | Authors |
 |  ----  | ----  | ---- | ---- |
 | **Control Flow Flattening Enhanced** | fla-ex | - English Documentation<br>- [Chinese Blog](https://bbs.pediy.com/thread-274778.htm) | [@za233](https://github.com/za233) |
-| **Globals Encryption** | gle | None | [@34r7hm4n](https://github.com/bluesadi) |
+| **Globals Encryption** | gle | English Documentation | [@34r7hm4n](https://github.com/bluesadi) |
 | **MBA Obfuscation** | mba | - English Documentation<br>- [Chinese Blog](https://bbs.pediy.com/thread-271574.htm) | [@34r7hm4n](https://github.com/bluesadi) |
 | Control Flow Flattening| fla | [Ref: obfuscator-llvm/obfuscator](https://github.com/obfuscator-llvm/obfuscator/wiki/Control-Flow-Flattening) | [@34r7hm4n](https://github.com/bluesadi) |
 | Bogus Control Flow | bcf | [Ref: obfuscator-llvm/obfuscator](https://github.com/obfuscator-llvm/obfuscator/wiki/Bogus-Control-Flow) | [@34r7hm4n](https://github.com/bluesadi) |
 | Instruction Substitution | sub | [Ref: obfuscator-llvm/obfuscator](https://github.com/obfuscator-llvm/obfuscator/wiki/) | [@34r7hm4n](https://github.com/bluesadi) |
-| Random Control Flow | rcf | None | [@34r7hm4n](https://github.com/bluesadi) |
-| Variable Substitution | vsb | None | [@34r7hm4n](https://github.com/bluesadi) |
+| Random Control Flow | rcf | English Documentation | [@34r7hm4n](https://github.com/bluesadi) |
+| Variable Substitution | vsb | English Documentation | [@34r7hm4n](https://github.com/bluesadi) |
 | Trap Angr | trap-angr | [English Documentation](docs/TrapAngr.md) | [@34r7hm4n](https://github.com/bluesadi) |
 
 ## Installation
@@ -34,17 +34,26 @@ If you are using Ubuntu, you may install all the required packages by:
 $ sudo apt install gcc g++ cmake ninja-build
 ```
 
-The final step is to execute `./build.sh`, which is a shell script that automatically compiles this project and install it in the [/install](/install) directory. Such script for MacOS are also available at [build_macos.sh](build_macos.sh). As of Windows, you may execute `./build.sh` on Git Bash (you must have installed it if you get this project by `git clone`). By default the script utilizes all CPU cores of your machine to compile as fast as possible. If you don't want the compilation occupies all the CPU cores, making your computer laggy, you may specify the maximum cores you want to allocate. Let's say your computer has 16 CPU cores, you can use `./build.sh 12` to tell the script only to use 8 cores for compilation.
+The final step is to execute `./build.sh`, which is a shell script that automatically compiles this project and install it in the [/install](/install) directory. Such script for MacOS are also available at [build_macos.sh](build_macos.sh). As of Windows, you may execute `./build.sh` on Git Bash (you must have installed it if you get this project by `git clone`). 
 
-**TROUBLE SHOOTING:** LLVM is a rather large project, please allocate enough memory (at least 8GB) for your virtual machine or WSL during compilation, otherwise you will probably encounter an error message `g++: fatal error: Killed signal terminated program cc1plus` caused by insufficient memory.
+By default the script utilizes all CPU cores of your machine to compile as fast as possible. If you don't want the compilation occupies all the CPU cores, making your computer laggy, you may specify the maximum cores you want to allocate. Let's say your computer has 16 CPU cores, you can use `./build.sh 12` to tell the script only to use 8 cores for compilation.
+
+**TROUBLE SHOOTING:** LLVM is a rather large project, so please allocate enough memory (at least 8GB) for your virtual machine or WSL during compilation, otherwise you will probably encounter an error message `g++: fatal error: Killed signal terminated program cc1plus` caused by insufficient memory.
 
 ## Usage
+
+After installation, all compiled binaries reside in `/install` directory including `clang` and `clang++` with obfuscation functionalities. You can enable specific obfuscation algorithms by commands in the following format:
 
 ```shell
 $ ./install/clang[++] [-mllvm <identifier>] [-mllvm <another option>] <source files> [-o <output file>]
 ```
 
-### Filter Mode
+For example, say you want to enable all the three recommended obfuscation algorithms, you may use:
+```shell
+$ ./install/clang++ -mllvm mba -mba-prob=50 -mllvm fla-ex -mllvm gle test/aes/AES.cpp test/aes/TestProgram.cpp -o test/aes/TestProgram.out
+```
+
+<!-- ### Filter Mode
 In case you just want to obfuscate specific functions, Pluto-Obfuscator also provides a filter mechanism using annotation, to help you specify which functions should or should not be obfuscated.
 
 To enable this mechanism, you should pass `-mllvm -filter-mode=include` or `-mllvm -filter-mode=exclude` to clang as an argument. 
@@ -78,7 +87,7 @@ int main(){
     foo2();
     foo3();
 }
-```
+``` -->
 
 ## Test suite
 **IMPORTANT:** If you would like to improve this project by creating pull requests, please make sure your modified code can pass the tests as follows. Issues and pull requests about the most recommended passes will be prioritized.
