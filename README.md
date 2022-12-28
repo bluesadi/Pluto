@@ -45,12 +45,16 @@ By default the script utilizes all CPU cores of your machine to compile as fast 
 After installation, all compiled binaries reside in `/install` directory including `clang` and `clang++` with obfuscation functionalities. You can enable specific obfuscation algorithms by commands in the following format:
 
 ```shell
-$ ./install/clang[++] [-mllvm <identifier>] [-mllvm <another option>] <source files> [-o <output file>]
+$ ./install/bin/clang[++] [-mllvm -<identifier/optional parameter>] [...] <source files> [-o <output file>]
 ```
 
-For example, say you want to enable all the three recommended obfuscation algorithms, you may use:
+For example, say you want to have a try at the most recommended combination, you may execute:
 ```shell
-$ ./install/clang++ -mllvm mba -mba-prob=50 -mllvm fla-ex -mllvm gle test/aes/AES.cpp test/aes/TestProgram.cpp -o test/aes/TestProgram.out
+$ ./install/bin/clang++ -mllvm -mba -mllvm -mba-prob=50 -mllvm -fla-ex -mllvm -gle test/aes/aes.cpp test/aes/test.cpp -o test/aes/test
+$ ./test/aes/test flag{s1mpl3_11vm_d3m0} 
+Welcome to LLVM world...
+Your flag is: flag{s1mpl3_11vm_d3m0}
+Congratulations~
 ```
 
 <!-- ### Filter Mode
