@@ -17,6 +17,8 @@ Pluto-Obfuscator implements multiple algorithms for obfuscation. The first three
 | Variable Substitution | vsb | English Documentation | [@34r7hm4n](https://github.com/bluesadi) |
 | Trap Angr | trap-angr | [English Documentation](docs/TrapAngr.md) | [@34r7hm4n](https://github.com/bluesadi) |
 
+Issues and pull requests about the most recommended three algorithms will be handled with priority.
+
 ## Installation
 The first step is always to clone this repository:
 ```
@@ -42,13 +44,13 @@ By default the script utilizes all CPU cores of your machine to compile as fast 
 
 ## Usage
 
-After installation, all compiled binaries reside in `/install` directory including `clang` and `clang++` with obfuscation functionalities. You can enable specific obfuscation algorithms by commands in the following format:
+Now all compiled binaries reside in `/install/bin` directory including `clang` and `clang++` with obfuscation functionalities. You can enable specific obfuscation algorithms by commands in the following format:
 
 ```shell
-$ ./install/bin/clang[++] [-mllvm -<identifier/optional parameter>] [...] <source files> [-o <output file>]
+$ ./install/bin/clang[++] [-mllvm -<identifier/options>] [...] <source files> [-o <output file>]
 ```
 
-For example, say you want to have a try at the most recommended combination, you may execute:
+For example, say you want to have a try at the most recommended combination (I would like to call it FullProtection), you may execute:
 ```shell
 $ ./install/bin/clang++ -mllvm -mba -mllvm -mba-prob=50 -mllvm -fla-ex -mllvm -gle test/aes/aes.cpp test/aes/test.cpp -o test/aes/test
 $ ./test/aes/test flag{s1mpl3_11vm_d3m0} 
@@ -93,18 +95,18 @@ int main(){
 }
 ``` -->
 
-## Test suite
-**IMPORTANT:** If you would like to improve this project by creating pull requests, please make sure your modified code can pass the tests as follows. Issues and pull requests about the most recommended passes will be prioritized.
+## Testing
+**IMPORTANT:** I would really appreciate you would like to contribute to Pluto-Obfuscator by creating pull requests. Please test your modified code on the test cases as follows.
 
 ### Quick Test on AES
-Usage: `./fast-check [your-passes]` (e.g., `./fast-check.sh mba mba-prob=50 fla-ex gle`).
+Usage: `./fast-check.sh [identifiers/options]` (e.g., `./fast-check.sh mba mba-prob=50 fla-ex gle`).
 
 See [fast-check.sh](fast-check.sh) and [test/aes](test/aes/).
 
 ### Test on libsecp256k1
-Usage: `./check.sh [your-passes]` (e.g., `./check.sh mba mba-prob=50 fla-ex gle`)
+Usage: `./check.sh [identifiers/options]` (e.g., `./check.sh mba mba-prob=50 fla-ex gle`)
 
-Generally, it will cost several minutes to be done, much slower compared to AES test.
+Generally, it will cost several minutes to be done, much slower compared to the AES test.
 
 Passed Parameters:
 - Flattening: `fla`
@@ -112,6 +114,6 @@ Passed Parameters:
 - Substitution: `sub`
 - GlobalsEncryption: `gle`
 - MBAObfuscation: `mba mba-prob=100`
-- FullProtection (**HIGHLY RECOMMENDED**): `mba mba-prob=50 fla-ex gle`
+- FullProtection: `mba mba-prob=50 fla-ex gle`
 
 See [check.sh](check.sh) and [test/secp256k1](test/secp256k1/).
