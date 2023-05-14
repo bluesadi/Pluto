@@ -1,5 +1,6 @@
 # Pluto-Obfuscator
 [English Documentation](README.md) | [中文文档](README_zh-cn.md)
+
 Pluto-Obfuscator是一款兼容LLVM 12.0.1的代码混淆器。简单来说, Pluto-Obfuscator能够在编译时将源代码转换为一种功能上等价，但更难以被理解的混淆代码，增加逆向工程的难度。
 
 ## 安装方法
