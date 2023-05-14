@@ -1,8 +1,0 @@
-# NOTE: Used by weak-mismatch.ifs
---- !experimental-ifs-v2
-IfsVersion: 2.0
-Triple: x86_64-unknown-linux-gnu
-ObjectFileFormat: ELF
-Symbols:
-  - { Name: foobar, Type: Object, Size: 2 }
-...
