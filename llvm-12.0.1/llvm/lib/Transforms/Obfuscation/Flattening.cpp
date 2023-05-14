@@ -6,13 +6,12 @@
 
 using Utils::fixStack;
 
-namespace Flattening {
-bool visit(Function &F) {
+PreservedAnalyses Pluto::Flattening::run(Function &F, FunctionAnalysisManager &AM) {
     auto &context = F.getContext();
     // 如果只有一个基本块则无需平坦化
     // No need to do flattening if only one block presents
     if (F.size() <= 1) {
-        return false;
+        return PreservedAnalyses::none();
     }
 
     // 将除入口块（第一个基本块）以外的基本块保存到一个vector容器中，便于后续处理
@@ -103,16 +102,5 @@ bool visit(Function &F) {
         }
     }
     fixStack(F);
-    return true;
-}
-} // namespace Flattening
-
-PreservedAnalyses Pluto::Flattening::run(Function &F, FunctionAnalysisManager &AM) {
-    return ::Flattening::visit(F) ? PreservedAnalyses::none() : PreservedAnalyses::all();
-}
-
-bool Pluto::LegacyFlattening::runOnFunction(Function &F) { return ::Flattening::visit(F); }
-
-void Pluto::LegacyFlattening::getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequiredID(LowerSwitchID);
+    return PreservedAnalyses::all();
 }

@@ -14,14 +14,4 @@ struct Flattening : PassInfoMixin<Flattening> {
     static bool isRequired() { return true; }
 };
 
-struct LegacyFlattening : public FunctionPass {
-    static char ID;
-
-    LegacyFlattening() : FunctionPass(ID) {}
-
-    bool runOnFunction(Function &F) override;
-
-    void getAnalysisUsage(AnalysisUsage &AU) const;
-};
-
 }; // namespace Pluto
