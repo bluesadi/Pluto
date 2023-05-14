@@ -1,8 +1,8 @@
 # Pluto-Obfuscator
 [English Documentation](README.md) | [中文文档](README_zh-cn.md)
-Pluto-Obfuscator is a code obfuscator compatible with LLVM 12.0.1, (more in the future...). Briefly speaking, Pluto-Obfuscator converts the source code into a functionally equivalent but much less understandable version at compile-time, protecting your software from reverse engineering.
+Pluto-Obfuscator是一款兼容LLVM 12.0.1的代码混淆器。简单来说, Pluto-Obfuscator能够在编译时将源代码转换为一种功能上等价，但更难以被理解的混淆代码，增加逆向工程的难度。
 
-## Installation
+## 安装方法
 ```
 $ sudo apt install ninja-build
 $ git clone https://github.com/bluesadi/Pluto-Obfuscator.git
