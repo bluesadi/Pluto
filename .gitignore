@@ -1,5 +1,4 @@
 build
-build.sh
 install
 /.vscode
 *.o.tmp

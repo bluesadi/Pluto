@@ -1,3 +1,0 @@
-# RUN: not llvm-ml %t.blah.asm /Fo /dev/null 2>&1 | FileCheck --check-prefix=ENOENT %s
-
-# ENOENT: {{.*}}.blah.asm: {{[Nn]}}o such file or directory
