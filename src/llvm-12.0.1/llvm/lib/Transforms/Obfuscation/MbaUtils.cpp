@@ -45,9 +45,9 @@ int64_t *MbaUtils::generateLinearMBA(int exprNumber) {
         for (int i = 0; i < exprNumber; i++) {
             exprSelector[i] = rand() % 15;
         }
-        for (int i = 0; i < exprNumber; i++) {
+        for (int i = 0; i < 4; i++) {
             expr equ = c.int_val(0);
-            for (int j = 0; j < 4; j++) {
+            for (int j = 0; j < exprNumber; j++) {
                 equ = equ + params[j] * truthTable[exprSelector[j]][i];
             }
             s.add(equ == 0);
