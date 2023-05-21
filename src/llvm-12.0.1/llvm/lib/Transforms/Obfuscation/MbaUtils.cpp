@@ -12,7 +12,7 @@
 using namespace z3;
 using namespace llvm;
 
-int8_t truthTable[15][4] = {
+static int8_t truthTable[15][4] = {
     {0, 0, 0, 1}, // x & y
     {0, 0, 1, 0}, // x & ~y
     {0, 0, 1, 1}, // x
@@ -30,47 +30,47 @@ int8_t truthTable[15][4] = {
     {1, 1, 1, 1}, // -1
 };
 
-int64_t *MbaUtils::generateLinearMBA(int exprNumber) {
-    int *exprSelector = new int[exprNumber];
+int64_t *MbaUtils::generateLinearMBA(int numExprs) {
+    int *exprs = new int[numExprs];
     int64_t *coeffs = new int64_t[15];
     while (true) {
         context c;
-        std::vector<expr> params;
+        std::vector<expr> X;
         solver s(c);
         std::fill_n(coeffs, 15, 0);
-        for (int i = 0; i < exprNumber; i++) {
-            std::string paramName = formatv("a{0:d}", i);
-            params.push_back(c.int_const(paramName.c_str()));
+        for (int i = 0; i < numExprs; i++) {
+            std::string name = formatv("a{0:d}", i);
+            X.push_back(c.int_const(name.c_str()));
         }
-        for (int i = 0; i < exprNumber; i++) {
-            exprSelector[i] = rand() % 15;
+        for (int i = 0; i < numExprs; i++) {
+            exprs[i] = rand() % 15;
         }
         for (int i = 0; i < 4; i++) {
             expr equ = c.int_val(0);
-            for (int j = 0; j < exprNumber; j++) {
-                equ = equ + params[j] * truthTable[exprSelector[j]][i];
+            for (int j = 0; j < numExprs; j++) {
+                equ = equ + X[j] * truthTable[exprs[j]][i];
             }
             s.add(equ == 0);
         }
         expr notZeroCond = c.bool_val(false);
         // a1 != 0 || a2 != 0 || ... || an != 0
-        for (int i = 0; i < exprNumber; i++) {
-            notZeroCond = notZeroCond || (params[i] != 0);
+        for (int i = 0; i < numExprs; i++) {
+            notZeroCond = notZeroCond || (X[i] != 0);
         }
         s.add(notZeroCond);
         if (s.check() != sat) {
             continue;
         }
         model m = s.get_model();
-        for (int i = 0; i < exprNumber; i++) {
-            coeffs[exprSelector[i]] += m.eval(params[i]).as_int64();
+        for (int i = 0; i < numExprs; i++) {
+            coeffs[exprs[i]] += m.eval(X[i]).as_int64();
         }
-        delete[] exprSelector;
+        delete[] exprs;
         return coeffs;
     }
 }
 
-Value *MbaUtils::insertLinearMBA(int64_t *params, Instruction *insertBefore) {
+Value *MbaUtils::insertLinearMBA(int64_t *coeffs, Instruction *insertBefore) {
     IRBuilder<> builder(insertBefore->getContext());
     builder.SetInsertPoint(insertBefore);
     Value *x, *y;
@@ -93,7 +93,7 @@ Value *MbaUtils::insertLinearMBA(int64_t *params, Instruction *insertBefore) {
     mbaExpr = builder.CreateLoad(mbaExpr);
     Value *boolExpr, *term;
     for (int i = 0; i < 15; i++) {
-        if (!params[i])
+        if (!coeffs[i])
             continue;
         // x & y
         if (i == 0)
@@ -140,7 +140,7 @@ Value *MbaUtils::insertLinearMBA(int64_t *params, Instruction *insertBefore) {
         // -1
         else if (i == 14)
             boolExpr = ConstantInt::get(x->getType(), -1);
-        term = builder.CreateMul(ConstantInt::get(x->getType(), params[i]), boolExpr);
+        term = builder.CreateMul(ConstantInt::get(x->getType(), coeffs[i]), boolExpr);
         mbaExpr = builder.CreateAdd(mbaExpr, term);
     }
     return mbaExpr;
