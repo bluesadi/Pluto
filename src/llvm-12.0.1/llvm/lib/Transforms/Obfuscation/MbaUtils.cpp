@@ -12,7 +12,7 @@
 using namespace z3;
 using namespace llvm;
 
-static int8_t truthTable[15][4] = {
+static int8_t truthTables[15][4] = {
     {0, 0, 0, 1}, // x & y
     {0, 0, 1, 0}, // x & ~y
     {0, 0, 1, 1}, // x
@@ -48,7 +48,7 @@ int64_t *MbaUtils::generateLinearMBA(int numExprs) {
         for (int i = 0; i < 4; i++) {
             expr equ = c.int_val(0);
             for (int j = 0; j < numExprs; j++) {
-                equ = equ + X[j] * truthTable[exprs[j]][i];
+                equ = equ + X[j] * truthTables[exprs[j]][i];
             }
             s.add(equ == 0);
         }
