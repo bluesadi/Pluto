@@ -1374,7 +1374,8 @@ ModulePassManager buildObfuscationPipeline() {
         FPM.addPass(Pluto::HelloWorld());
         FPM.addPass(LowerSwitchWrapper());
         FPM.addPass(Pluto::Flattening());
-    } else if (EnableMbaObfuscation) {
+    }
+    if (EnableMbaObfuscation) {
         FPM.addPass(Pluto::MbaObfuscation());
     }
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
