@@ -12,12 +12,4 @@ struct HelloWorld : PassInfoMixin<HelloWorld> {
     static bool isRequired() { return true; }
 };
 
-struct LegacyHelloWorld : public FunctionPass {
-    static char ID;
-
-    LegacyHelloWorld() : FunctionPass(ID) {}
-
-    bool runOnFunction(Function &F) override;
-};
-
 }; // namespace Pluto
