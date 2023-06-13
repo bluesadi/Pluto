@@ -1363,6 +1363,9 @@ static cl::opt<bool>
     EnableMbaObfuscation("enable-mba", cl::init(false), cl::Hidden, cl::ZeroOrMore,
                          cl::desc("Enable Mixed Boolean-Arithmetic (MBA) obfuscation"));
 
+static cl::opt<bool> EnableHelloWorld("enable-hlw", cl::init(false), cl::Hidden, cl::ZeroOrMore,
+                                      cl::desc("Enable HelloWorld pass"));
+
 struct LowerSwitchWrapper : LowerSwitchPass {
     static bool isRequired() { return true; }
 };
@@ -1377,6 +1380,9 @@ ModulePassManager buildObfuscationPipeline() {
     }
     if (EnableMbaObfuscation) {
         FPM.addPass(Pluto::MbaObfuscation());
+    }
+    if (EnableHelloWorld) {
+        FPM.addPass(Pluto::HelloWorld());
     }
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     return MPM;
