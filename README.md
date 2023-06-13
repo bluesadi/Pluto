@@ -8,6 +8,16 @@ Download source code:
 ```
 $ git clone https://github.com/bluesadi/Pluto-Obfuscator.git
 ```
+### Dependencies
+Install z3 (required by MbaObfuscation):
+```
+$ wget https://github.com/Z3Prover/z3/archive/refs/tags/z3-4.12.2.zip
+$ tar xvf z3-4.12.2.zip
+$ cd z3-z3-4.12.2
+$ ./configure
+$ cd build
+$ make install
+```
 ### Ubuntu/Windows (Ninja)
 Install Ninja:
 ```
