@@ -90,9 +90,7 @@ Value *llvm::insertLinearMBA(int64_t *params, Instruction *insertBefore) {
         x = builder.CreateLoad(xPtr);
         y = builder.CreateLoad(yPtr);
     }
-    Value *mbaExpr = builder.CreateAlloca(x->getType());
-    builder.CreateStore(ConstantInt::get(x->getType(), 0), mbaExpr);
-    mbaExpr = builder.CreateLoad(mbaExpr);
+    Value *mbaExpr = ConstantInt::get(x->getType(), 0);
     Value *boolExpr, *term;
     for (int i = 0; i < 15; i++) {
         if (!params[i])
