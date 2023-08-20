@@ -88,9 +88,10 @@ Value *MbaUtils::insertLinearMBA(int64_t *coeffs, Instruction *insertBefore) {
         x = builder.CreateLoad(xPtr);
         y = builder.CreateLoad(yPtr);
     }
-    Value *mbaExpr = builder.CreateAlloca(x->getType());
-    builder.CreateStore(ConstantInt::get(x->getType(), 0), mbaExpr);
-    mbaExpr = builder.CreateLoad(mbaExpr);
+    // Value *mbaExpr = builder.CreateAlloca(x->getType());
+    // builder.CreateStore(ConstantInt::get(x->getType(), 0), mbaExpr);
+    // mbaExpr = builder.CreateLoad(mbaExpr);
+    Value *mbaExpr = ConstantInt::get(x->getType(), 0);
     Value *boolExpr, *term;
     for (int i = 0; i < 15; i++) {
         if (!coeffs[i])
