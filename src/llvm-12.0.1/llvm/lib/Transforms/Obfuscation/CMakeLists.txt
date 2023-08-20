@@ -10,6 +10,7 @@ add_llvm_component_library(LLVMObfuscation
   SymbolObfuscation.cpp
   StringEncryption.cpp
   IndirectCalls.cpp
+  IndirectBranches.cpp
 
   LINK_COMPONENTS
   Core

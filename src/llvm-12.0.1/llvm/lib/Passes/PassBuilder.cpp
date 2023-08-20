@@ -137,6 +137,7 @@
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
 #include "llvm/Transforms/Obfuscation/Flattening.h"
 #include "llvm/Transforms/Obfuscation/HelloWorld.h"
+#include "llvm/Transforms/Obfuscation/IndirectBranches.h"
 #include "llvm/Transforms/Obfuscation/IndirectCalls.h"
 #include "llvm/Transforms/Obfuscation/MbaObfuscation.h"
 #include "llvm/Transforms/Obfuscation/StringEncryption.h"
@@ -1374,6 +1375,9 @@ ModulePassManager buildObfuscationPipeline() {
         }
         if (pass == "icl") {
             MPM.addPass(Pluto::IndirectCalls());
+        }
+        if (pass == "ibr") {
+            FPM.addPass(Pluto::IndirectBranches());
         }
         if (pass == "mba") {
             FPM.addPass(Pluto::MbaObfuscation());
