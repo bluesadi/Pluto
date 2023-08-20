@@ -8,6 +8,8 @@ add_llvm_component_library(LLVMObfuscation
   MbaUtils.cpp
   MbaObfuscation.cpp
   SymbolObfuscation.cpp
+  StringEncryption.cpp
+  IndirectCalls.cpp
 
   LINK_COMPONENTS
   Core

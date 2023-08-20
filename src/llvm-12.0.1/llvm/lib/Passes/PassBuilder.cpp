@@ -137,7 +137,9 @@
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
 #include "llvm/Transforms/Obfuscation/Flattening.h"
 #include "llvm/Transforms/Obfuscation/HelloWorld.h"
+#include "llvm/Transforms/Obfuscation/IndirectCalls.h"
 #include "llvm/Transforms/Obfuscation/MbaObfuscation.h"
+#include "llvm/Transforms/Obfuscation/StringEncryption.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
 #include "llvm/Transforms/Scalar/AlignmentFromAssumptions.h"
@@ -1355,16 +1357,8 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel
     return MPM;
 }
 
-static cl::opt<bool> EnableControlFlowFlattening("enable-fla", cl::init(false), cl::Hidden,
-                                                 cl::ZeroOrMore,
-                                                 cl::desc("Enable control flow flattening"));
-
-static cl::opt<bool>
-    EnableMbaObfuscation("enable-mba", cl::init(false), cl::Hidden, cl::ZeroOrMore,
-                         cl::desc("Enable Mixed Boolean-Arithmetic (MBA) obfuscation"));
-
-static cl::opt<bool> EnableHelloWorld("enable-hlw", cl::init(false), cl::Hidden, cl::ZeroOrMore,
-                                      cl::desc("Enable HelloWorld pass"));
+static cl::list<std::string> Passes("passes", cl::CommaSeparated, cl::Hidden,
+                                    cl::desc("Obfuscation passes"));
 
 struct LowerSwitchWrapper : LowerSwitchPass {
     static bool isRequired() { return true; }
@@ -1373,16 +1367,23 @@ struct LowerSwitchWrapper : LowerSwitchPass {
 ModulePassManager buildObfuscationPipeline() {
     ModulePassManager MPM;
     FunctionPassManager FPM;
-    if (EnableControlFlowFlattening) {
-        FPM.addPass(Pluto::HelloWorld());
-        FPM.addPass(LowerSwitchWrapper());
-        FPM.addPass(Pluto::Flattening());
-    }
-    if (EnableMbaObfuscation) {
-        FPM.addPass(Pluto::MbaObfuscation());
-    }
-    if (EnableHelloWorld) {
-        FPM.addPass(Pluto::HelloWorld());
+    for (auto pass : Passes) {
+        if (pass == "fla") {
+            FPM.addPass(LowerSwitchWrapper());
+            FPM.addPass(Pluto::Flattening());
+        }
+        if (pass == "icl") {
+            MPM.addPass(Pluto::IndirectCalls());
+        }
+        if (pass == "mba") {
+            FPM.addPass(Pluto::MbaObfuscation());
+        }
+        if (pass == "hlw") {
+            FPM.addPass(Pluto::HelloWorld());
+        }
+        if (pass == "str") {
+            MPM.addPass(Pluto::StringEncryption());
+        }
     }
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     return MPM;
