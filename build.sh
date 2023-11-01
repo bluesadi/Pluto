@@ -1,6 +1,10 @@
 processors=$1
 if [ -z $processors ]; then
-    processors=$(nproc)
+    if [ "$(uname)" == "Darwin" ]; then
+        processors=$(sysctl -n hw.physicalcpu)
+    else
+        processors=$(nproc)
+    fi
 fi
 
 mkdir -p build
