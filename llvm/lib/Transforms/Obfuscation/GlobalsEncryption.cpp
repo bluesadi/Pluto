@@ -9,6 +9,7 @@
 #include "llvm/Transforms/Obfuscation/Utils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <iomanip>
+#include <llvm/IR/Value.h>
 #include <sstream>
 #include <vector>
 
@@ -26,17 +27,28 @@ bool GlobalsEncryption::runOnModule(Module &M) {
         return false;
     }
     INIT_CONTEXT(M);
-    vector<GlobalVariable *> GVs;
-    for (GlobalVariable &GV : M.getGlobalList()) {
-        GVs.push_back(&GV);
-    }
     for (int i = 0; i < ObfuTimes; i++) {
-        for (GlobalVariable *GV : GVs) {
+        for (GlobalVariable &T : M.getGlobalList()) {
+
+        GlobalVariable *GV = &T;
+
+        // Only process non llvm-generated ir
+        if(GV->isDeclaration()){
+            continue;
+        }
+
         // Only encrypt globals of integer and array
         if (!GV->getValueType()->isIntegerTy() &&
             !GV->getValueType()->isArrayTy()) {
             continue;
         }
+
+        // Only encrypt array with integer elements
+        ArrayType* Array = dyn_cast<ArrayType>(GV->getType()->getElementType());
+        if(Array == nullptr || !Array->getElementType()->isIntegerTy()){
+            continue;
+        }
+
         if (GV->hasInitializer() && GV->getInitializer() &&
             (GV->getName().contains(".str") || !OnlyStr)
             // Do not encrypt globals having a section named "llvm.metadata"
