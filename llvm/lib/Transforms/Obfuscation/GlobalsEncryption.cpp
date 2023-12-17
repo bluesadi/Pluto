@@ -9,7 +9,6 @@
 #include "llvm/Transforms/Obfuscation/Utils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <iomanip>
-#include <llvm/IR/Value.h>
 #include <sstream>
 #include <vector>
 
@@ -27,32 +26,22 @@ bool GlobalsEncryption::runOnModule(Module &M) {
         return false;
     }
     INIT_CONTEXT(M);
-    for (int i = 0; i < ObfuTimes; i++) {
-        for (GlobalVariable &T : M.getGlobalList()) {
-
-        GlobalVariable *GV = &T;
-
-        // Only process non llvm-generated ir
-        if(GV->isDeclaration()){
+    vector<GlobalVariable *> GVs;
+    for (GlobalVariable &GV : M.getGlobalList()) {
+        // only process non llvm-generated IRs
+        if(GV.getName().contains("llvm"))
             continue;
-        }
-
+        GVs.push_back(&GV);
+    }
+    for (int i = 0; i < ObfuTimes; i++) {
+        for (GlobalVariable *GV : GVs) {
         // Only encrypt globals of integer and array
         if (!GV->getValueType()->isIntegerTy() &&
             !GV->getValueType()->isArrayTy()) {
             continue;
         }
-
-        // Only encrypt array with integer elements
-        ArrayType* Array = dyn_cast<ArrayType>(GV->getType()->getElementType());
-        if(Array == nullptr || !Array->getElementType()->isIntegerTy()){
-            continue;
-        }
-
         if (GV->hasInitializer() && GV->getInitializer() &&
-            (GV->getName().contains(".str") || !OnlyStr)
-            // Do not encrypt globals having a section named "llvm.metadata"
-            && !GV->getSection().equals("llvm.metadata")) {
+            (GV->getName().contains(".str") || !OnlyStr)) {
             Constant *initializer = GV->getInitializer();
             ConstantInt *intData = dyn_cast<ConstantInt>(initializer);
             ConstantDataArray *arrData = dyn_cast<ConstantDataArray>(initializer);
