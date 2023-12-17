@@ -28,6 +28,9 @@ bool GlobalsEncryption::runOnModule(Module &M) {
     INIT_CONTEXT(M);
     vector<GlobalVariable *> GVs;
     for (GlobalVariable &GV : M.getGlobalList()) {
+        // only process non llvm-generated IRs
+        if(GV.getName().contains("llvm"))
+            continue;
         GVs.push_back(&GV);
     }
     for (int i = 0; i < ObfuTimes; i++) {
@@ -38,9 +41,7 @@ bool GlobalsEncryption::runOnModule(Module &M) {
             continue;
         }
         if (GV->hasInitializer() && GV->getInitializer() &&
-            (GV->getName().contains(".str") || !OnlyStr)
-            // Do not encrypt globals having a section named "llvm.metadata"
-            && !GV->getSection().equals("llvm.metadata")) {
+            (GV->getName().contains(".str") || !OnlyStr)) {
             Constant *initializer = GV->getInitializer();
             ConstantInt *intData = dyn_cast<ConstantInt>(initializer);
             ConstantDataArray *arrData = dyn_cast<ConstantDataArray>(initializer);
