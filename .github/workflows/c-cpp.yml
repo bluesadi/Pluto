@@ -7,9 +7,25 @@ on:
     branches: [ "llvm-14.0.6" ]
 
 jobs:
-  build:
+  Ubuntu:
 
     runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: sudo apt install ninja-build -y
+      run: sudo apt install ninja-build -y
+    - name: git submodule update --init --recursive
+      run: git submodule update --init --recursive
+    - name: make build
+      run: make build
+    - name: make install
+      run: make install
+    - name: make check
+      run: make check
+  Windows:
+
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v3
