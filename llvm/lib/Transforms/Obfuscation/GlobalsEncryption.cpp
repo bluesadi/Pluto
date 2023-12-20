@@ -28,19 +28,25 @@ bool GlobalsEncryption::runOnModule(Module &M) {
     INIT_CONTEXT(M);
     vector<GlobalVariable *> GVs;
     for (GlobalVariable &GV : M.getGlobalList()) {
+        // only process non llvm-generated IRs
+        if(GV.getName().contains("llvm"))
+            continue;
         GVs.push_back(&GV);
     }
     for (int i = 0; i < ObfuTimes; i++) {
         for (GlobalVariable *GV : GVs) {
-        // Only encrypt globals of integer and array
-        if (!GV->getValueType()->isIntegerTy() &&
-            !GV->getValueType()->isArrayTy()) {
-            continue;
-        }
+            if(GV->getValueType()->isArrayTy()){ // the value can be array
+                ArrayType *ArrTy = dyn_cast<ArrayType>(GV->getValueType());
+                if(!ArrTy->getElementType()->isIntegerTy()){  // but the array must be integerty
+                    continue;
+                }
+            }
+            else if (!GV->getValueType()->isIntegerTy()){  // or, the value must be integerty
+                continue;
+            }
+
         if (GV->hasInitializer() && GV->getInitializer() &&
-            (GV->getName().contains(".str") || !OnlyStr)
-            // Do not encrypt globals having a section named "llvm.metadata"
-            && !GV->getSection().equals("llvm.metadata")) {
+            (GV->getName().contains(".str") || !OnlyStr)) {
             Constant *initializer = GV->getInitializer();
             ConstantInt *intData = dyn_cast<ConstantInt>(initializer);
             ConstantDataArray *arrData = dyn_cast<ConstantDataArray>(initializer);
