@@ -126,6 +126,7 @@
 #include "llvm/Transforms/Vectorize/LoopVectorize.h"
 #include "llvm/Transforms/Vectorize/SLPVectorizer.h"
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
+#include "llvm/Transforms/Obfuscation/Pipeline.h"
 
 using namespace llvm;
 
@@ -1306,6 +1307,8 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
   // Now add the optimization pipeline.
   MPM.addPass(buildModuleOptimizationPipeline(Level, LTOPreLink));
 
+  MPM.addPass(buildObfuscationPipeline());
+
   if (PGOOpt && PGOOpt->PseudoProbeForProfiling &&
       PGOOpt->Action == PGOOptions::SampleUse)
     MPM.addPass(PseudoProbeUpdatePass());
@@ -1813,6 +1816,8 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
   CGPM.addPass(CoroSplitPass());
   MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
   MPM.addPass(createModuleToFunctionPassAdaptor(CoroCleanupPass()));
+
+  MPM.addPass(buildObfuscationPipeline());
 
   for (auto &C : OptimizerLastEPCallbacks)
     C(MPM, Level);

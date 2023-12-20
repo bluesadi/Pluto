@@ -14,3 +14,14 @@ cmake -G Ninja -S llvm -B $build_dir \
       -DCMAKE_BUILD_TYPE=Release
 
 ninja -C $build_dir install
+
+tests_build_dir=`pwd`/tests/build
+mkdir -p $tests_build_dir
+
+cmake -G Ninja -S tests -B $tests_build_dir \
+      -DCMAKE_C_COMPILER=$install_prefix/bin/clang \
+      -DCMAKE_CXX_COMPILER=$install_prefix/bin/clang++
+
+ninja -C $tests_build_dir
+
+ctest --test-dir tests/build
