@@ -1,0 +1,21 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ "llvm-14.0.6" ]
+  pull_request:
+    branches: [ "llvm-14.0.6" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: make build
+      run: make build
+    - name: make install
+      run: make install
+    - name: make tests
+      run: make tests
