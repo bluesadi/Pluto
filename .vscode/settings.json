@@ -1,5 +1,0 @@
-{
-    "github-actions.workflows.pinned.workflows": [
-        ".github/workflows/c-cpp.yml"
-    ]
-}
