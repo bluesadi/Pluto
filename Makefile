@@ -17,11 +17,11 @@ build:
 	      -DCMAKE_BUILD_TYPE=Release
 	ninja -C $(BUILD_DIR)
 
-install: build
+install:
 	mkdir -p $(INSTALL_PREFIX)
 	ninja -C $(BUILD_DIR) install
 
-check: install
+check:
 	mkdir -p $(TESTS_BUILD_DIR)
 	cmake -G Ninja -S tests -B $(TESTS_BUILD_DIR) \
 	      -DCMAKE_C_COMPILER=$(INSTALL_PREFIX)/bin/clang \
