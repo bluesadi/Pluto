@@ -21,7 +21,7 @@ install: build
 	mkdir -p $(INSTALL_PREFIX)
 	ninja -C $(BUILD_DIR) install
 
-tests: install
+check: install
 	mkdir -p $(TESTS_BUILD_DIR)
 	cmake -G Ninja -S tests -B $(TESTS_BUILD_DIR) \
 	      -DCMAKE_C_COMPILER=$(INSTALL_PREFIX)/bin/clang \
@@ -29,4 +29,4 @@ tests: install
 	ninja -C $(TESTS_BUILD_DIR)
 	ctest --test-dir $(TESTS_BUILD_DIR)
 
-.PHONY: all build install tests
+.PHONY: all build install check
