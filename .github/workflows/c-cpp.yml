@@ -13,7 +13,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: apt install ninja-build -y
+    - name: sudo apt install ninja-build -y
       run: apt install ninja-build -y
     - name: make build
       run: make build
