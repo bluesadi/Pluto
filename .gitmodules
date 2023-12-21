@@ -1,3 +1,6 @@
 [submodule "tests/tiny-AES-c"]
 	path = tests/tiny-AES-c
 	url = https://github.com/kokke/tiny-AES-c.git
+[submodule "tests/openssl"]
+	path = tests/openssl
+	url = https://github.com/openssl/openssl.git

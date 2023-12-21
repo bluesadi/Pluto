@@ -4,6 +4,9 @@ BUILD_DIR := $(CURDIR)/build
 INSTALL_PREFIX := $(CURDIR)/install
 TESTS_BUILD_DIR := $(CURDIR)/tests/build
 
+TESTS_DIR := tests
+TEST_FILES := $(wildcard $(TESTS_DIR)/*.sh)
+
 all: build install check
 
 build:
@@ -22,11 +25,18 @@ install:
 	ninja -C $(BUILD_DIR) install
 
 check:
-	mkdir -p $(TESTS_BUILD_DIR)
-	cmake -G Ninja -S tests -B $(TESTS_BUILD_DIR) \
-	      -DCMAKE_C_COMPILER=$(INSTALL_PREFIX)/bin/clang \
-	      -DCMAKE_CXX_COMPILER=$(INSTALL_PREFIX)/bin/clang++
-	ninja -C $(TESTS_BUILD_DIR)
-	ctest --test-dir $(TESTS_BUILD_DIR)
+	@echo "Running tests..."
+	@SUCCESS_COUNT=0; \
+	for file in $(TEST_FILES); do \
+		./$$file; \
+		if [ $$? -eq 0 ]; then \
+			echo "\e[32m$$file: PASS\e[0m"; \
+			SUCCESS_COUNT=$$((SUCCESS_COUNT + 1)); \
+        else \
+			echo "\e[31m$$file: FAIL\e[0m"; \
+		fi \
+	done; \
+	echo "Total tests: $(words $(TEST_FILES))"; \
+	echo "Success count: $$SUCCESS_COUNT"
 
 .PHONY: all build install check
