@@ -37,7 +37,7 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
 #define ENDIAN_64BITWORD
 #define UNALIGNED
 
-#elif (defined(__R5900) || defined(R5900) || defined(__R5900__)) &&                                \
+#elif (defined(__R5900) || defined(R5900) || defined(__R5900__)) &&                                                    \
     (defined(_mips) || defined(__mips__) || defined(mips))
 
 #ifndef ENDIAN_LITTLE
@@ -73,73 +73,73 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
 
 #ifdef ENDIAN_LITTLE
 
-#define STORE32H(y, x)                                                                             \
-    {                                                                                              \
-        (y)[0] = (uint8_t)(((x) >> 24) & 0xFF);                                                    \
-        (y)[1] = (uint8_t)(((x) >> 16) & 0xFF);                                                    \
-        (y)[2] = (uint8_t)(((x) >> 8) & 0xFF);                                                     \
-        (y)[3] = (uint8_t)(((x) >> 0) & 0xFF);                                                     \
+#define STORE32H(y, x)                                                                                                 \
+    {                                                                                                                  \
+        (y)[0] = (uint8_t)(((x) >> 24) & 0xFF);                                                                        \
+        (y)[1] = (uint8_t)(((x) >> 16) & 0xFF);                                                                        \
+        (y)[2] = (uint8_t)(((x) >> 8) & 0xFF);                                                                         \
+        (y)[3] = (uint8_t)(((x) >> 0) & 0xFF);                                                                         \
     }
-#define LOAD32H(x, y)                                                                              \
-    {                                                                                              \
-        (x) = ((uint32_t)((y)[0] & 0xFF) << 24) | ((uint32_t)((y)[1] & 0xFF) << 16) |              \
-              ((uint32_t)((y)[2] & 0xFF) << 8) | ((uint32_t)((y)[3] & 0xFF) << 0);                 \
-    }
-
-#define LOAD64H(x, y)                                                                              \
-    {                                                                                              \
-        (x) = ((uint64_t)((y)[0] & 0xFF) << 56) | ((uint64_t)((y)[1] & 0xFF) << 48) |              \
-              ((uint64_t)((y)[2] & 0xFF) << 40) | ((uint64_t)((y)[3] & 0xFF) << 32) |              \
-              ((uint64_t)((y)[4] & 0xFF) << 24) | ((uint64_t)((y)[5] & 0xFF) << 16) |              \
-              ((uint64_t)((y)[6] & 0xFF) << 8) | ((uint64_t)((y)[7] & 0xFF) << 0);                 \
+#define LOAD32H(x, y)                                                                                                  \
+    {                                                                                                                  \
+        (x) = ((uint32_t)((y)[0] & 0xFF) << 24) | ((uint32_t)((y)[1] & 0xFF) << 16) |                                  \
+              ((uint32_t)((y)[2] & 0xFF) << 8) | ((uint32_t)((y)[3] & 0xFF) << 0);                                     \
     }
 
-#define STORE64H(y, x)                                                                             \
-    {                                                                                              \
-        (y)[0] = (uint8_t)(((x) >> 56) & 0xFF);                                                    \
-        (y)[1] = (uint8_t)(((x) >> 48) & 0xFF);                                                    \
-        (y)[2] = (uint8_t)(((x) >> 40) & 0xFF);                                                    \
-        (y)[3] = (uint8_t)(((x) >> 32) & 0xFF);                                                    \
-        (y)[4] = (uint8_t)(((x) >> 24) & 0xFF);                                                    \
-        (y)[5] = (uint8_t)(((x) >> 16) & 0xFF);                                                    \
-        (y)[6] = (uint8_t)(((x) >> 8) & 0xFF);                                                     \
-        (y)[7] = (uint8_t)(((x) >> 0) & 0xFF);                                                     \
+#define LOAD64H(x, y)                                                                                                  \
+    {                                                                                                                  \
+        (x) = ((uint64_t)((y)[0] & 0xFF) << 56) | ((uint64_t)((y)[1] & 0xFF) << 48) |                                  \
+              ((uint64_t)((y)[2] & 0xFF) << 40) | ((uint64_t)((y)[3] & 0xFF) << 32) |                                  \
+              ((uint64_t)((y)[4] & 0xFF) << 24) | ((uint64_t)((y)[5] & 0xFF) << 16) |                                  \
+              ((uint64_t)((y)[6] & 0xFF) << 8) | ((uint64_t)((y)[7] & 0xFF) << 0);                                     \
+    }
+
+#define STORE64H(y, x)                                                                                                 \
+    {                                                                                                                  \
+        (y)[0] = (uint8_t)(((x) >> 56) & 0xFF);                                                                        \
+        (y)[1] = (uint8_t)(((x) >> 48) & 0xFF);                                                                        \
+        (y)[2] = (uint8_t)(((x) >> 40) & 0xFF);                                                                        \
+        (y)[3] = (uint8_t)(((x) >> 32) & 0xFF);                                                                        \
+        (y)[4] = (uint8_t)(((x) >> 24) & 0xFF);                                                                        \
+        (y)[5] = (uint8_t)(((x) >> 16) & 0xFF);                                                                        \
+        (y)[6] = (uint8_t)(((x) >> 8) & 0xFF);                                                                         \
+        (y)[7] = (uint8_t)(((x) >> 0) & 0xFF);                                                                         \
     }
 
 #endif /* ENDIAN_LITTLE */
 
 #ifdef ENDIAN_BIG
 
-#define STORE32H(y, x)                                                                             \
-    {                                                                                              \
-        (y)[3] = (uint8_t)(((x) >> 24) & 0xFF);                                                    \
-        (y)[2] = (uint8_t)(((x) >> 16) & 0xFF);                                                    \
-        (y)[1] = (uint8_t)(((x) >> 8) & 0xFF);                                                     \
-        (y)[0] = (uint8_t)(((x) >> 0) & 0xFF);                                                     \
+#define STORE32H(y, x)                                                                                                 \
+    {                                                                                                                  \
+        (y)[3] = (uint8_t)(((x) >> 24) & 0xFF);                                                                        \
+        (y)[2] = (uint8_t)(((x) >> 16) & 0xFF);                                                                        \
+        (y)[1] = (uint8_t)(((x) >> 8) & 0xFF);                                                                         \
+        (y)[0] = (uint8_t)(((x) >> 0) & 0xFF);                                                                         \
     }
-#define STORE64H(y, x)                                                                             \
-    {                                                                                              \
-        (y)[7] = (uint8_t)(((x) >> 56) & 0xFF);                                                    \
-        (y)[6] = (uint8_t)(((x) >> 48) & 0xFF);                                                    \
-        (y)[5] = (uint8_t)(((x) >> 40) & 0xFF);                                                    \
-        (y)[4] = (uint8_t)(((x) >> 32) & 0xFF);                                                    \
-        (y)[3] = (uint8_t)(((x) >> 24) & 0xFF);                                                    \
-        (y)[2] = (uint8_t)(((x) >> 16) & 0xFF);                                                    \
-        (y)[1] = (uint8_t)(((x) >> 8) & 0xFF);                                                     \
-        (y)[0] = (uint8_t)(((x) >> 0) & 0xFF);                                                     \
+#define STORE64H(y, x)                                                                                                 \
+    {                                                                                                                  \
+        (y)[7] = (uint8_t)(((x) >> 56) & 0xFF);                                                                        \
+        (y)[6] = (uint8_t)(((x) >> 48) & 0xFF);                                                                        \
+        (y)[5] = (uint8_t)(((x) >> 40) & 0xFF);                                                                        \
+        (y)[4] = (uint8_t)(((x) >> 32) & 0xFF);                                                                        \
+        (y)[3] = (uint8_t)(((x) >> 24) & 0xFF);                                                                        \
+        (y)[2] = (uint8_t)(((x) >> 16) & 0xFF);                                                                        \
+        (y)[1] = (uint8_t)(((x) >> 8) & 0xFF);                                                                         \
+        (y)[0] = (uint8_t)(((x) >> 0) & 0xFF);                                                                         \
     }
-#define LOAD32H(x, y)                                                                              \
-    {                                                                                              \
-        (x) = ((uint32_t)((y)[3] & 0xFF) << 24) | ((uint32_t)((y)[2] & 0xFF) << 16) |              \
-              ((uint32_t)((y)[1] & 0xFF) << 8) | ((uint32_t)((y)[0] & 0xFF) << 0);                 \
+#define LOAD32H(x, y)                                                                                                  \
+    {                                                                                                                  \
+        (x) = ((uint32_t)((y)[3] & 0xFF) << 24) | ((uint32_t)((y)[2] & 0xFF) << 16) |                                  \
+              ((uint32_t)((y)[1] & 0xFF) << 8) | ((uint32_t)((y)[0] & 0xFF) << 0);                                     \
     }
 
-#define LOAD64H(x, y)                                                                              \
-    {                                                                                              \
-        (x) = ((uint64_t)((y)[7] & 0xFF) << 56) | ((uint64_t)((y)[6] & 0xFF) << 48) |              \
-              ((uint64_t)((y)[5] & 0xFF) << 40) | ((uint64_t)((y)[4] & 0xFF) << 32) |              \
-              ((uint64_t)((y)[3] & 0xFF) << 24) | ((uint64_t)((y)[2] & 0xFF) << 16) |              \
-              ((uint64_t)((y)[1] & 0xFF) << 8) | ((uint64_t)((y)[0] & 0xFF) << 0);                 \
+#define LOAD64H(x, y)                                                                                                  \
+    {                                                                                                                  \
+        (x) = ((uint64_t)((y)[7] & 0xFF) << 56) | ((uint64_t)((y)[6] & 0xFF) << 48) |                                  \
+              ((uint64_t)((y)[5] & 0xFF) << 40) | ((uint64_t)((y)[4] & 0xFF) << 32) |                                  \
+              ((uint64_t)((y)[3] & 0xFF) << 24) | ((uint64_t)((y)[2] & 0xFF) << 16) |                                  \
+              ((uint64_t)((y)[1] & 0xFF) << 8) | ((uint64_t)((y)[0] & 0xFF) << 0);                                     \
     }
 
 #endif /* ENDIAN_BIG */
@@ -156,11 +156,11 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
 
 #define CryptoUtils_POOL_SIZE (0x1 << 17) // 2^17
 
-#define DUMP(x, l, s)                                                                              \
-    fprintf(stderr, "%s :", (s));                                                                  \
-    for (int ii = 0; ii < (l); ii++) {                                                             \
-        fprintf(stderr, "%02hhX", *((x) + ii));                                                    \
-    }                                                                                              \
+#define DUMP(x, l, s)                                                                                                  \
+    fprintf(stderr, "%s :", (s));                                                                                      \
+    for (int ii = 0; ii < (l); ii++) {                                                                                 \
+        fprintf(stderr, "%02hhX", *((x) + ii));                                                                        \
+    }                                                                                                                  \
     fprintf(stderr, "\n");
 
 // SHA256
@@ -175,15 +175,15 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
 #define Gamma1(x) (__S(x, 17) ^ __S(x, 19) ^ __R(x, 10))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-#define RND(a, b, c, d, e, f, g, h, i, ki)                                                         \
-    t0 = h + Sigma1(e) + Ch(e, f, g) + ki + W[i];                                                  \
-    t1 = Sigma0(a) + Maj(a, b, c);                                                                 \
-    d += t0;                                                                                       \
+#define RND(a, b, c, d, e, f, g, h, i, ki)                                                                             \
+    t0 = h + Sigma1(e) + Ch(e, f, g) + ki + W[i];                                                                      \
+    t1 = Sigma0(a) + Maj(a, b, c);                                                                                     \
+    d += t0;                                                                                                           \
     h = t0 + t1;
 
-#define RORc(x, y)                                                                                 \
-    (((((unsigned long)(x)&0xFFFFFFFFUL) >> (unsigned long)((y)&31)) |                             \
-      ((unsigned long)(x) << (unsigned long)(32 - ((y)&31)))) &                                    \
+#define RORc(x, y)                                                                                                     \
+    (((((unsigned long)(x)&0xFFFFFFFFUL) >> (unsigned long)((y)&31)) |                                                 \
+      ((unsigned long)(x) << (unsigned long)(32 - ((y)&31)))) &                                                        \
      0xFFFFFFFFUL)
 
 class CryptoUtils {

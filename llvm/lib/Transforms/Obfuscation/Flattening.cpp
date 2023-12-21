@@ -1,13 +1,13 @@
 #include "llvm/Transforms/Obfuscation/Flattening.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <vector>
 
 using std::vector;
 
-void fixStack(Function &F) {
+void fixVariables(Function &F) {
     vector<PHINode *> origPHI;
     vector<Instruction *> origReg;
     BasicBlock &entryBB = F.getEntryBlock();
@@ -15,8 +15,7 @@ void fixStack(Function &F) {
         for (Instruction &I : BB) {
             if (PHINode *PN = dyn_cast<PHINode>(&I)) {
                 origPHI.push_back(PN);
-            } else if (!(isa<AllocaInst>(&I) && I.getParent() == &entryBB) &&
-                       I.isUsedOutsideOfBlock(&BB)) {
+            } else if (!(isa<AllocaInst>(&I) && I.getParent() == &entryBB) && I.isUsedOutsideOfBlock(&BB)) {
                 origReg.push_back(&I);
             }
         }
@@ -124,13 +123,13 @@ PreservedAnalyses Pluto::Flattening::run(Function &F, FunctionAnalysisManager &A
             ConstantInt *numIfTrue = swInst->findCaseDest(BB->getTerminator()->getSuccessor(0));
             ConstantInt *numIfFalse = swInst->findCaseDest(BB->getTerminator()->getSuccessor(1));
             BranchInst *br = cast<BranchInst>(BB->getTerminator());
-            Value* cond = br->getCondition();
+            Value *cond = br->getCondition();
             BB->getTerminator()->eraseFromParent();
             builder.SetInsertPoint(BB);
             builder.CreateStore(builder.CreateSelect(cond, numIfTrue, numIfFalse), swVarPtr);
             builder.CreateBr(returnBB);
         }
     }
-    fixStack(F);
+    fixVariables(F);
     return PreservedAnalyses::all();
 }
