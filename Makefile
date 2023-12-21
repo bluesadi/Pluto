@@ -4,7 +4,7 @@ BUILD_DIR := $(CURDIR)/build
 INSTALL_PREFIX := $(CURDIR)/install
 TESTS_BUILD_DIR := $(CURDIR)/tests/build
 
-all: build install tests
+all: build install check
 
 build:
 	mkdir -p $(BUILD_DIR)
