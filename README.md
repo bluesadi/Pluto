@@ -36,7 +36,7 @@ If you are using Ubuntu, you may install all the required packages by:
 $ sudo apt install gcc g++ cmake ninja-build
 ```
 
-The final step is to execute `./build.sh`, which is a shell script that automatically compiles this project and install it in the [/install](/install) directory. Such script for MacOS are also available at [build_macos.sh](build_macos.sh). As of Windows, you may execute `./build.sh` on Git Bash (you must have installed it if you get this project by `git clone`). 
+The final step is to execute `./build.sh`, which is a shell script that automatically compiles this project and install it in the [/install](/install) directory. Such script for MacOS are also available at [build.sh](build.sh). As of Windows, you may execute `./build.sh` on Git Bash (you must have installed it if you get this project by `git clone`). 
 
 By default the script utilizes all CPU cores of your machine to compile as fast as possible. If you don't want the compilation occupies all the CPU cores, making your computer laggy, you may specify the maximum cores you want to allocate. Let's say your computer has 16 CPU cores, you can use `./build.sh 12` to tell the script only to use 8 cores for compilation.
 
