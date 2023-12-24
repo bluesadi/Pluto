@@ -1,3 +1,3 @@
 cd tests/openssl
-CC=../../install/bin/clang CFLAGS="-mllvm -passes=hlw,fla" ./Configure
-make tests
+CC=../../install/bin/clang CFLAGS="-mllvm -passes=hlw,fla,mba" ./Configure
+make -j`nproc` tests

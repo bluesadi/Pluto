@@ -15,11 +15,11 @@ build:
 	      -DCMAKE_C_COMPILER=gcc \
 	      -DCMAKE_CXX_COMPILER=g++ \
 	      -DCMAKE_BUILD_TYPE=Release
-	ninja -C $(BUILD_DIR)
+	ninja -j`nproc` -C $(BUILD_DIR)
 
 install: build
 	mkdir -p $(INSTALL_PREFIX)
-	ninja -C $(BUILD_DIR) install
+	ninja -j`nproc` -C $(BUILD_DIR) install
 
 check:
 	@echo "Running tests..."

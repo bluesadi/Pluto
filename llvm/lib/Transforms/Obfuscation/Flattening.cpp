@@ -5,15 +5,14 @@
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
-#include <vector>
 #include <queue>
+#include <vector>
 
 using std::find;
 using std::queue;
 using std::vector;
 
-
-void fixVariables(Function &F, vector<BasicBlock*> &normalBlocks) {
+void fixVariables(Function &F, vector<BasicBlock *> &normalBlocks) {
     vector<PHINode *> origPHI;
     vector<Instruction *> origReg;
     BasicBlock &entryBB = F.getEntryBlock();
@@ -51,20 +50,20 @@ PreservedAnalyses Pluto::Flattening::run(Function &F, FunctionAnalysisManager &A
         return PreservedAnalyses::all();
     }
 
-    vector<BasicBlock*> normalBlocks;
-    queue<BasicBlock*> queue;
+    vector<BasicBlock *> normalBlocks;
+    queue<BasicBlock *> queue;
     queue.push(&F.getEntryBlock());
-    while(queue.size()){
+    while (queue.size()) {
         BasicBlock *BB = queue.front();
         queue.pop();
-        if(find(normalBlocks.begin(), normalBlocks.end(), BB) != normalBlocks.end()){
+        if (find(normalBlocks.begin(), normalBlocks.end(), BB) != normalBlocks.end()) {
             continue;
         }
         normalBlocks.push_back(BB);
-        if(InvokeInst *invoke = dyn_cast_or_null<InvokeInst>(BB->getTerminator())){
+        if (InvokeInst *invoke = dyn_cast_or_null<InvokeInst>(BB->getTerminator())) {
             queue.push(invoke->getNormalDest());
-        }else{
-            for(size_t i = 0; i < BB->getTerminator()->getNumSuccessors(); i++){
+        } else {
+            for (size_t i = 0; i < BB->getTerminator()->getNumSuccessors(); i++) {
                 BasicBlock *successor = BB->getTerminator()->getSuccessor(i);
                 queue.push(successor);
             }

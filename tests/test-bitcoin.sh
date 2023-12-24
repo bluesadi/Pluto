@@ -3,5 +3,5 @@ cd tests/bitcoin
 ./autogen.sh
 ./configure CXX=$CXX CXXFLAGS="-mllvm -passes=hlw,fla" 
 make clean
-make
+make -j`nproc`
 make check

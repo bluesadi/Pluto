@@ -13,8 +13,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: sudo apt install ninja-build -y
+    - name: Install ninja-build
       run: sudo apt install ninja-build -y
+    - name: Install z3
+      run: sudo apt install libz3-dev -y
+    - name: Install bitcoin dependencies
+      run: sudo apt install build-essential libtool autotools-dev automake pkg-config bsdmainutils python3 libevent-dev libboost-dev -y
     - name: git submodule update --init
       run: git submodule update --init
     - name: make install
