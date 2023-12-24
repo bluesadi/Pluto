@@ -1,27 +1,40 @@
 #include "llvm/Transforms/Obfuscation/Flattening.h"
+#include "llvm/Analysis/IteratedDominanceFrontier.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include <algorithm>
 #include <vector>
+#include <queue>
 
+using std::find;
+using std::queue;
 using std::vector;
 
-void fixVariables(Function &F) {
+
+void fixVariables(Function &F, vector<BasicBlock*> &normalBlocks) {
     vector<PHINode *> origPHI;
     vector<Instruction *> origReg;
     BasicBlock &entryBB = F.getEntryBlock();
-    for (BasicBlock &BB : F) {
-        for (Instruction &I : BB) {
+
+    for (BasicBlock *BB : normalBlocks) {
+        for (Instruction &I : *BB) {
             if (PHINode *PN = dyn_cast<PHINode>(&I)) {
                 origPHI.push_back(PN);
-            } else if (!(isa<AllocaInst>(&I) && I.getParent() == &entryBB) && I.isUsedOutsideOfBlock(&BB)) {
-                origReg.push_back(&I);
             }
         }
     }
     for (PHINode *PN : origPHI) {
         DemotePHIToStack(PN, entryBB.getTerminator());
+    }
+
+    for (BasicBlock *BB : normalBlocks) {
+        for (Instruction &I : *BB) {
+            if (!(isa<AllocaInst>(&I) && I.getParent() == &entryBB) && I.isUsedOutsideOfBlock(BB)) {
+                origReg.push_back(&I);
+            }
+        }
     }
     for (Instruction *I : origReg) {
         DemoteRegToStack(*I, entryBB.getTerminator());
@@ -30,28 +43,51 @@ void fixVariables(Function &F) {
 
 PreservedAnalyses Pluto::Flattening::run(Function &F, FunctionAnalysisManager &AM) {
     auto &context = F.getContext();
+    IRBuilder<> builder(context);
+
     // 如果只有一个基本块则无需平坦化
     // No need to do flattening if only there is only one block
     if (F.size() <= 1) {
-        return PreservedAnalyses::none();
+        return PreservedAnalyses::all();
     }
 
-    // 将除入口块（第一个基本块）以外的基本块保存到一个vector容器中，便于后续处理
-    // Store all basic blocks to the origBB vector except for the entry block
-    vector<BasicBlock *> origBB;
-    for (BasicBlock &BB : F) {
-        origBB.push_back(&BB);
+    vector<BasicBlock*> normalBlocks;
+    queue<BasicBlock*> queue;
+    queue.push(&F.getEntryBlock());
+    while(queue.size()){
+        BasicBlock *BB = queue.front();
+        queue.pop();
+        if(find(normalBlocks.begin(), normalBlocks.end(), BB) != normalBlocks.end()){
+            continue;
+        }
+        normalBlocks.push_back(BB);
+        if(InvokeInst *invoke = dyn_cast_or_null<InvokeInst>(BB->getTerminator())){
+            queue.push(invoke->getNormalDest());
+        }else{
+            for(size_t i = 0; i < BB->getTerminator()->getNumSuccessors(); i++){
+                BasicBlock *successor = BB->getTerminator()->getSuccessor(i);
+                queue.push(successor);
+            }
+        }
     }
-    origBB.erase(origBB.begin());
 
     BasicBlock &entryBB = F.getEntryBlock();
+    normalBlocks.erase(normalBlocks.begin());
 
     // 如果入口块的末尾是条件跳转，单独分离
     // If the entry block ends with a conditional branch, seperate it as a new block
-    if (BranchInst *br = dyn_cast<BranchInst>(entryBB.getTerminator())) {
-        if (br->isConditional()) {
-            BasicBlock *newBB = entryBB.splitBasicBlock(br, "newBB");
-            origBB.insert(origBB.begin(), newBB);
+    if (entryBB.getTerminator()->getNumSuccessors() > 1) {
+        BasicBlock *newBB = entryBB.splitBasicBlock(entryBB.getTerminator(), "newBB");
+        normalBlocks.insert(normalBlocks.begin(), newBB);
+    }
+
+    for (BasicBlock *BB : normalBlocks) {
+        if (InvokeInst *invoke = dyn_cast_or_null<InvokeInst>(BB->getTerminator())) {
+            BasicBlock *bridgeBB = BasicBlock::Create(context, "bridgeBB", &F, invoke->getNormalDest());
+            invoke->getNormalDest()->replacePhiUsesWith(BB, bridgeBB);
+            builder.SetInsertPoint(bridgeBB);
+            builder.CreateBr(invoke->getNormalDest());
+            invoke->setNormalDest(bridgeBB);
         }
     }
 
@@ -67,7 +103,6 @@ PreservedAnalyses Pluto::Flattening::run(Function &F, FunctionAnalysisManager &A
     entryBB.getTerminator()->eraseFromParent();
     BranchInst *brDispatchBB = BranchInst::Create(dispatchBB, &entryBB);
 
-    IRBuilder<> builder(context);
     builder.SetInsertPoint(brDispatchBB);
 
     // 在入口块插入alloca和store指令创建并初始化switch变量，初始值为随机值
@@ -80,7 +115,7 @@ PreservedAnalyses Pluto::Flattening::run(Function &F, FunctionAnalysisManager &A
     // 在分发块插入load指令读取switch变量
     // Insert a load instruction at the end of dispatch block
     builder.SetInsertPoint(dispatchBB);
-    LoadInst *swVar = builder.CreateLoad(Type::getInt32Ty(context), swVarPtr, "swVar");
+    LoadInst *swVar = builder.CreateLoad(Type::getInt32Ty(context), swVarPtr, false, "swVar");
 
     // 在分发块插入switch指令实现基本块的调度
     // Insert a switch instruction to implement block dispatching
@@ -88,11 +123,11 @@ PreservedAnalyses Pluto::Flattening::run(Function &F, FunctionAnalysisManager &A
     builder.SetInsertPoint(swDefault);
     builder.CreateBr(returnBB);
     builder.SetInsertPoint(dispatchBB);
-    SwitchInst *swInst = builder.CreateSwitch(swVar, swDefault, origBB.size());
+    SwitchInst *swInst = builder.CreateSwitch(swVar, swDefault, normalBlocks.size());
 
     // 将原基本块插入到返回块之前，并分配case值
     // Insert original basic blocks before return block and assign a random case value for each one.
-    for (BasicBlock *BB : origBB) {
+    for (BasicBlock *BB : normalBlocks) {
         BB->moveBefore(returnBB);
         swInst->addCase(ConstantInt::get(Type::getInt32Ty(context), randNum), BB);
         randNum = cryptoutils->get_uint32_t();
@@ -101,9 +136,9 @@ PreservedAnalyses Pluto::Flattening::run(Function &F, FunctionAnalysisManager &A
     // 在每个基本块最后添加修改switch变量的指令和跳转到返回块的指令
     // Insert a store instruction at the end of each block to modify swVar, and make them jump back
     // to dispatch block then.
-    for (BasicBlock *BB : origBB) {
+    for (BasicBlock *BB : normalBlocks) {
         // 跳过没有后继的基本块
-        // Skip return blocks
+        // Skip blocks with no successor
         if (BB->getTerminator()->getNumSuccessors() == 0) {
             continue;
         }
@@ -111,25 +146,32 @@ PreservedAnalyses Pluto::Flattening::run(Function &F, FunctionAnalysisManager &A
         // Branch
         else if (BB->getTerminator()->getNumSuccessors() == 1) {
             BasicBlock *sucBB = BB->getTerminator()->getSuccessor(0);
-            BB->getTerminator()->eraseFromParent();
             ConstantInt *numCase = swInst->findCaseDest(sucBB);
-            builder.SetInsertPoint(BB);
-            builder.CreateStore(numCase, swVarPtr);
-            builder.CreateBr(returnBB);
+            if (numCase) {
+                if (BranchInst *br = dyn_cast_or_null<BranchInst>(BB->getTerminator())) {
+                    BB->getTerminator()->eraseFromParent();
+                    builder.SetInsertPoint(BB);
+                    builder.CreateStore(numCase, swVarPtr);
+                    builder.CreateBr(returnBB);
+                }
+            }
         }
         // 条件跳转
         // Conditional branch
         else if (BB->getTerminator()->getNumSuccessors() == 2) {
             ConstantInt *numIfTrue = swInst->findCaseDest(BB->getTerminator()->getSuccessor(0));
             ConstantInt *numIfFalse = swInst->findCaseDest(BB->getTerminator()->getSuccessor(1));
-            BranchInst *br = cast<BranchInst>(BB->getTerminator());
-            Value *cond = br->getCondition();
-            BB->getTerminator()->eraseFromParent();
-            builder.SetInsertPoint(BB);
-            builder.CreateStore(builder.CreateSelect(cond, numIfTrue, numIfFalse), swVarPtr);
-            builder.CreateBr(returnBB);
+            if (numIfTrue && numIfFalse) {
+                if (BranchInst *br = dyn_cast_or_null<BranchInst>(BB->getTerminator())) {
+                    Value *cond = br->getCondition();
+                    builder.SetInsertPoint(BB);
+                    builder.CreateStore(builder.CreateSelect(cond, numIfTrue, numIfFalse), swVarPtr);
+                    builder.CreateBr(returnBB);
+                    br->eraseFromParent();
+                }
+            }
         }
     }
-    fixVariables(F);
+    fixVariables(F, normalBlocks);
     return PreservedAnalyses::all();
 }

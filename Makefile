@@ -1,8 +1,5 @@
-# Makefile
-
 BUILD_DIR := $(CURDIR)/build
 INSTALL_PREFIX := $(CURDIR)/install
-TESTS_BUILD_DIR := $(CURDIR)/tests/build
 
 TESTS_DIR := tests
 TEST_FILES := $(wildcard $(TESTS_DIR)/*.sh)
