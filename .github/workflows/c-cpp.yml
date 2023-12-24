@@ -17,12 +17,16 @@ jobs:
       run: sudo apt install ninja-build -y
     - name: git submodule update --init
       run: git submodule update --init
-    - name: make build
-      run: make build
     - name: make install
       run: make install
-    - name: make check
-      run: make check
+    - name: Test tiny-aes
+      run: ./tests/test-aes.sh
+    - name: Test jsoncpp
+      run: ./tests/test-jsoncpp.sh
+    - name: Test openssl
+      run: ./tests/test-openssl.sh
+    - name: Test bitcoin
+      run: ./tests/test-bitcoin.sh
   # Windows:
 
   #   runs-on: windows-latest

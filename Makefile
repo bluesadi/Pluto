@@ -17,7 +17,7 @@ build:
 	      -DCMAKE_BUILD_TYPE=Release
 	ninja -C $(BUILD_DIR)
 
-install:
+install: build
 	mkdir -p $(INSTALL_PREFIX)
 	ninja -C $(BUILD_DIR) install
 
