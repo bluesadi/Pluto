@@ -10,7 +10,7 @@ using namespace std;
 using namespace llvm;
 using namespace MBAUtils;
 
-#define NUM_TERMS 10
+#define NUM_COEFFS 10
 
 PreservedAnalyses Pluto::MbaObfuscation::run(Function &F, FunctionAnalysisManager &AM) {
     for (BasicBlock &BB : F) {
@@ -47,9 +47,9 @@ PreservedAnalyses Pluto::MbaObfuscation::run(Function &F, FunctionAnalysisManage
 void Pluto::MbaObfuscation::substituteConstant(Instruction *I, int i) {
     ConstantInt *val = dyn_cast<ConstantInt>(I->getOperand(i));
     if (val && val->getBitWidth() <= 64) {
-        int64_t *terms = generateLinearMBA(NUM_TERMS);
-        terms[14] -= val->getValue().getZExtValue();
-        Value *mbaExpr = insertLinearMBA(terms, I);
+        int64_t *coeffs = generateLinearMBA(NUM_COEFFS);
+        coeffs[14] -= val->getValue().getZExtValue();
+        Value *mbaExpr = insertLinearMBA(coeffs, I);
         if (val->getBitWidth() <= 32) {
             mbaExpr = insertPolynomialMBA(mbaExpr, I);
         }
@@ -87,33 +87,33 @@ void Pluto::MbaObfuscation::substitute(BinaryOperator *BI) {
 }
 
 Value *Pluto::MbaObfuscation::substituteAdd(BinaryOperator *BI) {
-    int64_t *terms = generateLinearMBA(NUM_TERMS);
-    terms[2] += 1;
-    terms[4] += 1;
-    return insertLinearMBA(terms, BI);
+    int64_t *coeffs = generateLinearMBA(NUM_COEFFS);
+    coeffs[2] += 1;
+    coeffs[4] += 1;
+    return insertLinearMBA(coeffs, BI);
 }
 
 Value *Pluto::MbaObfuscation::substituteSub(BinaryOperator *BI) {
-    int64_t *terms = generateLinearMBA(NUM_TERMS);
-    terms[2] += 1;
-    terms[4] -= 1;
-    return insertLinearMBA(terms, BI);
+    int64_t *coeffs = generateLinearMBA(NUM_COEFFS);
+    coeffs[2] += 1;
+    coeffs[4] -= 1;
+    return insertLinearMBA(coeffs, BI);
 }
 
 Value *Pluto::MbaObfuscation::substituteXor(BinaryOperator *BI) {
-    int64_t *terms = generateLinearMBA(NUM_TERMS);
-    terms[5] += 1;
-    return insertLinearMBA(terms, BI);
+    int64_t *coeffs = generateLinearMBA(NUM_COEFFS);
+    coeffs[5] += 1;
+    return insertLinearMBA(coeffs, BI);
 }
 
 Value *Pluto::MbaObfuscation::substituteAnd(BinaryOperator *BI) {
-    int64_t *terms = generateLinearMBA(NUM_TERMS);
-    terms[0] += 1;
-    return insertLinearMBA(terms, BI);
+    int64_t *coeffs = generateLinearMBA(NUM_COEFFS);
+    coeffs[0] += 1;
+    return insertLinearMBA(coeffs, BI);
 }
 
 Value *Pluto::MbaObfuscation::substituteOr(BinaryOperator *BI) {
-    int64_t *terms = generateLinearMBA(NUM_TERMS);
-    terms[6] += 1;
-    return insertLinearMBA(terms, BI);
+    int64_t *coeffs = generateLinearMBA(NUM_COEFFS);
+    coeffs[6] += 1;
+    return insertLinearMBA(coeffs, BI);
 }

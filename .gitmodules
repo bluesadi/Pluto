@@ -4,9 +4,9 @@
 [submodule "tests/openssl"]
 	path = tests/openssl
 	url = https://github.com/openssl/openssl.git
-[submodule "tests/bitcoin"]
-	path = tests/bitcoin
-	url = https://github.com/bitcoin/bitcoin.git
 [submodule "tests/jsoncpp"]
 	path = tests/jsoncpp
 	url = https://github.com/open-source-parsers/jsoncpp.git
+[submodule "tests/json"]
+	path = tests/json
+	url = https://github.com/nlohmann/json.git
