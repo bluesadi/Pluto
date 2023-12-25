@@ -37,11 +37,6 @@ int64_t *MBAUtils::generateLinearMBA(int numExprs) {
     static std::queue<int64_t *> cached_coeffs;
     if (cached_coeffs.size() && cryptoutils->get_range(10) < 8) {
         int64_t *coeffs = cached_coeffs.front();
-        outs() << "[DEBUG] Use cached coefficients:";
-        for (int i = 0; i < 15; i++) {
-            outs() << " " << coeffs[i];
-        }
-        outs() << "\n";
         cached_coeffs.pop();
         return coeffs;
     }

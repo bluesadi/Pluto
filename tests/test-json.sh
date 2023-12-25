@@ -9,4 +9,4 @@ cmake -B build \
       -DCMAKE_CXX_COMPILER=$CXX \
       -DCMAKE_CXX_FLAGS="$CXX_FLAGS"
 ninja -j`nproc` -C build
-ninja test
+ninja -C build test
