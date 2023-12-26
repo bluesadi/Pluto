@@ -3,6 +3,7 @@
 #include "llvm/Transforms/Obfuscation/Flattening.h"
 #include "llvm/Transforms/Obfuscation/HelloWorld.h"
 #include "llvm/Transforms/Obfuscation/MBAObfuscation.h"
+#include "llvm/Transforms/Obfuscation/Substitution.h"
 #include "llvm/Transforms/Utils/LowerSwitch.h"
 
 using namespace llvm;
@@ -23,6 +24,8 @@ ModulePassManager buildObfuscationPipeline() {
         } else if (pass == "fla") {
             FPM.addPass(LowerSwitchWrapper());
             FPM.addPass(Flattening());
+        } else if (pass == "sub") {
+            FPM.addPass(Substitution());
         } else if (pass == "mba") {
             FPM.addPass(MbaObfuscation());
         }

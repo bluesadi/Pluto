@@ -4,6 +4,7 @@ add_llvm_component_library(LLVMObfuscation
   Flattening.cpp
   MBAUtils.cpp
   MBAObfuscation.cpp
+  Substitution.cpp
 
   LINK_COMPONENTS
   Core
