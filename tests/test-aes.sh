@@ -1,3 +1,3 @@
 cd tests/tiny-AES-c
-../../install/bin/clang -mllvm -passes=hlw,fla,sub,mba test.c aes.c -o test.elf
+../../install/bin/clang -O3 -mllvm -passes=hlw,idc,mba,fla,sub test.c aes.c -o test.elf
 ./test.elf

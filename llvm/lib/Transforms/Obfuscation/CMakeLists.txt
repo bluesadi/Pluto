@@ -5,6 +5,7 @@ add_llvm_component_library(LLVMObfuscation
   MBAUtils.cpp
   MBAObfuscation.cpp
   Substitution.cpp
+  IndirectCall.cpp
 
   LINK_COMPONENTS
   Core

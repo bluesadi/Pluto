@@ -1,5 +1,5 @@
 CXX=`pwd`/install/bin/clang++
-CXX_FLAGS="-mllvm -passes=hlw,fla,sub,mba"
+CXX_FLAGS="-mllvm -passes=hlw,idc,mba,fla,sub"
 
 cd tests/jsoncpp
 rm -rf build

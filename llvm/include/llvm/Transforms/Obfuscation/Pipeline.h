@@ -2,6 +2,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Obfuscation/Flattening.h"
 #include "llvm/Transforms/Obfuscation/HelloWorld.h"
+#include "llvm/Transforms/Obfuscation/IndirectCall.h"
 #include "llvm/Transforms/Obfuscation/MBAObfuscation.h"
 #include "llvm/Transforms/Obfuscation/Substitution.h"
 #include "llvm/Transforms/Utils/LowerSwitch.h"
@@ -28,6 +29,8 @@ ModulePassManager buildObfuscationPipeline() {
             FPM.addPass(Substitution());
         } else if (pass == "mba") {
             FPM.addPass(MbaObfuscation());
+        } else if (pass == "idc") {
+            MPM.addPass(IndirectCall());
         }
     }
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
