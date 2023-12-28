@@ -8,4 +8,4 @@ cmake -G Ninja -S llvm -B build \
       -DCMAKE_CXX_COMPILER="g++" \
       -DCMAKE_INSTALL_PREFIX="install" \
       -DCMAKE_BUILD_TYPE=Release
-ninja -j`nproc` -C build
+ninja -j`nproc` -C build install
