@@ -14,7 +14,7 @@ build:
 		  -DLLVM_TARGETS_TO_BUILD=X86 \
 		  -DLLVM_ENABLE_LLD=ON \
 	      -DCMAKE_INSTALL_PREFIX=$(INSTALL_PREFIX) \
-	      -DCMAKE_BUILD_TYPE=Debug
+	      -DCMAKE_BUILD_TYPE=Release
 	ninja -j`nproc` -C $(BUILD_DIR)
 
 install: build
