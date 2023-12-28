@@ -1,5 +1,5 @@
 CXX=`pwd`/install/bin/clang++
-CXX_FLAGS="-mllvm -passes=hlw,idc,mba,fla,sub"
+CXX_FLAGS="-flto -fuse-ld=lld -O3 -mllvm -passes=mba,fla,sub -Xlinker -mllvm -Xlinker -passes=hlw,idc -Wno-unused-command-line-argument"
 
 cd tests/json
 rm -rf build

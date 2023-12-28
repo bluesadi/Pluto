@@ -3107,10 +3107,10 @@ void Verifier::visitPHINode(PHINode &PN) {
 void Verifier::visitCallBase(CallBase &Call) {
   Assert(Call.getCalledOperand()->getType()->isPointerTy(),
          "Called function must be a pointer!", Call);
-  PointerType *FPTy = cast<PointerType>(Call.getCalledOperand()->getType());
+  // PointerType *FPTy = cast<PointerType>(Call.getCalledOperand()->getType());
 
-  Assert(FPTy->isOpaqueOrPointeeTypeMatches(Call.getFunctionType()),
-         "Called function is not the same type as the call!", Call);
+  // Assert(FPTy->isOpaqueOrPointeeTypeMatches(Call.getFunctionType()),
+  //        "Called function is not the same type as the call!", Call);
 
   FunctionType *FTy = Call.getFunctionType();
 

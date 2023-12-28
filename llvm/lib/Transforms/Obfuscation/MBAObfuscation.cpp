@@ -1,7 +1,7 @@
-#include "llvm/Transforms/Obfuscation/MBAObfuscation.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
+#include "llvm/Transforms/Obfuscation/MBAObfuscation.h"
 #include "llvm/Transforms/Obfuscation/MBAUtils.h"
 #include <iostream>
 #include <vector>

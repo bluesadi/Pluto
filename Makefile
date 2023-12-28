@@ -9,12 +9,12 @@ all: build install check
 build:
 	mkdir -p $(BUILD_DIR)
 	cmake -G Ninja -S llvm -B $(BUILD_DIR) \
-	      -DLLVM_ENABLE_PROJECTS="clang" \
+	      -DLLVM_ENABLE_PROJECTS="clang;lld" \
 	      -DLLVM_INCLUDE_BENCHMARKS=OFF \
+		  -DLLVM_TARGETS_TO_BUILD=X86 \
+		  -DLLVM_ENABLE_LLD=ON \
 	      -DCMAKE_INSTALL_PREFIX=$(INSTALL_PREFIX) \
-	      -DCMAKE_C_COMPILER=gcc \
-	      -DCMAKE_CXX_COMPILER=g++ \
-	      -DCMAKE_BUILD_TYPE=Release
+	      -DCMAKE_BUILD_TYPE=Debug
 	ninja -j`nproc` -C $(BUILD_DIR)
 
 install: build

@@ -172,5 +172,5 @@ PreservedAnalyses Pluto::Flattening::run(Function &F, FunctionAnalysisManager &A
         }
     }
     fixVariables(F, normalBlocks);
-    return PreservedAnalyses::all();
+    return PreservedAnalyses::none();
 }

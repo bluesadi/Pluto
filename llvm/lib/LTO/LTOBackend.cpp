@@ -46,6 +46,7 @@
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Utils/FunctionImportUtils.h"
 #include "llvm/Transforms/Utils/SplitModule.h"
+#include "llvm/Transforms/Obfuscation/Pipeline.h"
 
 using namespace llvm;
 using namespace lto;
@@ -307,6 +308,7 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   if (!Conf.DisableVerify)
     MPM.addPass(VerifierPass());
 
+  MPM.addPass(buildLTOObfuscationPipeline());
   MPM.run(Mod, MAM);
 }
 
