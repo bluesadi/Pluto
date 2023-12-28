@@ -1,8 +1,8 @@
-#include "llvm/Transforms/Obfuscation/Substitution.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
+#include "llvm/Transforms/Obfuscation/Substitution.h"
 #include <vector>
 
 using namespace llvm;
@@ -24,7 +24,9 @@ PreservedAnalyses Pluto::Substitution::run(Function &F, FunctionAnalysisManager 
             }
         }
     }
-    return PreservedAnalyses::all();
+    PreservedAnalyses PA;
+    PA.preserveSet<CFGAnalyses>();
+    return PA;
 }
 
 void Pluto::Substitution::substitute(BinaryOperator *BI) {

@@ -64,8 +64,9 @@ PreservedAnalyses Pluto::IndirectCall::run(Module &M, ModuleAnalysisManager &AM)
             }
         }
     }
-
-    return PreservedAnalyses::all();
+    PreservedAnalyses PA;
+    PA.preserveSet<CFGAnalyses>();
+    return PA;
 }
 
 }; // namespace Pluto

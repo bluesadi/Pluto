@@ -17,10 +17,12 @@ jobs:
       run: sudo apt install ninja-build -y
     - name: Install z3
       run: sudo apt install libz3-dev -y
+    - name: Install lld
+      run: sudo apt install lld -y
     - name: git submodule update --init
       run: git submodule update --init
-    - name: make install
-      run: make install
+    - name: ./build.sh
+      run: ./build.sh
     - name: Test tiny-aes
       run: ./tests/test-aes.sh
     - name: Test jsoncpp

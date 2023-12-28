@@ -41,7 +41,9 @@ PreservedAnalyses Pluto::MbaObfuscation::run(Function &F, FunctionAnalysisManage
             }
         }
     }
-    return PreservedAnalyses::all();
+    PreservedAnalyses PA;
+    PA.preserveSet<CFGAnalyses>();
+    return PA;
 }
 
 void Pluto::MbaObfuscation::substituteConstant(Instruction *I, int i) {

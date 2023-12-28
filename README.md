@@ -8,22 +8,22 @@ Download source code:
 ```
 $ git clone https://github.com/bluesadi/Pluto.git
 ```
-### Dependencies
+### Ubuntu
 Install z3 (required by MbaObfuscation):
 ```
-$ wget https://github.com/Z3Prover/z3/archive/refs/tags/z3-4.12.2.zip
-$ tar xvf z3-4.12.2.zip
-$ cd z3-z3-4.12.2
-$ ./configure
-$ cd build
-$ make install
+$ sudo apt install libz3-dev 
 ```
-### Ubuntu
+(Optional) Install lld:
+```
+// This is an optional depencency to speed up the linking stage when building LLVM.
+// If you don't want to install this dependency, remove the line `set(LLVM_ENABLE_LLD ON)` in CMakeLists.txt
+$ sudo apt install lld
+```
 Install Ninja and other dependencies:
 ```
 $ sudo apt install ninja-build cmake python3 gcc g++
 ```
-Build and install to `./install` directory:
+Build and install Pluto to the ./install directory:
 ```
-$ make
+$ ./build.sh
 ```

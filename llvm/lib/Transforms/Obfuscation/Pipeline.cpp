@@ -2,6 +2,7 @@
 
 #include "llvm/IR/PassManager.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Obfuscation/BogusControlFlow.h"
 #include "llvm/Transforms/Obfuscation/Flattening.h"
 #include "llvm/Transforms/Obfuscation/HelloWorld.h"
 #include "llvm/Transforms/Obfuscation/IndirectCall.h"
@@ -29,8 +30,8 @@ ModulePassManager buildObfuscationPipeline() {
             FPM.addPass(Substitution());
         } else if (pass == "mba") {
             FPM.addPass(MbaObfuscation());
-        } else if (pass == "idc") {
-            MPM.addPass(IndirectCall());
+        } else if (pass == "bcf") {
+            FPM.addPass(BogusControlFlow());
         }
     }
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
