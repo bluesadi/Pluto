@@ -1,9 +1,5 @@
 mkdir -p build
-cmake -G Ninja -S llvm -B build \
-      -DLLVM_ENABLE_PROJECTS="clang;lld" \
-      -DLLVM_TARGETS_TO_BUILD="X86" \
-      -DLLVM_ENABLE_LLD=ON \
-      -DLLVM_INCLUDE_BENCHMARKS=OFF \
+cmake -G Ninja -S . -B build \
       -DCMAKE_C_COMPILER="gcc" \
       -DCMAKE_CXX_COMPILER="g++" \
       -DCMAKE_INSTALL_PREFIX="install" \
