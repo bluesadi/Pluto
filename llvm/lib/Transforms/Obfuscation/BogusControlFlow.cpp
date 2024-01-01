@@ -59,6 +59,9 @@ PreservedAnalyses Pluto::BogusControlFlow::run(Function &F, FunctionAnalysisMana
         origBB.push_back(&BB);
     }
     for (BasicBlock *BB : origBB) {
+        if (isa<InvokeInst>(BB->getTerminator()) || BB->isEHPad()) {
+            continue;
+        }
         // 第一步，拆分得到 headBB, bodyBB, endBB
         // 其中所有的 PHI 指令都在 entryBB(如果有的话)
         // endBB 只包含一条终结指令
