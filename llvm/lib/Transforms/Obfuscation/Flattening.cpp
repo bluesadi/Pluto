@@ -1,8 +1,8 @@
-#include "llvm/Transforms/Obfuscation/Flattening.h"
 #include "llvm/Analysis/IteratedDominanceFrontier.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Obfuscation/CryptoUtils.h"
+#include "llvm/Transforms/Obfuscation/Flattening.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
 #include <queue>
@@ -123,13 +123,17 @@ PreservedAnalyses Pluto::Flattening::run(Function &F, FunctionAnalysisManager &A
     builder.CreateBr(returnBB);
     builder.SetInsertPoint(dispatchBB);
     SwitchInst *swInst = builder.CreateSwitch(swVar, swDefault, normalBlocks.size());
+    std::set<uint32_t> usedNum;
 
     // 将原基本块插入到返回块之前，并分配case值
     // Insert original basic blocks before return block and assign a random case value for each one.
     for (BasicBlock *BB : normalBlocks) {
+        usedNum.insert(randNum);
         BB->moveBefore(returnBB);
         swInst->addCase(ConstantInt::get(Type::getInt32Ty(context), randNum), BB);
-        randNum = cryptoutils->get_uint32_t();
+        do {
+            randNum = cryptoutils->get_uint32_t();
+        } while (find(usedNum.begin(), usedNum.end(), randNum) != usedNum.end());
     }
 
     // 在每个基本块最后添加修改switch变量的指令和跳转到返回块的指令
