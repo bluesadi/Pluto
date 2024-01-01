@@ -35,9 +35,12 @@ static int8_t truthTables[15][4] = {
 int64_t *MBAUtils::generateLinearMBA(int numExprs) {
 #ifdef USE_CACHE
     static std::queue<int64_t *> cached_coeffs;
-    if (cached_coeffs.size() && cryptoutils->get_range(10) < 8) {
+    if (cached_coeffs.size() && cryptoutils->get_range(100) < 80) {
         int64_t *coeffs = cached_coeffs.front();
         cached_coeffs.pop();
+        int64_t *coeffs_copy = new int64_t[15];
+        std::copy(coeffs, coeffs + 15, coeffs_copy);
+        cached_coeffs.push(coeffs_copy);
         return coeffs;
     }
 #endif
@@ -77,11 +80,9 @@ int64_t *MBAUtils::generateLinearMBA(int numExprs) {
         }
         delete[] exprs;
 #ifdef USE_CACHE
-        if (cached_coeffs.size() < 10) {
-            int64_t *coeffs_copy = new int64_t[15];
-            std::copy(coeffs, coeffs + 15, coeffs_copy);
-            cached_coeffs.push(coeffs_copy);
-        }
+        int64_t *coeffs_copy = new int64_t[15];
+        std::copy(coeffs, coeffs + 15, coeffs_copy);
+        cached_coeffs.push(coeffs_copy);
 #endif
         return coeffs;
     }
