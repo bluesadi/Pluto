@@ -23,7 +23,11 @@ ModulePassManager buildObfuscationPipeline() {
     ModulePassManager MPM;
     FunctionPassManager FPM;
     for (auto pass : Passes) {
-        if (pass == "fla") {
+        if (pass == "hlw") {
+            FPM.addPass(HelloWorld());
+        } else if (pass == "idc") {
+            MPM.addPass(IndirectCall());
+        } else if (pass == "fla") {
             FPM.addPass(LowerSwitchWrapper());
             FPM.addPass(Flattening());
         } else if (pass == "sub") {

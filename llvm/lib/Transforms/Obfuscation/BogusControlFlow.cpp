@@ -1,3 +1,4 @@
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Obfuscation/BogusControlFlow.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -35,21 +36,22 @@ BasicBlock *cloneBasicBlock(BasicBlock *BB) {
 
 Value *createBogusCmp(BasicBlock *insertAfter) {
     // if((y < 10 || x * (x + 1) % 2 == 0))
-    // 等价于 if(true)
     Module *M = insertAfter->getModule();
     LLVMContext &context = M->getContext();
     GlobalVariable *xptr = new GlobalVariable(*M, Type::getInt32Ty(context), false, GlobalValue::CommonLinkage,
                                               ConstantInt::get(Type::getInt32Ty(context), 0), "x");
     GlobalVariable *yptr = new GlobalVariable(*M, Type::getInt32Ty(context), false, GlobalValue::CommonLinkage,
                                               ConstantInt::get(Type::getInt32Ty(context), 0), "y");
-    LoadInst *x = new LoadInst(Type::getInt32Ty(context), xptr, "", insertAfter);
-    LoadInst *y = new LoadInst(Type::getInt32Ty(context), yptr, "", insertAfter);
-    ICmpInst *cond1 = new ICmpInst(*insertAfter, CmpInst::ICMP_SLT, y, ConstantInt::get(Type::getInt32Ty(context), 10));
-    BinaryOperator *op1 = BinaryOperator::CreateAdd(x, ConstantInt::get(Type::getInt32Ty(context), 1), "", insertAfter);
-    BinaryOperator *op2 = BinaryOperator::CreateMul(op1, x, "", insertAfter);
-    BinaryOperator *op3 =
-        BinaryOperator::CreateURem(op2, ConstantInt::get(Type::getInt32Ty(context), 2), "", insertAfter);
-    ICmpInst *cond2 = new ICmpInst(*insertAfter, CmpInst::ICMP_EQ, op3, ConstantInt::get(Type::getInt32Ty(context), 0));
+
+    IRBuilder<> builder(context);
+    builder.SetInsertPoint(insertAfter);
+    LoadInst *x = builder.CreateLoad(Type::getInt32Ty(context), xptr);
+    LoadInst *y = builder.CreateLoad(Type::getInt32Ty(context), yptr);
+    Value *cond1 = builder.CreateICmpSLT(y, ConstantInt::get(Type::getInt32Ty(context), 10));
+    Value *op1 = builder.CreateAdd(x, ConstantInt::get(Type::getInt32Ty(context), 1));
+    Value *op2 = builder.CreateMul(op1, x);
+    Value *op3 = builder.CreateURem(op2, ConstantInt::get(Type::getInt32Ty(context), 2));
+    Value *cond2 = builder.CreateICmpEQ(op3, ConstantInt::get(Type::getInt32Ty(context), 0));
     return BinaryOperator::CreateOr(cond1, cond2, "", insertAfter);
 }
 

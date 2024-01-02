@@ -52,6 +52,7 @@ void Pluto::MbaObfuscation::substituteConstant(Instruction *I, int i) {
         int64_t *coeffs = generateLinearMBA(NUM_COEFFS);
         coeffs[14] -= val->getValue().getZExtValue();
         Value *mbaExpr = insertLinearMBA(coeffs, I);
+        delete[] coeffs;
         if (val->getBitWidth() <= 32) {
             mbaExpr = insertPolynomialMBA(mbaExpr, I);
         }
@@ -92,30 +93,40 @@ Value *Pluto::MbaObfuscation::substituteAdd(BinaryOperator *BI) {
     int64_t *coeffs = generateLinearMBA(NUM_COEFFS);
     coeffs[2] += 1;
     coeffs[4] += 1;
-    return insertLinearMBA(coeffs, BI);
+    Value *mbaExpr = insertLinearMBA(coeffs, BI);
+    delete[] coeffs;
+    return mbaExpr;
 }
 
 Value *Pluto::MbaObfuscation::substituteSub(BinaryOperator *BI) {
     int64_t *coeffs = generateLinearMBA(NUM_COEFFS);
     coeffs[2] += 1;
     coeffs[4] -= 1;
-    return insertLinearMBA(coeffs, BI);
+    Value *mbaExpr = insertLinearMBA(coeffs, BI);
+    delete[] coeffs;
+    return mbaExpr;
 }
 
 Value *Pluto::MbaObfuscation::substituteXor(BinaryOperator *BI) {
     int64_t *coeffs = generateLinearMBA(NUM_COEFFS);
     coeffs[5] += 1;
-    return insertLinearMBA(coeffs, BI);
+    Value *mbaExpr = insertLinearMBA(coeffs, BI);
+    delete[] coeffs;
+    return mbaExpr;
 }
 
 Value *Pluto::MbaObfuscation::substituteAnd(BinaryOperator *BI) {
     int64_t *coeffs = generateLinearMBA(NUM_COEFFS);
     coeffs[0] += 1;
-    return insertLinearMBA(coeffs, BI);
+    Value *mbaExpr = insertLinearMBA(coeffs, BI);
+    delete[] coeffs;
+    return mbaExpr;
 }
 
 Value *Pluto::MbaObfuscation::substituteOr(BinaryOperator *BI) {
     int64_t *coeffs = generateLinearMBA(NUM_COEFFS);
     coeffs[6] += 1;
-    return insertLinearMBA(coeffs, BI);
+    Value *mbaExpr = insertLinearMBA(coeffs, BI);
+    delete[] coeffs;
+    return mbaExpr;
 }
