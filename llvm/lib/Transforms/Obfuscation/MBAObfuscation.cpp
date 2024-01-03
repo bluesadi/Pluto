@@ -10,7 +10,7 @@ using namespace std;
 using namespace llvm;
 using namespace MBAUtils;
 
-#define NUM_COEFFS 10
+#define NUM_COEFFS 5
 
 PreservedAnalyses Pluto::MbaObfuscation::run(Function &F, FunctionAnalysisManager &AM) {
     for (BasicBlock &BB : F) {
