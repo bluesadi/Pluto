@@ -4,6 +4,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Obfuscation/BogusControlFlow.h"
 #include "llvm/Transforms/Obfuscation/Flattening.h"
+#include "llvm/Transforms/Obfuscation/GlobalEncryption.h"
 #include "llvm/Transforms/Obfuscation/HelloWorld.h"
 #include "llvm/Transforms/Obfuscation/IndirectCall.h"
 #include "llvm/Transforms/Obfuscation/MBAObfuscation.h"
@@ -36,6 +37,8 @@ ModulePassManager buildObfuscationPipeline() {
             FPM.addPass(MbaObfuscation());
         } else if (pass == "bcf") {
             FPM.addPass(BogusControlFlow());
+        } else if (pass == "gle") {
+            MPM.addPass(GlobalEncryption());
         }
     }
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));

@@ -7,6 +7,7 @@ add_llvm_component_library(LLVMObfuscation
   Substitution.cpp
   IndirectCall.cpp
   BogusControlFlow.cpp
+  GlobalEncryption.cpp
   Pipeline.cpp
 
   LINK_COMPONENTS
