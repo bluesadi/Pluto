@@ -53,6 +53,8 @@ ModulePassManager buildLTOObfuscationPipeline() {
             FPM.addPass(HelloWorld());
         } else if (pass == "idc") {
             MPM.addPass(IndirectCall());
+        } else if (pass == "gle") {
+            MPM.addPass(GlobalEncryption());
         }
     }
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));

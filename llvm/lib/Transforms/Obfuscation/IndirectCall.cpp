@@ -16,7 +16,7 @@ PreservedAnalyses Pluto::IndirectCall::run(Module &M, ModuleAnalysisManager &AM)
 
     std::vector<Function *> functions;
     for (Function &F : M) {
-        if (F.size() && !F.hasLinkOnceLinkage()) {
+        if (F.size() && (F.hasInternalLinkage() || F.hasPrivateLinkage())) {
             functions.push_back(&F);
         }
     }
