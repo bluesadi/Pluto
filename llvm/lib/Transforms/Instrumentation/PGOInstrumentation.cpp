@@ -110,6 +110,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -198,12 +199,14 @@ static cl::opt<bool>
                             "warnings about missing profile data for "
                             "functions."));
 
+namespace llvm {
 // Command line option to enable/disable the warning about a hash mismatch in
 // the profile data.
-static cl::opt<bool>
+cl::opt<bool>
     NoPGOWarnMismatch("no-pgo-warn-mismatch", cl::init(false), cl::Hidden,
                       cl::desc("Use this option to turn off/on "
                                "warnings about profile cfg mismatch."));
+} // namespace llvm
 
 // Command line option to enable/disable the warning about a hash mismatch in
 // the profile data for Comdat functions, which often turns out to be false
@@ -252,6 +255,11 @@ static cl::opt<bool> PGOInstrumentEntry(
     "pgo-instrument-entry", cl::init(false), cl::Hidden,
     cl::desc("Force to instrument function entry basicblock."));
 
+static cl::opt<bool> PGOFunctionEntryCoverage(
+    "pgo-function-entry-coverage", cl::init(false), cl::Hidden, cl::ZeroOrMore,
+    cl::desc(
+        "Use this option to enable function entry coverage instrumentation."));
+
 static cl::opt<bool>
     PGOFixEntryCount("pgo-fix-entry-count", cl::init(true), cl::Hidden,
                      cl::desc("Fix function entry count in profile use."));
@@ -270,16 +278,17 @@ static cl::opt<bool> PGOVerifyBFI(
              "internal option -pass-remakrs-analysis=pgo."));
 
 static cl::opt<unsigned> PGOVerifyBFIRatio(
-    "pgo-verify-bfi-ratio", cl::init(5), cl::Hidden,
-    cl::desc("Set the threshold for pgo-verify-big -- only print out "
+    "pgo-verify-bfi-ratio", cl::init(2), cl::Hidden,
+    cl::desc("Set the threshold for pgo-verify-bfi:  only print out "
              "mismatched BFI if the difference percentage is greater than "
              "this value (in percentage)."));
 
 static cl::opt<unsigned> PGOVerifyBFICutoff(
-    "pgo-verify-bfi-cutoff", cl::init(1), cl::Hidden,
-    cl::desc("Set the threshold for pgo-verify-bfi -- skip the counts whose "
+    "pgo-verify-bfi-cutoff", cl::init(5), cl::Hidden,
+    cl::desc("Set the threshold for pgo-verify-bfi: skip the counts whose "
              "profile count value is below."));
 
+namespace llvm {
 // Command line option to turn on CFG dot dump after profile annotation.
 // Defined in Analysis/BlockFrequencyInfo.cpp:  -pgo-view-counts
 extern cl::opt<PGOViewCountsType> PGOViewCounts;
@@ -287,6 +296,9 @@ extern cl::opt<PGOViewCountsType> PGOViewCounts;
 // Command line option to specify the name of the function for CFG dump
 // Defined in Analysis/BlockFrequencyInfo.cpp:  -view-bfi-func-name=
 extern cl::opt<std::string> ViewBlockFreqFuncName;
+
+extern cl::opt<bool> DebugInfoCorrelate;
+} // namespace llvm
 
 static cl::opt<bool>
     PGOOldCFGHashing("pgo-instr-old-cfg-hashing", cl::init(false), cl::Hidden,
@@ -329,6 +341,33 @@ static const char *ValueProfKindDescr[] = {
 #define VALUE_PROF_KIND(Enumerator, Value, Descr) Descr,
 #include "llvm/ProfileData/InstrProfData.inc"
 };
+
+// Create a COMDAT variable INSTR_PROF_RAW_VERSION_VAR to make the runtime
+// aware this is an ir_level profile so it can set the version flag.
+static GlobalVariable *createIRLevelProfileFlagVar(Module &M, bool IsCS) {
+  const StringRef VarName(INSTR_PROF_QUOTE(INSTR_PROF_RAW_VERSION_VAR));
+  Type *IntTy64 = Type::getInt64Ty(M.getContext());
+  uint64_t ProfileVersion = (INSTR_PROF_RAW_VERSION | VARIANT_MASK_IR_PROF);
+  if (IsCS)
+    ProfileVersion |= VARIANT_MASK_CSIR_PROF;
+  if (PGOInstrumentEntry)
+    ProfileVersion |= VARIANT_MASK_INSTR_ENTRY;
+  if (DebugInfoCorrelate)
+    ProfileVersion |= VARIANT_MASK_DBG_CORRELATE;
+  if (PGOFunctionEntryCoverage)
+    ProfileVersion |=
+        VARIANT_MASK_BYTE_COVERAGE | VARIANT_MASK_FUNCTION_ENTRY_ONLY;
+  auto IRLevelVersionVariable = new GlobalVariable(
+      M, IntTy64, true, GlobalValue::WeakAnyLinkage,
+      Constant::getIntegerValue(IntTy64, APInt(64, ProfileVersion)), VarName);
+  IRLevelVersionVariable->setVisibility(GlobalValue::DefaultVisibility);
+  Triple TT(M.getTargetTriple());
+  if (TT.supportsCOMDAT()) {
+    IRLevelVersionVariable->setLinkage(GlobalValue::ExternalLinkage);
+    IRLevelVersionVariable->setComdat(M.getOrInsertComdat(VarName));
+  }
+  return IRLevelVersionVariable;
+}
 
 namespace {
 
@@ -460,7 +499,9 @@ public:
 private:
   bool runOnModule(Module &M) override {
     createProfileFileNameVar(M, InstrProfileOutput);
-    createIRLevelProfileFlagVar(M, /* IsCS */ true, PGOInstrumentEntry);
+    // The variable in a comdat may be discarded by LTO. Ensure the
+    // declaration will be retained.
+    appendToCompilerUsed(M, createIRLevelProfileFlagVar(M, /*IsCS=*/true));
     return false;
   }
   std::string InstrProfileOutput;
@@ -529,7 +570,7 @@ struct PGOEdge {
       : SrcBB(Src), DestBB(Dest), Weight(W) {}
 
   // Return the information string of an edge.
-  const std::string infoString() const {
+  std::string infoString() const {
     return (Twine(Removed ? "-" : " ") + (InMST ? " " : "*") +
             (IsCritical ? "c" : " ") + "  W=" + Twine(Weight)).str();
   }
@@ -544,7 +585,7 @@ struct BBInfo {
   BBInfo(unsigned IX) : Group(this), Index(IX) {}
 
   // Return the information string of this object.
-  const std::string infoString() const {
+  std::string infoString() const {
     return (Twine("Index=") + Twine(Index)).str();
   }
 
@@ -866,7 +907,10 @@ populateEHOperandBundle(VPCandidateInfo &Cand,
                         DenseMap<BasicBlock *, ColorVector> &BlockColors,
                         SmallVectorImpl<OperandBundleDef> &OpBundles) {
   auto *OrigCall = dyn_cast<CallBase>(Cand.AnnotatedInst);
-  if (OrigCall && !isa<IntrinsicInst>(OrigCall)) {
+  if (!OrigCall)
+    return;
+
+  if (!isa<IntrinsicInst>(OrigCall)) {
     // The instrumentation call should belong to the same funclet as a
     // non-intrinsic call, so just copy the operand bundle, if any exists.
     Optional<OperandBundleUse> ParentFunclet =
@@ -900,22 +944,39 @@ static void instrumentOneFunc(
 
   FuncPGOInstrumentation<PGOEdge, BBInfo> FuncInfo(
       F, TLI, ComdatMembers, true, BPI, BFI, IsCS, PGOInstrumentEntry);
+
+  Type *I8PtrTy = Type::getInt8PtrTy(M->getContext());
+  auto Name = ConstantExpr::getBitCast(FuncInfo.FuncNameVar, I8PtrTy);
+  auto CFGHash = ConstantInt::get(Type::getInt64Ty(M->getContext()),
+                                  FuncInfo.FunctionHash);
+  if (PGOFunctionEntryCoverage) {
+    assert(!IsCS &&
+           "entry coverge does not support context-sensitive instrumentation");
+    auto &EntryBB = F.getEntryBlock();
+    IRBuilder<> Builder(&EntryBB, EntryBB.getFirstInsertionPt());
+    // llvm.instrprof.cover(i8* <name>, i64 <hash>, i32 <num-counters>,
+    //                      i32 <index>)
+    Builder.CreateCall(
+        Intrinsic::getDeclaration(M, Intrinsic::instrprof_cover),
+        {Name, CFGHash, Builder.getInt32(1), Builder.getInt32(0)});
+    return;
+  }
+
   std::vector<BasicBlock *> InstrumentBBs;
   FuncInfo.getInstrumentBBs(InstrumentBBs);
   unsigned NumCounters =
       InstrumentBBs.size() + FuncInfo.SIVisitor.getNumOfSelectInsts();
 
   uint32_t I = 0;
-  Type *I8PtrTy = Type::getInt8PtrTy(M->getContext());
   for (auto *InstrBB : InstrumentBBs) {
     IRBuilder<> Builder(InstrBB, InstrBB->getFirstInsertionPt());
     assert(Builder.GetInsertPoint() != InstrBB->end() &&
            "Cannot get the Instrumentation point");
+    // llvm.instrprof.increment(i8* <name>, i64 <hash>, i32 <num-counters>,
+    //                          i32 <index>)
     Builder.CreateCall(
         Intrinsic::getDeclaration(M, Intrinsic::instrprof_increment),
-        {ConstantExpr::getBitCast(FuncInfo.FuncNameVar, I8PtrTy),
-         Builder.getInt64(FuncInfo.FunctionHash), Builder.getInt32(NumCounters),
-         Builder.getInt32(I++)});
+        {Name, CFGHash, Builder.getInt32(NumCounters), Builder.getInt32(I++)});
   }
 
   // Now instrument select instructions:
@@ -987,7 +1048,7 @@ struct PGOUseEdge : public PGOEdge {
   }
 
   // Return the information string for this object.
-  const std::string infoString() const {
+  std::string infoString() const {
     if (!CountValid)
       return PGOEdge::infoString();
     return (Twine(PGOEdge::infoString()) + "  Count=" + Twine(CountValue))
@@ -1018,7 +1079,7 @@ struct UseBBInfo : public BBInfo {
   }
 
   // Return the information string of this object.
-  const std::string infoString() const {
+  std::string infoString() const {
     if (!CountValid)
       return BBInfo::infoString();
     return (Twine(BBInfo::infoString()) + "  Count=" + Twine(CountValue)).str();
@@ -1147,7 +1208,7 @@ private:
   void setEdgeCount(DirectEdges &Edges, uint64_t Value);
 
   // Return FuncName string;
-  const std::string getFuncName() const { return FuncInfo.FuncName; }
+  std::string getFuncName() const { return FuncInfo.FuncName; }
 
   // Set the hot/cold inline hints based on the count values.
   // FIXME: This function should be removed once the functionality in
@@ -1245,6 +1306,28 @@ void PGOUseFunc::setEdgeCount(DirectEdges &Edges, uint64_t Value) {
   llvm_unreachable("Cannot find the unknown count edge");
 }
 
+// Emit function metadata indicating PGO profile mismatch.
+static void annotateFunctionWithHashMismatch(Function &F,
+                                             LLVMContext &ctx) {
+  const char MetadataName[] = "instr_prof_hash_mismatch";
+  SmallVector<Metadata *, 2> Names;
+  // If this metadata already exists, ignore.
+  auto *Existing = F.getMetadata(LLVMContext::MD_annotation);
+  if (Existing) {
+    MDTuple *Tuple = cast<MDTuple>(Existing);
+    for (auto &N : Tuple->operands()) {
+      if (cast<MDString>(N.get())->getString() ==  MetadataName)
+        return;
+      Names.push_back(N.get());
+    }
+  }
+
+  MDBuilder MDB(ctx);
+  Names.push_back(MDB.createString(MetadataName));
+  MDNode *MD = MDTuple::get(ctx, Names);
+  F.setMetadata(LLVMContext::MD_annotation, MD);
+}
+
 // Read the profile from ProfileFileName and assign the value to the
 // instrumented BB and the edges. This function also updates ProgramMaxCount.
 // Return true if the profile are successfully read, and false on errors.
@@ -1272,6 +1355,8 @@ bool PGOUseFunc::readCounters(IndexedInstrProfReader *PGOReader, bool &AllZeros,
              (F.hasComdat() ||
               F.getLinkage() == GlobalValue::AvailableExternallyLinkage));
         LLVM_DEBUG(dbgs() << "hash mismatch (skip=" << SkipWarning << ")");
+        // Emit function metadata indicating PGO profile mismatch.
+        annotateFunctionWithHashMismatch(F, M->getContext());
       }
 
       LLVM_DEBUG(dbgs() << " IsCS=" << IsCS << "\n");
@@ -1441,8 +1526,8 @@ void PGOUseFunc::setBranchWeights() {
 }
 
 static bool isIndirectBrTarget(BasicBlock *BB) {
-  for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; ++PI) {
-    if (isa<IndirectBrInst>((*PI)->getTerminator()))
+  for (BasicBlock *Pred : predecessors(BB)) {
+    if (isa<IndirectBrInst>(Pred->getTerminator()))
       return true;
   }
   return false;
@@ -1464,6 +1549,8 @@ void PGOUseFunc::annotateIrrLoopHeaderWeights() {
 }
 
 void SelectInstVisitor::instrumentOneSelectInst(SelectInst &SI) {
+  if (PGOFunctionEntryCoverage)
+    return;
   Module *M = F.getParent();
   IRBuilder<> Builder(&SI);
   Type *Int64Ty = Builder.getInt64Ty();
@@ -1584,7 +1671,7 @@ static bool InstrumentAllFunctions(
   // For the context-sensitve instrumentation, we should have a separated pass
   // (before LTO/ThinLTO linking) to create these variables.
   if (!IsCS)
-    createIRLevelProfileFlagVar(M, /* IsCS */ false, PGOInstrumentEntry);
+    createIRLevelProfileFlagVar(M, /*IsCS=*/false);
   std::unordered_multimap<Comdat *, GlobalValue *> ComdatMembers;
   collectComdatMembers(M, ComdatMembers);
 
@@ -1604,7 +1691,9 @@ static bool InstrumentAllFunctions(
 PreservedAnalyses
 PGOInstrumentationGenCreateVar::run(Module &M, ModuleAnalysisManager &AM) {
   createProfileFileNameVar(M, CSInstrName);
-  createIRLevelProfileFlagVar(M, /* IsCS */ true, PGOInstrumentEntry);
+  // The variable in a comdat may be discarded by LTO. Ensure the declaration
+  // will be retained.
+  appendToCompilerUsed(M, createIRLevelProfileFlagVar(M, /*IsCS=*/true));
   return PreservedAnalyses::all();
 }
 
@@ -1651,7 +1740,7 @@ static void fixFuncEntryCount(PGOUseFunc &Func, LoopInfo &LI,
   BlockFrequencyInfo NBFI(F, NBPI, LI);
 #ifndef NDEBUG
   auto BFIEntryCount = F.getEntryCount();
-  assert(BFIEntryCount.hasValue() && (BFIEntryCount.getCount() > 0) &&
+  assert(BFIEntryCount.hasValue() && (BFIEntryCount->getCount() > 0) &&
          "Invalid BFI Entrycount");
 #endif
   auto SumCount = APFloat::getZero(APFloat::IEEEdouble());
@@ -1739,7 +1828,7 @@ static void verifyFuncBFI(PGOUseFunc &Func, LoopInfo &LI,
       uint64_t Diff = (BFICountValue >= CountValue)
                           ? BFICountValue - CountValue
                           : CountValue - BFICountValue;
-      if (Diff < CountValue / 100 * PGOVerifyBFIRatio)
+      if (Diff <= CountValue / 100 * PGOVerifyBFIRatio)
         continue;
     }
     BBMisMatchNum++;
@@ -1799,6 +1888,18 @@ static bool annotateAllFunctions(
   if (!PGOReader->isIRLevelProfile()) {
     Ctx.diagnose(DiagnosticInfoPGOProfile(
         ProfileFileName.data(), "Not an IR level instrumentation profile"));
+    return false;
+  }
+  if (PGOReader->hasSingleByteCoverage()) {
+    Ctx.diagnose(DiagnosticInfoPGOProfile(
+        ProfileFileName.data(),
+        "Cannot use coverage profiles for optimization"));
+    return false;
+  }
+  if (PGOReader->functionEntryOnly()) {
+    Ctx.diagnose(DiagnosticInfoPGOProfile(
+        ProfileFileName.data(),
+        "Function entry profiles are not yet supported for optimization"));
     return false;
   }
 
@@ -2100,14 +2201,13 @@ template <> struct DOTGraphTraits<PGOUseFunc *> : DefaultDOTGraphTraits {
     if (!PGOInstrSelect)
       return Result;
 
-    for (auto BI = Node->begin(); BI != Node->end(); ++BI) {
-      auto *I = &*BI;
-      if (!isa<SelectInst>(I))
+    for (const Instruction &I : *Node) {
+      if (!isa<SelectInst>(&I))
         continue;
       // Display scaled counts for SELECT instruction:
       OS << "SELECT : { T = ";
       uint64_t TC, FC;
-      bool HasProf = I->extractProfMetadata(TC, FC);
+      bool HasProf = I.extractProfMetadata(TC, FC);
       if (!HasProf)
         OS << "Unknown, F = Unknown }\\l";
       else

@@ -182,8 +182,7 @@ static bool callHasRegMask(MachineInstr &MI) {
 /// Insert a vzeroupper instruction before I.
 void VZeroUpperInserter::insertVZeroUpper(MachineBasicBlock::iterator I,
                                           MachineBasicBlock &MBB) {
-  DebugLoc dl = I->getDebugLoc();
-  BuildMI(MBB, I, dl, TII->get(X86::VZEROUPPER));
+  BuildMI(MBB, I, I->getDebugLoc(), TII->get(X86::VZEROUPPER));
   ++NumVZU;
   EverMadeChange = true;
 }
@@ -272,10 +271,8 @@ void VZeroUpperInserter::processBasicBlock(MachineBasicBlock &MBB) {
                     << getBlockExitStateName(CurState) << '\n');
 
   if (CurState == EXITS_DIRTY)
-    for (MachineBasicBlock::succ_iterator SI = MBB.succ_begin(),
-                                          SE = MBB.succ_end();
-         SI != SE; ++SI)
-      addDirtySuccessor(**SI);
+    for (MachineBasicBlock *Succ : MBB.successors())
+      addDirtySuccessor(*Succ);
 
   BlockStates[MBB.getNumber()].ExitState = CurState;
 }

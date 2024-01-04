@@ -49,14 +49,13 @@ class CalleeSavedInfo {
   /// The long-term solution is to model the liveness of callee-saved registers
   /// by implicit uses on the return instructions, however, the required
   /// changes in the ARM backend would be quite extensive.
-  bool Restored;
+  bool Restored = true;
   /// Flag indicating whether the register is spilled to stack or another
   /// register.
-  bool SpilledToReg;
+  bool SpilledToReg = false;
 
 public:
-  explicit CalleeSavedInfo(unsigned R, int FI = 0)
-  : Reg(R), FrameIdx(FI), Restored(true), SpilledToReg(false) {}
+  explicit CalleeSavedInfo(unsigned R, int FI = 0) : Reg(R), FrameIdx(FI) {}
 
   // Accessors.
   Register getReg()                        const { return Reg; }
@@ -177,17 +176,17 @@ private:
     /// If true, the object has been zero-extended.
     bool isZExt = false;
 
-    /// If true, the object has been zero-extended.
+    /// If true, the object has been sign-extended.
     bool isSExt = false;
 
-    uint8_t SSPLayout;
+    uint8_t SSPLayout = SSPLK_None;
 
     StackObject(uint64_t Size, Align Alignment, int64_t SPOffset,
                 bool IsImmutable, bool IsSpillSlot, const AllocaInst *Alloca,
                 bool IsAliased, uint8_t StackID = 0)
         : SPOffset(SPOffset), Size(Size), Alignment(Alignment),
           isImmutable(IsImmutable), isSpillSlot(IsSpillSlot), StackID(StackID),
-          Alloca(Alloca), isAliased(IsAliased), SSPLayout(SSPLK_None) {}
+          Alloca(Alloca), isAliased(IsAliased) {}
   };
 
   /// The alignment of the stack.
@@ -342,6 +341,8 @@ public:
       : StackAlignment(assumeAligned(StackAlignment)),
         StackRealignable(StackRealignable), ForcedRealign(ForcedRealign) {}
 
+  MachineFrameInfo(const MachineFrameInfo &) = delete;
+
   /// Return true if there are any stack objects in this function.
   bool hasStackObjects() const { return !Objects.empty(); }
 
@@ -461,12 +462,6 @@ public:
     Objects[ObjectIdx+NumFixedObjects].Size = Size;
   }
 
-  LLVM_ATTRIBUTE_DEPRECATED(inline unsigned getObjectAlignment(int ObjectIdx)
-                                const,
-                            "Use getObjectAlign instead") {
-    return getObjectAlign(ObjectIdx).value();
-  }
-
   /// Return the alignment of the specified stack object.
   Align getObjectAlign(int ObjectIdx) const {
     assert(unsigned(ObjectIdx + NumFixedObjects) < Objects.size() &&
@@ -483,12 +478,6 @@ public:
     // Only ensure max alignment for the default stack.
     if (getStackID(ObjectIdx) == 0)
       ensureMaxAlignment(Alignment);
-  }
-
-  LLVM_ATTRIBUTE_DEPRECATED(inline void setObjectAlignment(int ObjectIdx,
-                                                           unsigned Align),
-                            "Use the version that takes Align instead") {
-    setObjectAlignment(ObjectIdx, assumeAligned(Align));
   }
 
   /// Return the underlying Alloca of the specified
@@ -576,21 +565,10 @@ public:
 
   /// Return the alignment in bytes that this function must be aligned to,
   /// which is greater than the default stack alignment provided by the target.
-  LLVM_ATTRIBUTE_DEPRECATED(unsigned getMaxAlignment() const,
-                            "Use getMaxAlign instead") {
-    return MaxAlignment.value();
-  }
-  /// Return the alignment in bytes that this function must be aligned to,
-  /// which is greater than the default stack alignment provided by the target.
   Align getMaxAlign() const { return MaxAlignment; }
 
   /// Make sure the function is at least Align bytes aligned.
   void ensureMaxAlignment(Align Alignment);
-
-  LLVM_ATTRIBUTE_DEPRECATED(inline void ensureMaxAlignment(unsigned Align),
-                            "Use the version that uses Align instead") {
-    ensureMaxAlignment(assumeAligned(Align));
-  }
 
   /// Return true if this function adjusts the stack -- e.g.,
   /// when calling another function. This is only valid during and after
@@ -625,7 +603,7 @@ public:
 
   /// Returns true if the function contains a tail call.
   bool hasTailCall() const { return HasTailCall; }
-  void setHasTailCall() { HasTailCall = true; }
+  void setHasTailCall(bool V = true) { HasTailCall = V; }
 
   /// Computes the maximum size of a callframe and the AdjustsStack property.
   /// This only works for targets defining
@@ -756,24 +734,10 @@ public:
   /// a nonnegative identifier to represent it.
   int CreateStackObject(uint64_t Size, Align Alignment, bool isSpillSlot,
                         const AllocaInst *Alloca = nullptr, uint8_t ID = 0);
-  LLVM_ATTRIBUTE_DEPRECATED(
-      inline int CreateStackObject(uint64_t Size, unsigned Alignment,
-                                   bool isSpillSlot,
-                                   const AllocaInst *Alloca = nullptr,
-                                   uint8_t ID = 0),
-      "Use CreateStackObject that takes an Align instead") {
-    return CreateStackObject(Size, assumeAligned(Alignment), isSpillSlot,
-                             Alloca, ID);
-  }
 
   /// Create a new statically sized stack object that represents a spill slot,
   /// returning a nonnegative identifier to represent it.
   int CreateSpillStackObject(uint64_t Size, Align Alignment);
-  LLVM_ATTRIBUTE_DEPRECATED(
-      inline int CreateSpillStackObject(uint64_t Size, unsigned Alignment),
-      "Use CreateSpillStackObject that takes an Align instead") {
-    return CreateSpillStackObject(Size, assumeAligned(Alignment));
-  }
 
   /// Remove or mark dead a statically sized stack object.
   void RemoveStackObject(int ObjectIdx) {
@@ -785,12 +749,6 @@ public:
   /// created.  This must be created whenever a variable sized object is
   /// created, whether or not the index returned is actually used.
   int CreateVariableSizedObject(Align Alignment, const AllocaInst *Alloca);
-  /// FIXME: Remove this function when transition to Align is over.
-  LLVM_ATTRIBUTE_DEPRECATED(int CreateVariableSizedObject(
-                                unsigned Alignment, const AllocaInst *Alloca),
-                            "Use the version that takes an Align instead") {
-    return CreateVariableSizedObject(assumeAligned(Alignment), Alloca);
-  }
 
   /// Returns a reference to call saved info vector for the current function.
   const std::vector<CalleeSavedInfo> &getCalleeSavedInfo() const {

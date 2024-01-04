@@ -124,13 +124,12 @@ static void reconnectChildLoops(LoopInfo &LI, Loop *ParentLoop, Loop *NewLoop,
   // children to a new vector.
   auto FirstChild = std::partition(
       CandidateLoops.begin(), CandidateLoops.end(), [&](Loop *L) {
-        return L == NewLoop || Blocks.count(L->getHeader()) == 0;
+        return L == NewLoop || !Blocks.contains(L->getHeader());
       });
   SmallVector<Loop *, 8> ChildLoops(FirstChild, CandidateLoops.end());
   CandidateLoops.erase(FirstChild, CandidateLoops.end());
 
-  for (auto II = ChildLoops.begin(), IE = ChildLoops.end(); II != IE; ++II) {
-    auto Child = *II;
+  for (Loop *Child : ChildLoops) {
     LLVM_DEBUG(dbgs() << "child loop: " << Child->getHeader()->getName()
                       << "\n");
     // TODO: A child loop whose header is also a header in the current

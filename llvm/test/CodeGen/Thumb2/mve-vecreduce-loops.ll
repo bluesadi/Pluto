@@ -25,7 +25,6 @@ define i32 @add_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    subs r0, r3, #4
 ; CHECK-NEXT:    add.w lr, r2, r0, lsr #2
 ; CHECK-NEXT:    movs r0, #0
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:    mov r2, r12
 ; CHECK-NEXT:  .LBB0_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
@@ -39,7 +38,6 @@ define i32 @add_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:  .LBB0_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r3
 ; CHECK-NEXT:    add.w r2, r12, r3, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB0_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldr r1, [r2], #4
@@ -98,8 +96,8 @@ for.cond.cleanup:                                 ; preds = %for.body, %middle.b
 define i32 @mul_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-LABEL: mul_i32:
 ; CHECK:       @ %bb.0: @ %entry
-; CHECK-NEXT:    .save {r7, lr}
-; CHECK-NEXT:    push {r7, lr}
+; CHECK-NEXT:    .save {r4, lr}
+; CHECK-NEXT:    push {r4, lr}
 ; CHECK-NEXT:    movs r2, #1
 ; CHECK-NEXT:    cmp r1, #1
 ; CHECK-NEXT:    blt .LBB1_8
@@ -115,26 +113,22 @@ define i32 @mul_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    sub.w r3, r12, #4
 ; CHECK-NEXT:    add.w lr, r2, r3, lsr #2
 ; CHECK-NEXT:    mov r2, r0
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB1_4: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vldrw.u32 q1, [r2], #16
 ; CHECK-NEXT:    vmul.i32 q0, q1, q0
 ; CHECK-NEXT:    le lr, .LBB1_4
 ; CHECK-NEXT:  @ %bb.5: @ %middle.block
-; CHECK-NEXT:    vmov r2, s3
+; CHECK-NEXT:    vmov lr, r3, d1
 ; CHECK-NEXT:    cmp r12, r1
-; CHECK-NEXT:    vmov r3, s2
-; CHECK-NEXT:    mul lr, r3, r2
-; CHECK-NEXT:    vmov r3, s1
-; CHECK-NEXT:    vmov r2, s0
+; CHECK-NEXT:    vmov r2, r4, d0
+; CHECK-NEXT:    mul r3, lr, r3
+; CHECK-NEXT:    mul r2, r4, r2
 ; CHECK-NEXT:    mul r2, r3, r2
-; CHECK-NEXT:    mul r2, r2, lr
 ; CHECK-NEXT:    beq .LBB1_8
 ; CHECK-NEXT:  .LBB1_6: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r12
 ; CHECK-NEXT:    add.w r0, r0, r12, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB1_7: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldr r1, [r0], #4
@@ -142,7 +136,7 @@ define i32 @mul_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    le lr, .LBB1_7
 ; CHECK-NEXT:  .LBB1_8: @ %for.cond.cleanup
 ; CHECK-NEXT:    mov r0, r2
-; CHECK-NEXT:    pop {r7, pc}
+; CHECK-NEXT:    pop {r4, pc}
 entry:
   %cmp6 = icmp sgt i32 %n, 0
   br i1 %cmp6, label %for.body.preheader, label %for.cond.cleanup
@@ -194,8 +188,8 @@ for.cond.cleanup:                                 ; preds = %for.body, %middle.b
 define i32 @and_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-LABEL: and_i32:
 ; CHECK:       @ %bb.0: @ %entry
-; CHECK-NEXT:    .save {r7, lr}
-; CHECK-NEXT:    push {r7, lr}
+; CHECK-NEXT:    .save {r4, lr}
+; CHECK-NEXT:    push {r4, lr}
 ; CHECK-NEXT:    cmp r1, #1
 ; CHECK-NEXT:    blt .LBB2_3
 ; CHECK-NEXT:  @ %bb.1: @ %for.body.preheader
@@ -215,26 +209,22 @@ define i32 @and_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    vmov.i8 q0, #0xff
 ; CHECK-NEXT:    add.w lr, r2, r12, lsr #2
 ; CHECK-NEXT:    mov r2, r0
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB2_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vldrw.u32 q1, [r2], #16
 ; CHECK-NEXT:    vand q0, q1, q0
 ; CHECK-NEXT:    le lr, .LBB2_5
 ; CHECK-NEXT:  @ %bb.6: @ %middle.block
-; CHECK-NEXT:    vmov r12, s3
+; CHECK-NEXT:    vmov lr, r12, d1
 ; CHECK-NEXT:    cmp r3, r1
-; CHECK-NEXT:    vmov r2, s2
-; CHECK-NEXT:    vmov lr, s1
-; CHECK-NEXT:    and.w r12, r12, r2
-; CHECK-NEXT:    vmov r2, s0
-; CHECK-NEXT:    and.w r2, r2, lr
+; CHECK-NEXT:    vmov r2, r4, d0
+; CHECK-NEXT:    and.w r12, r12, lr
+; CHECK-NEXT:    and.w r2, r2, r4
 ; CHECK-NEXT:    and.w r2, r2, r12
 ; CHECK-NEXT:    beq .LBB2_9
 ; CHECK-NEXT:  .LBB2_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r3
 ; CHECK-NEXT:    add.w r0, r0, r3, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB2_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldr r1, [r0], #4
@@ -242,7 +232,7 @@ define i32 @and_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    le lr, .LBB2_8
 ; CHECK-NEXT:  .LBB2_9: @ %for.cond.cleanup
 ; CHECK-NEXT:    mov r0, r2
-; CHECK-NEXT:    pop {r7, pc}
+; CHECK-NEXT:    pop {r4, pc}
 entry:
   %cmp6 = icmp sgt i32 %n, 0
   br i1 %cmp6, label %for.body.preheader, label %for.cond.cleanup
@@ -294,8 +284,8 @@ for.cond.cleanup:                                 ; preds = %for.body, %middle.b
 define i32 @or_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-LABEL: or_i32:
 ; CHECK:       @ %bb.0: @ %entry
-; CHECK-NEXT:    .save {r7, lr}
-; CHECK-NEXT:    push {r7, lr}
+; CHECK-NEXT:    .save {r4, lr}
+; CHECK-NEXT:    push {r4, lr}
 ; CHECK-NEXT:    cmp r1, #1
 ; CHECK-NEXT:    blt .LBB3_3
 ; CHECK-NEXT:  @ %bb.1: @ %for.body.preheader
@@ -315,26 +305,22 @@ define i32 @or_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    vmov.i32 q0, #0x0
 ; CHECK-NEXT:    add.w lr, r2, r12, lsr #2
 ; CHECK-NEXT:    mov r2, r0
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB3_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vldrw.u32 q1, [r2], #16
 ; CHECK-NEXT:    vorr q0, q1, q0
 ; CHECK-NEXT:    le lr, .LBB3_5
 ; CHECK-NEXT:  @ %bb.6: @ %middle.block
-; CHECK-NEXT:    vmov r12, s3
+; CHECK-NEXT:    vmov lr, r12, d1
 ; CHECK-NEXT:    cmp r3, r1
-; CHECK-NEXT:    vmov r2, s2
-; CHECK-NEXT:    vmov lr, s1
-; CHECK-NEXT:    orr.w r12, r12, r2
-; CHECK-NEXT:    vmov r2, s0
-; CHECK-NEXT:    orr.w r2, r2, lr
+; CHECK-NEXT:    vmov r2, r4, d0
+; CHECK-NEXT:    orr.w r12, r12, lr
+; CHECK-NEXT:    orr.w r2, r2, r4
 ; CHECK-NEXT:    orr.w r2, r2, r12
 ; CHECK-NEXT:    beq .LBB3_9
 ; CHECK-NEXT:  .LBB3_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r3
 ; CHECK-NEXT:    add.w r0, r0, r3, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB3_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldr r1, [r0], #4
@@ -342,7 +328,7 @@ define i32 @or_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    le lr, .LBB3_8
 ; CHECK-NEXT:  .LBB3_9: @ %for.cond.cleanup
 ; CHECK-NEXT:    mov r0, r2
-; CHECK-NEXT:    pop {r7, pc}
+; CHECK-NEXT:    pop {r4, pc}
 entry:
   %cmp6 = icmp sgt i32 %n, 0
   br i1 %cmp6, label %for.body.preheader, label %for.cond.cleanup
@@ -394,8 +380,8 @@ for.cond.cleanup:                                 ; preds = %for.body, %middle.b
 define i32 @xor_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-LABEL: xor_i32:
 ; CHECK:       @ %bb.0: @ %entry
-; CHECK-NEXT:    .save {r7, lr}
-; CHECK-NEXT:    push {r7, lr}
+; CHECK-NEXT:    .save {r4, lr}
+; CHECK-NEXT:    push {r4, lr}
 ; CHECK-NEXT:    cmp r1, #1
 ; CHECK-NEXT:    blt .LBB4_3
 ; CHECK-NEXT:  @ %bb.1: @ %for.body.preheader
@@ -415,26 +401,22 @@ define i32 @xor_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    vmov.i32 q0, #0x0
 ; CHECK-NEXT:    add.w lr, r2, r12, lsr #2
 ; CHECK-NEXT:    mov r2, r0
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB4_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vldrw.u32 q1, [r2], #16
 ; CHECK-NEXT:    veor q0, q1, q0
 ; CHECK-NEXT:    le lr, .LBB4_5
 ; CHECK-NEXT:  @ %bb.6: @ %middle.block
-; CHECK-NEXT:    vmov r12, s3
+; CHECK-NEXT:    vmov lr, r12, d1
 ; CHECK-NEXT:    cmp r3, r1
-; CHECK-NEXT:    vmov r2, s2
-; CHECK-NEXT:    vmov lr, s1
-; CHECK-NEXT:    eor.w r12, r12, r2
-; CHECK-NEXT:    vmov r2, s0
-; CHECK-NEXT:    eor.w r2, r2, lr
+; CHECK-NEXT:    vmov r2, r4, d0
+; CHECK-NEXT:    eor.w r12, r12, lr
+; CHECK-NEXT:    eor.w r2, r2, r4
 ; CHECK-NEXT:    eor.w r2, r2, r12
 ; CHECK-NEXT:    beq .LBB4_9
 ; CHECK-NEXT:  .LBB4_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r3
 ; CHECK-NEXT:    add.w r0, r0, r3, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB4_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldr r1, [r0], #4
@@ -442,7 +424,7 @@ define i32 @xor_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    le lr, .LBB4_8
 ; CHECK-NEXT:  .LBB4_9: @ %for.cond.cleanup
 ; CHECK-NEXT:    mov r0, r2
-; CHECK-NEXT:    pop {r7, pc}
+; CHECK-NEXT:    pop {r4, pc}
 entry:
   %cmp6 = icmp sgt i32 %n, 0
   br i1 %cmp6, label %for.body.preheader, label %for.cond.cleanup
@@ -515,26 +497,23 @@ define float @fadd_f32(float* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    vmov.i32 q0, #0x0
 ; CHECK-NEXT:    add.w lr, r3, r12, lsr #2
 ; CHECK-NEXT:    mov r3, r0
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB5_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vldrw.u32 q1, [r3], #16
 ; CHECK-NEXT:    vadd.f32 q0, q1, q0
 ; CHECK-NEXT:    le lr, .LBB5_5
 ; CHECK-NEXT:  @ %bb.6: @ %middle.block
-; CHECK-NEXT:    vadd.f32 s4, s2, s3
+; CHECK-NEXT:    vadd.f32 s2, s2, s3
 ; CHECK-NEXT:    cmp r2, r1
 ; CHECK-NEXT:    vadd.f32 s0, s0, s1
-; CHECK-NEXT:    vadd.f32 s0, s0, s4
+; CHECK-NEXT:    vadd.f32 s0, s0, s2
 ; CHECK-NEXT:    beq .LBB5_9
 ; CHECK-NEXT:  .LBB5_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r2
 ; CHECK-NEXT:    add.w r0, r0, r2, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB5_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    vldr s2, [r0]
-; CHECK-NEXT:    adds r0, #4
+; CHECK-NEXT:    vldmia r0!, {s2}
 ; CHECK-NEXT:    vadd.f32 s0, s2, s0
 ; CHECK-NEXT:    le lr, .LBB5_8
 ; CHECK-NEXT:  .LBB5_9: @ %for.cond.cleanup
@@ -616,26 +595,23 @@ define float @fmul_f32(float* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    vmov.f32 q0, #1.000000e+00
 ; CHECK-NEXT:    add.w lr, r3, r12, lsr #2
 ; CHECK-NEXT:    mov r3, r0
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB6_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vldrw.u32 q1, [r3], #16
 ; CHECK-NEXT:    vmul.f32 q0, q1, q0
 ; CHECK-NEXT:    le lr, .LBB6_5
 ; CHECK-NEXT:  @ %bb.6: @ %middle.block
-; CHECK-NEXT:    vmul.f32 s4, s2, s3
+; CHECK-NEXT:    vmul.f32 s2, s2, s3
 ; CHECK-NEXT:    cmp r2, r1
 ; CHECK-NEXT:    vmul.f32 s0, s0, s1
-; CHECK-NEXT:    vmul.f32 s0, s0, s4
+; CHECK-NEXT:    vmul.f32 s0, s0, s2
 ; CHECK-NEXT:    beq .LBB6_9
 ; CHECK-NEXT:  .LBB6_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r2
 ; CHECK-NEXT:    add.w r0, r0, r2, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB6_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    vldr s2, [r0]
-; CHECK-NEXT:    adds r0, #4
+; CHECK-NEXT:    vldmia r0!, {s2}
 ; CHECK-NEXT:    vmul.f32 s0, s2, s0
 ; CHECK-NEXT:    le lr, .LBB6_8
 ; CHECK-NEXT:  .LBB6_9: @ %for.cond.cleanup
@@ -713,7 +689,6 @@ define i32 @smin_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    vmvn.i32 q0, #0x80000000
 ; CHECK-NEXT:    add.w lr, r2, r12, lsr #2
 ; CHECK-NEXT:    mov r2, r0
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB7_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vldrw.u32 q1, [r2], #16
@@ -727,7 +702,6 @@ define i32 @smin_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:  .LBB7_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r3
 ; CHECK-NEXT:    add.w r0, r0, r3, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB7_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldr r1, [r0], #4
@@ -811,7 +785,6 @@ define i32 @smin_i32_inloop(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    subs r0, r3, #4
 ; CHECK-NEXT:    add.w lr, r2, r0, lsr #2
 ; CHECK-NEXT:    mvn r0, #-2147483648
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:    mov r2, r12
 ; CHECK-NEXT:  .LBB8_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
@@ -825,7 +798,6 @@ define i32 @smin_i32_inloop(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:  .LBB8_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r3
 ; CHECK-NEXT:    add.w r2, r12, r3, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB8_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldr r1, [r2], #4
@@ -909,7 +881,6 @@ define i32 @smax_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    vmov.i32 q0, #0x80000000
 ; CHECK-NEXT:    add.w lr, r2, r12, lsr #2
 ; CHECK-NEXT:    mov r2, r0
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB9_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vldrw.u32 q1, [r2], #16
@@ -923,7 +894,6 @@ define i32 @smax_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:  .LBB9_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r3
 ; CHECK-NEXT:    add.w r0, r0, r3, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB9_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldr r1, [r0], #4
@@ -1007,7 +977,6 @@ define i32 @smax_i32_inloop(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    subs r0, r3, #4
 ; CHECK-NEXT:    add.w lr, r2, r0, lsr #2
 ; CHECK-NEXT:    mov.w r0, #-2147483648
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:    mov r2, r12
 ; CHECK-NEXT:  .LBB10_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
@@ -1021,7 +990,6 @@ define i32 @smax_i32_inloop(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:  .LBB10_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r3
 ; CHECK-NEXT:    add.w r2, r12, r3, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB10_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldr r1, [r2], #4
@@ -1105,7 +1073,6 @@ define i32 @umin_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    vmov.i8 q0, #0xff
 ; CHECK-NEXT:    add.w lr, r2, r12, lsr #2
 ; CHECK-NEXT:    mov r2, r0
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB11_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vldrw.u32 q1, [r2], #16
@@ -1119,7 +1086,6 @@ define i32 @umin_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:  .LBB11_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r3
 ; CHECK-NEXT:    add.w r0, r0, r3, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB11_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldr r1, [r0], #4
@@ -1203,7 +1169,6 @@ define i32 @umin_i32_inloop(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    subs r0, r3, #4
 ; CHECK-NEXT:    add.w lr, r2, r0, lsr #2
 ; CHECK-NEXT:    mov.w r0, #-1
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:    mov r2, r12
 ; CHECK-NEXT:  .LBB12_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
@@ -1217,7 +1182,6 @@ define i32 @umin_i32_inloop(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:  .LBB12_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r3
 ; CHECK-NEXT:    add.w r2, r12, r3, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB12_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldr r1, [r2], #4
@@ -1301,7 +1265,6 @@ define i32 @umax_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    vmov.i32 q0, #0x0
 ; CHECK-NEXT:    add.w lr, r2, r12, lsr #2
 ; CHECK-NEXT:    mov r2, r0
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB13_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vldrw.u32 q1, [r2], #16
@@ -1315,7 +1278,6 @@ define i32 @umax_i32(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:  .LBB13_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r3
 ; CHECK-NEXT:    add.w r0, r0, r3, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB13_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldr r1, [r0], #4
@@ -1399,7 +1361,6 @@ define i32 @umax_i32_inloop(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    subs r0, r3, #4
 ; CHECK-NEXT:    add.w lr, r2, r0, lsr #2
 ; CHECK-NEXT:    movs r0, #0
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:    mov r2, r12
 ; CHECK-NEXT:  .LBB14_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
@@ -1413,7 +1374,6 @@ define i32 @umax_i32_inloop(i32* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:  .LBB14_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r3
 ; CHECK-NEXT:    add.w r2, r12, r3, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB14_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldr r1, [r2], #4
@@ -1497,7 +1457,6 @@ define float @fmin_f32(float* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    vmov.i32 q0, #0x0
 ; CHECK-NEXT:    add.w lr, r3, r12, lsr #2
 ; CHECK-NEXT:    mov r3, r0
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB15_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vldrw.u32 q1, [r3], #16
@@ -1505,15 +1464,14 @@ define float @fmin_f32(float* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    vpsel q0, q0, q1
 ; CHECK-NEXT:    le lr, .LBB15_5
 ; CHECK-NEXT:  @ %bb.6: @ %middle.block
-; CHECK-NEXT:    vminnm.f32 s4, s2, s3
+; CHECK-NEXT:    vminnm.f32 s2, s2, s3
 ; CHECK-NEXT:    vminnm.f32 s0, s0, s1
-; CHECK-NEXT:    vminnm.f32 s0, s0, s4
+; CHECK-NEXT:    vminnm.f32 s0, s0, s2
 ; CHECK-NEXT:    cmp r2, r1
 ; CHECK-NEXT:    beq .LBB15_9
 ; CHECK-NEXT:  .LBB15_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r2
 ; CHECK-NEXT:    add.w r0, r0, r2, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB15_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vldmia r0!, {s2}
@@ -1602,7 +1560,6 @@ define float @fmax_f32(float* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    vmov.i32 q0, #0x0
 ; CHECK-NEXT:    add.w lr, r3, r12, lsr #2
 ; CHECK-NEXT:    mov r3, r0
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB16_5: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vldrw.u32 q1, [r3], #16
@@ -1610,15 +1567,14 @@ define float @fmax_f32(float* nocapture readonly %x, i32 %n) {
 ; CHECK-NEXT:    vpsel q0, q0, q1
 ; CHECK-NEXT:    le lr, .LBB16_5
 ; CHECK-NEXT:  @ %bb.6: @ %middle.block
-; CHECK-NEXT:    vmaxnm.f32 s4, s2, s3
+; CHECK-NEXT:    vmaxnm.f32 s2, s2, s3
 ; CHECK-NEXT:    vmaxnm.f32 s0, s0, s1
-; CHECK-NEXT:    vmaxnm.f32 s0, s0, s4
+; CHECK-NEXT:    vmaxnm.f32 s0, s0, s2
 ; CHECK-NEXT:    cmp r2, r1
 ; CHECK-NEXT:    beq .LBB16_9
 ; CHECK-NEXT:  .LBB16_7: @ %for.body.preheader1
 ; CHECK-NEXT:    sub.w lr, r1, r2
 ; CHECK-NEXT:    add.w r0, r0, r2, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:  .LBB16_8: @ %for.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vldmia r0!, {s2}

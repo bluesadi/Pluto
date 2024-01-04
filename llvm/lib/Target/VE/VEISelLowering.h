@@ -40,6 +40,8 @@ enum NodeType : unsigned {
   TS1AM,                  // A TS1AM instruction used for 1/2 bytes swap.
   VEC_BROADCAST,          // A vector broadcast instruction.
                           //   0: scalar value, 1: VL
+  REPL_I32,
+  REPL_F32, // Replicate subregister to other half.
 
 // VVP_* nodes.
 #define ADD_VVP_OP(VVP_NAME, ...) VVP_NAME,
@@ -92,12 +94,15 @@ public:
     // VE uses release consistency, so need fence for each atomics.
     return true;
   }
-  Instruction *emitLeadingFence(IRBuilder<> &Builder, Instruction *Inst,
+  Instruction *emitLeadingFence(IRBuilderBase &Builder, Instruction *Inst,
                                 AtomicOrdering Ord) const override;
-  Instruction *emitTrailingFence(IRBuilder<> &Builder, Instruction *Inst,
+  Instruction *emitTrailingFence(IRBuilderBase &Builder, Instruction *Inst,
                                  AtomicOrdering Ord) const override;
   TargetLoweringBase::AtomicExpansionKind
   shouldExpandAtomicRMWInIR(AtomicRMWInst *AI) const override;
+  ISD::NodeType getExtendForAtomicOps() const override {
+    return ISD::ANY_EXTEND;
+  }
 
   /// Custom Lower {
   SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
@@ -183,7 +188,7 @@ public:
                     bool ForCodeSize) const override;
   /// Returns true if the target allows unaligned memory accesses of the
   /// specified type.
-  bool allowsMisalignedMemoryAccesses(EVT VT, unsigned AS, unsigned Align,
+  bool allowsMisalignedMemoryAccesses(EVT VT, unsigned AS, Align A,
                                       MachineMemOperand::Flags Flags,
                                       bool *Fast) const override;
 
@@ -216,4 +221,4 @@ public:
 };
 } // namespace llvm
 
-#endif // VE_ISELLOWERING_H
+#endif // LLVM_LIB_TARGET_VE_VEISELLOWERING_H

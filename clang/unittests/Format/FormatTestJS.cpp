@@ -195,7 +195,7 @@ TEST_F(FormatTestJS, JSDocComments) {
                    getGoogleJSStyleWithColumns(20)));
 
   // FIXME: this overcounts the */ as a continuation of the 12 when breaking.
-  // Related to the FIXME in BreakableBlockComment::getRangeLength.
+  // Cf. BreakableBlockComment::getRemainingLength.
   EXPECT_EQ("/**\n"
             " * @returns {string}\n"
             " *     jsdoc line line\n"
@@ -276,6 +276,12 @@ TEST_F(FormatTestJS, UnderstandsJavaScriptOperators) {
   // ES6 spread operator.
   verifyFormat("someFunction(...a);");
   verifyFormat("var x = [1, ...a, 2];");
+
+  // "- -1" is legal JS syntax, but must not collapse into "--".
+  verifyFormat("- -1;", " - -1;");
+  verifyFormat("-- -1;", " -- -1;");
+  verifyFormat("+ +1;", " + +1;");
+  verifyFormat("++ +1;", " ++ +1;");
 }
 
 TEST_F(FormatTestJS, UnderstandsAmpAmp) {
@@ -686,6 +692,74 @@ TEST_F(FormatTestJS, FormatsFreestandingFunctions) {
                "  let x = 1;\n"
                "  console.log(x);\n"
                "}\n");
+  EXPECT_EQ("a = function(x) {}\n"
+            "\n"
+            "function f(x) {}",
+            format("a = function(x) {}\n"
+                   "\n"
+                   "function f(x) {}",
+                   getGoogleJSStyleWithColumns(20)));
+}
+
+TEST_F(FormatTestJS, FormatsDecorators) {
+  // No line break after argument decorators.
+  verifyFormat("class A {\n"
+               "  constructor(@arg(DECOR) private arg: Type) {}\n"
+               "}");
+  // Ensure that there is a break before functions, getters and setters.
+  EXPECT_EQ("class A {\n"
+            "  private p = () => {}\n"
+            "\n"
+            "  @decorated('a')\n"
+            "  get f() {\n"
+            "    return result;\n"
+            "  }\n"
+            "}\n"
+            "\n"
+            "class B {\n"
+            "  private p = () => {}\n"
+            "\n"
+            "  @decorated('a')\n"
+            "  set f() {\n"
+            "    return result;\n"
+            "  }\n"
+            "}\n"
+            "\n"
+            "class C {\n"
+            "  private p = () => {}\n"
+            "\n"
+            "  @decorated('a')\n"
+            "  function f() {\n"
+            "    return result;\n"
+            "  }\n"
+            "}",
+            format("class A {\n"
+                   "  private p = () => {}\n"
+                   "\n"
+                   "  @decorated('a')\n"
+                   "  get f() {\n"
+                   "    return result;\n"
+                   "  }\n"
+                   "}\n"
+                   "\n"
+                   "class B {\n"
+                   "  private p = () => {}\n"
+                   "\n"
+                   "  @decorated('a')\n"
+                   "  set f() {\n"
+                   "    return result;\n"
+                   "  }\n"
+                   "}\n"
+                   "\n"
+                   "class C {\n"
+                   "  private p = () => {}\n"
+                   "\n"
+                   "  @decorated('a')\n"
+                   "  function f() {\n"
+                   "    return result;\n"
+                   "  }\n"
+                   "}",
+                   getGoogleJSStyleWithColumns(50)));
 }
 
 TEST_F(FormatTestJS, GeneratorFunctions) {
@@ -777,6 +851,26 @@ TEST_F(FormatTestJS, AsyncFunctions) {
                "  for await (const x of y) {\n"
                "    console.log(x);\n"
                "  }\n"
+               "}\n");
+}
+
+TEST_F(FormatTestJS, OverriddenMembers) {
+  verifyFormat(
+      "class C extends P {\n"
+      "  protected override "
+      "anOverlyLongPropertyNameSoLongItHasToGoInASeparateLineWhenOverriden:\n"
+      "      undefined;\n"
+      "}\n");
+  verifyFormat(
+      "class C extends P {\n"
+      "  protected override "
+      "anOverlyLongMethodNameSoLongItHasToGoInASeparateLineWhenOverriden() {\n"
+      "  }\n"
+      "}\n");
+  verifyFormat("class C extends P {\n"
+               "  protected override aMethodName<ATypeParam extends {},\n"
+               "                                                    BTypeParam "
+               "extends {}>() {}\n"
                "}\n");
 }
 
@@ -2581,6 +2675,135 @@ TEST_F(FormatTestJS, DeclaredFields) {
                "  declare pub: string;\n"
                "  declare private priv: string;\n"
                "}\n");
+}
+
+TEST_F(FormatTestJS, NoBreakAfterAsserts) {
+  verifyFormat(
+      "interface Assertable<State extends {}> {\n"
+      "  assert<ExportedState extends {}, DependencyState extends State = "
+      "State>(\n"
+      "      callback: Callback<ExportedState, DependencyState>):\n"
+      "      asserts this is ExtendedState<DependencyState&ExportedState>;\n"
+      "}\n",
+      "interface Assertable<State extends {}> {\n"
+      "  assert<ExportedState extends {}, DependencyState extends State = "
+      "State>(callback: Callback<ExportedState, DependencyState>): asserts "
+      "this is ExtendedState<DependencyState&ExportedState>;\n"
+      "}\n");
+}
+
+TEST_F(FormatTestJS, NumericSeparators) {
+  verifyFormat("x = 1_000_000 + 12;", "x = 1_000_000   + 12;");
+}
+
+TEST_F(FormatTestJS, AlignConsecutiveDeclarations) {
+  FormatStyle Style = getGoogleStyle(FormatStyle::LK_JavaScript);
+  Style.AlignConsecutiveDeclarations = FormatStyle::ACS_Consecutive;
+  verifyFormat("let    letVariable = 5;\n"
+               "double constVariable = 10;",
+               Style);
+
+  verifyFormat("let   letVariable = 5;\n"
+               "const constVariable = 10;",
+               Style);
+
+  verifyFormat("let          letVariable = 5;\n"
+               "static const constVariable = 10;",
+               Style);
+
+  verifyFormat("let        letVariable = 5;\n"
+               "static var constVariable = 10;",
+               Style);
+
+  verifyFormat("let letVariable = 5;\n"
+               "var constVariable = 10;",
+               Style);
+
+  verifyFormat("double letVariable = 5;\n"
+               "var    constVariable = 10;",
+               Style);
+
+  verifyFormat("const letVariable = 5;\n"
+               "var   constVariable = 10;",
+               Style);
+
+  verifyFormat("int letVariable = 5;\n"
+               "int constVariable = 10;",
+               Style);
+}
+
+TEST_F(FormatTestJS, AlignConsecutiveAssignments) {
+  FormatStyle Style = getGoogleStyle(FormatStyle::LK_JavaScript);
+
+  Style.AlignConsecutiveAssignments = FormatStyle::ACS_Consecutive;
+  verifyFormat("let letVariable      = 5;\n"
+               "double constVariable = 10;",
+               Style);
+
+  verifyFormat("let letVariable     = 5;\n"
+               "const constVariable = 10;",
+               Style);
+
+  verifyFormat("let letVariable            = 5;\n"
+               "static const constVariable = 10;",
+               Style);
+
+  verifyFormat("let letVariable          = 5;\n"
+               "static var constVariable = 10;",
+               Style);
+
+  verifyFormat("let letVariable   = 5;\n"
+               "var constVariable = 10;",
+               Style);
+
+  verifyFormat("double letVariable = 5;\n"
+               "var constVariable  = 10;",
+               Style);
+
+  verifyFormat("const letVariable = 5;\n"
+               "var constVariable = 10;",
+               Style);
+
+  verifyFormat("int letVariable   = 5;\n"
+               "int constVariable = 10;",
+               Style);
+}
+
+TEST_F(FormatTestJS, AlignConsecutiveAssignmentsAndDeclarations) {
+  FormatStyle Style = getGoogleStyle(FormatStyle::LK_JavaScript);
+  Style.AlignConsecutiveDeclarations = FormatStyle::ACS_Consecutive;
+  Style.AlignConsecutiveAssignments = FormatStyle::ACS_Consecutive;
+  verifyFormat("let    letVariable   = 5;\n"
+               "double constVariable = 10;",
+               Style);
+
+  verifyFormat("let   letVariable   = 5;\n"
+               "const constVariable = 10;",
+               Style);
+
+  verifyFormat("let          letVariable   = 5;\n"
+               "static const constVariable = 10;",
+               Style);
+
+  verifyFormat("let        letVariable   = 5;\n"
+               "static var constVariable = 10;",
+               Style);
+
+  verifyFormat("let letVariable   = 5;\n"
+               "var constVariable = 10;",
+               Style);
+
+  verifyFormat("double letVariable   = 5;\n"
+               "var    constVariable = 10;",
+               Style);
+
+  verifyFormat("const letVariable   = 5;\n"
+               "var   constVariable = 10;",
+               Style);
+
+  verifyFormat("int letVariable   = 5;\n"
+               "int constVariable = 10;",
+               Style);
 }
 
 } // namespace format

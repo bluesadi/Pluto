@@ -13,10 +13,11 @@
 #ifndef LLVM_DEBUGINFO_SYMBOLIZE_SYMBOLIZE_H
 #define LLVM_DEBUGINFO_SYMBOLIZE_SYMBOLIZE_H
 
+#include "llvm/DebugInfo/Symbolize/DIFetcher.h"
 #include "llvm/DebugInfo/Symbolize/SymbolizableModule.h"
 #include "llvm/Object/Binary.h"
-#include "llvm/Object/ObjectFile.h"
 #include "llvm/Object/ELFObjectFile.h"
+#include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/Error.h"
 #include <algorithm>
 #include <cstdint>
@@ -54,19 +55,26 @@ public:
   LLVMSymbolizer() = default;
   LLVMSymbolizer(const Options &Opts) : Opts(Opts) {}
 
-  ~LLVMSymbolizer() {
-    flush();
-  }
+  ~LLVMSymbolizer() { flush(); }
 
+  // Overloads accepting ObjectFile does not support COFF currently
   Expected<DILineInfo> symbolizeCode(const ObjectFile &Obj,
                                      object::SectionedAddress ModuleOffset);
   Expected<DILineInfo> symbolizeCode(const std::string &ModuleName,
                                      object::SectionedAddress ModuleOffset);
   Expected<DIInliningInfo>
+  symbolizeInlinedCode(const ObjectFile &Obj,
+                       object::SectionedAddress ModuleOffset);
+  Expected<DIInliningInfo>
   symbolizeInlinedCode(const std::string &ModuleName,
                        object::SectionedAddress ModuleOffset);
+
+  Expected<DIGlobal> symbolizeData(const ObjectFile &Obj,
+                                   object::SectionedAddress ModuleOffset);
   Expected<DIGlobal> symbolizeData(const std::string &ModuleName,
                                    object::SectionedAddress ModuleOffset);
+  Expected<std::vector<DILocal>>
+  symbolizeFrame(const ObjectFile &Obj, object::SectionedAddress ModuleOffset);
   Expected<std::vector<DILocal>>
   symbolizeFrame(const std::string &ModuleName,
                  object::SectionedAddress ModuleOffset);
@@ -76,14 +84,30 @@ public:
   DemangleName(const std::string &Name,
                const SymbolizableModule *DbiModuleDescriptor);
 
+  void addDIFetcher(std::unique_ptr<DIFetcher> Fetcher) {
+    DIFetchers.push_back(std::move(Fetcher));
+  }
+
 private:
   // Bundles together object file with code/data and object file with
   // corresponding debug info. These objects can be the same.
   using ObjectPair = std::pair<const ObjectFile *, const ObjectFile *>;
 
+  template <typename T>
   Expected<DILineInfo>
-  symbolizeCodeCommon(SymbolizableModule *Info,
+  symbolizeCodeCommon(const T &ModuleSpecifier,
                       object::SectionedAddress ModuleOffset);
+  template <typename T>
+  Expected<DIInliningInfo>
+  symbolizeInlinedCodeCommon(const T &ModuleSpecifier,
+                             object::SectionedAddress ModuleOffset);
+  template <typename T>
+  Expected<DIGlobal> symbolizeDataCommon(const T &ModuleSpecifier,
+                                         object::SectionedAddress ModuleOffset);
+  template <typename T>
+  Expected<std::vector<DILocal>>
+  symbolizeFrameCommon(const T &ModuleSpecifier,
+                       object::SectionedAddress ModuleOffset);
 
   /// Returns a SymbolizableModule or an error if loading debug info failed.
   /// Only one attempt is made to load a module, and errors during loading are
@@ -91,10 +115,10 @@ private:
   /// failed to load will return nullptr.
   Expected<SymbolizableModule *>
   getOrCreateModuleInfo(const std::string &ModuleName);
+  Expected<SymbolizableModule *> getOrCreateModuleInfo(const ObjectFile &Obj);
 
   Expected<SymbolizableModule *>
-  createModuleInfo(const ObjectFile *Obj,
-                   std::unique_ptr<DIContext> Context,
+  createModuleInfo(const ObjectFile *Obj, std::unique_ptr<DIContext> Context,
                    StringRef ModuleName);
 
   ObjectFile *lookUpDsymFile(const std::string &Path,
@@ -107,15 +131,21 @@ private:
                                   const ELFObjectFileBase *Obj,
                                   const std::string &ArchName);
 
+  bool findDebugBinary(const std::string &OrigPath,
+                       const std::string &DebuglinkName, uint32_t CRCHash,
+                       std::string &Result);
+
+  bool findDebugBinary(const ArrayRef<uint8_t> BuildID, std::string &Result);
+
   /// Returns pair of pointers to object and debug object.
   Expected<ObjectPair> getOrCreateObjectPair(const std::string &Path,
-                                            const std::string &ArchName);
+                                             const std::string &ArchName);
 
   /// Return a pointer to object file at specified path, for a specified
   /// architecture (e.g. if path refers to a Mach-O universal binary, only one
   /// object file from it will be returned).
   Expected<ObjectFile *> getOrCreateObject(const std::string &Path,
-                                          const std::string &ArchName);
+                                           const std::string &ArchName);
 
   std::map<std::string, std::unique_ptr<SymbolizableModule>, std::less<>>
       Modules;
@@ -133,6 +163,8 @@ private:
       ObjectForUBPathAndArch;
 
   Options Opts;
+
+  SmallVector<std::unique_ptr<DIFetcher>> DIFetchers;
 };
 
 } // end namespace symbolize

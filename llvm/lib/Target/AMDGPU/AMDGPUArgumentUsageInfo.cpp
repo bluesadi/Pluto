@@ -92,7 +92,7 @@ AMDGPUFunctionArgInfo::getPreloadedValue(
   case AMDGPUFunctionArgInfo::PRIVATE_SEGMENT_BUFFER: {
     return std::make_tuple(PrivateSegmentBuffer ? &PrivateSegmentBuffer
                                                 : nullptr,
-                           &AMDGPU::SGPR_128RegClass, LLT::vector(4, 32));
+                           &AMDGPU::SGPR_128RegClass, LLT::fixed_vector(4, 32));
   }
   case AMDGPUFunctionArgInfo::IMPLICIT_BUFFER_PTR:
     return std::make_tuple(ImplicitBufferPtr ? &ImplicitBufferPtr : nullptr,
@@ -173,14 +173,7 @@ constexpr AMDGPUFunctionArgInfo AMDGPUFunctionArgInfo::fixedABILayout() {
 const AMDGPUFunctionArgInfo &
 AMDGPUArgumentUsageInfo::lookupFuncArgInfo(const Function &F) const {
   auto I = ArgInfoMap.find(&F);
-  if (I == ArgInfoMap.end()) {
-    if (AMDGPUTargetMachine::EnableFixedFunctionABI)
-      return FixedABIFunctionInfo;
-
-    // Without the fixed ABI, we assume no function has special inputs.
-    assert(F.isDeclaration());
-    return ExternFunctionInfo;
-  }
-
+  if (I == ArgInfoMap.end())
+    return FixedABIFunctionInfo;
   return I->second;
 }

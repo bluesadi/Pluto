@@ -1,31 +1,15 @@
-#ifndef LLVM_BOGUS_CONTROL_FLOW_H
-#define LLVM_BOGUS_CONTROL_FLOW_H
+#pragma once
 
-#include "llvm/IR/Function.h"
-#include "llvm/Pass.h"
+#include "llvm/Passes/PassBuilder.h"
 
-namespace llvm {
-    
-class BogusControlFlow : public FunctionPass {
-public:
-    static char ID;
-    bool enable;
+using namespace llvm;
 
-    BogusControlFlow(bool enable) : FunctionPass(ID) { this->enable = enable; }
+namespace Pluto {
 
-    bool runOnFunction(Function &F);
+struct BogusControlFlow : PassInfoMixin<BogusControlFlow> {
+    PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
-    // 对基本块 BB 进行混淆
-    void bogus(BasicBlock *BB);
-
-    // 创建条件恒为真的 ICmpInst*
-    // 该比较指令的条件为：y < 10 || x * (x + 1) % 2 == 0
-    // 其中 x, y 为恒为0的全局变量
-    Value *createBogusCmp(BasicBlock *insertAfter);
+    static bool isRequired() { return true; }
 };
 
-FunctionPass *craeteBogusControlFlow(bool enable);
-
-} // namespace llvm
-
-#endif // LLVM_BOGUS_CONTROL_FLOW_H
+}; // namespace Pluto

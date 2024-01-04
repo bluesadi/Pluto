@@ -38,6 +38,7 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -48,7 +49,6 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Utils.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 using namespace llvm;
@@ -236,7 +236,6 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
     llvm::findDbgValues(DbgValues, I);
 
     // Update pre-existing debug value uses that reside outside the loop.
-    auto &Ctx = I->getContext();
     for (auto DVI : DbgValues) {
       BasicBlock *UserBB = DVI->getParent();
       if (InstBB == UserBB || L->contains(UserBB))
@@ -247,7 +246,7 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
       Value *V = AddedPHIs.size() == 1 ? AddedPHIs[0]
                                        : SSAUpdate.FindValueForBlock(UserBB);
       if (V)
-        DVI->setOperand(0, MetadataAsValue::get(Ctx, ValueAsMetadata::get(V)));
+        DVI->replaceVariableLocationOp(I, V);
     }
 
     // SSAUpdater might have inserted phi-nodes inside other loops. We'll need
@@ -310,7 +309,7 @@ static void computeBlocksDominatingExits(
     // worklist, unless we visited it already.
     BasicBlock *IDomBB = DT.getNode(BB)->getIDom()->getBlock();
 
-    // Exit blocks can have an immediate dominator not beloinging to the
+    // Exit blocks can have an immediate dominator not belonging to the
     // loop. For an exit block to be immediately dominated by another block
     // outside the loop, it implies not all paths from that dominator, to the
     // exit block, go through the loop.
@@ -340,8 +339,10 @@ bool llvm::formLCSSA(Loop &L, const DominatorTree &DT, const LoopInfo *LI,
 
 #ifdef EXPENSIVE_CHECKS
   // Verify all sub-loops are in LCSSA form already.
-  for (Loop *SubLoop: L)
+  for (Loop *SubLoop: L) {
+    (void)SubLoop; // Silence unused variable warning.
     assert(SubLoop->isRecursivelyLCSSAForm(DT, *LI) && "Subloop not in LCSSA!");
+  }
 #endif
 
   SmallVector<BasicBlock *, 8> ExitBlocks;
@@ -504,9 +505,6 @@ PreservedAnalyses LCSSAPass::run(Function &F, FunctionAnalysisManager &AM) {
 
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
-  PA.preserve<BasicAA>();
-  PA.preserve<GlobalsAA>();
-  PA.preserve<SCEVAA>();
   PA.preserve<ScalarEvolutionAnalysis>();
   // BPI maps terminators to probabilities, since we don't modify the CFG, no
   // updates are needed to preserve it.

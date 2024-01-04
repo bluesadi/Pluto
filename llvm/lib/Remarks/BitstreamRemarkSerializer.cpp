@@ -18,11 +18,10 @@ using namespace llvm::remarks;
 
 BitstreamRemarkSerializerHelper::BitstreamRemarkSerializerHelper(
     BitstreamRemarkContainerType ContainerType)
-    : Encoded(), R(), Bitstream(Encoded), ContainerType(ContainerType) {}
+    : Bitstream(Encoded), ContainerType(ContainerType) {}
 
 static void push(SmallVectorImpl<uint64_t> &R, StringRef Str) {
-  for (const char C : Str)
-    R.push_back(C);
+  append_range(R, Str);
 }
 
 static void setRecordName(unsigned RecordID, BitstreamWriter &Bitstream,

@@ -27,9 +27,9 @@
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TargetParser.h"
-#include "llvm/Support/TargetRegistry.h"
 
 using namespace llvm;
 
@@ -107,9 +107,8 @@ static bool getARMStoreDeprecationInfo(MCInst &MI, const MCSubtargetInfo &STI,
   assert(MI.getNumOperands() >= 4 && "expected >= 4 arguments");
   for (unsigned OI = 4, OE = MI.getNumOperands(); OI < OE; ++OI) {
     assert(MI.getOperand(OI).isReg() && "expected register");
-    if (MI.getOperand(OI).getReg() == ARM::SP ||
-        MI.getOperand(OI).getReg() == ARM::PC) {
-      Info = "use of SP or PC in the list is deprecated";
+    if (MI.getOperand(OI).getReg() == ARM::PC) {
+      Info = "use of PC in the list is deprecated";
       return true;
     }
   }
@@ -134,9 +133,6 @@ static bool getARMLoadDeprecationInfo(MCInst &MI, const MCSubtargetInfo &STI,
     case ARM::PC:
       ListContainsPC = true;
       break;
-    case ARM::SP:
-      Info = "use of SP in the list is deprecated";
-      return true;
     }
   }
 
@@ -197,6 +193,24 @@ bool ARM_MC::isCPSRDefined(const MCInst &MI, const MCInstrInfo *MCII) {
       return true;
   }
   return false;
+}
+
+uint64_t ARM_MC::evaluateBranchTarget(const MCInstrDesc &InstDesc,
+                                      uint64_t Addr, int64_t Imm) {
+  // For ARM instructions the PC offset is 8 bytes, for Thumb instructions it
+  // is 4 bytes.
+  uint64_t Offset =
+      ((InstDesc.TSFlags & ARMII::FormMask) == ARMII::ThumbFrm) ? 4 : 8;
+
+  // A Thumb instruction BLX(i) can be 16-bit aligned while targets Arm code
+  // which is 32-bit aligned. The target address for the case is calculated as
+  //   targetAddress = Align(PC,4) + imm32;
+  // where
+  //   Align(x, y) = y * (x DIV y);
+  if (InstDesc.getOpcode() == ARM::tBLXi)
+    Addr &= ~0x3;
+
+  return Addr + Imm + Offset;
 }
 
 MCSubtargetInfo *ARM_MC::createARMMCSubtargetInfo(const Triple &TT,
@@ -324,8 +338,8 @@ void ARM_MC::initLLVMToCVRegMapping(MCRegisterInfo *MRI) {
       {codeview::RegisterId::ARM_NQ14, ARM::Q14},
       {codeview::RegisterId::ARM_NQ15, ARM::Q15},
   };
-  for (unsigned I = 0; I < array_lengthof(RegMap); ++I)
-    MRI->mapLLVMRegToCVReg(RegMap[I].Reg, static_cast<int>(RegMap[I].CVReg));
+  for (const auto &I : RegMap)
+    MRI->mapLLVMRegToCVReg(I.Reg, static_cast<int>(I.CVReg));
 }
 
 static MCRegisterInfo *createARMMCRegisterInfo(const Triple &Triple) {
@@ -412,66 +426,220 @@ public:
     return MCInstrAnalysis::isConditionalBranch(Inst);
   }
 
-  bool evaluateBranch(const MCInst &Inst, uint64_t Addr,
-                      uint64_t Size, uint64_t &Target) const override {
-    // We only handle PCRel branches for now.
-    if (Inst.getNumOperands() == 0 ||
-        Info->get(Inst.getOpcode()).OpInfo[0].OperandType !=
-            MCOI::OPERAND_PCREL)
-      return false;
-
-    int64_t Imm = Inst.getOperand(0).getImm();
-    Target = Addr+Imm+8; // In ARM mode the PC is always off by 8 bytes.
-    return true;
-  }
-};
-
-class ThumbMCInstrAnalysis : public ARMMCInstrAnalysis {
-public:
-  ThumbMCInstrAnalysis(const MCInstrInfo *Info) : ARMMCInstrAnalysis(Info) {}
-
   bool evaluateBranch(const MCInst &Inst, uint64_t Addr, uint64_t Size,
                       uint64_t &Target) const override {
-    unsigned OpId;
-    switch (Inst.getOpcode()) {
-    default:
-      OpId = 0;
-      if (Inst.getNumOperands() == 0)
-        return false;
-      break;
-    case ARM::MVE_WLSTP_8:
-    case ARM::MVE_WLSTP_16:
-    case ARM::MVE_WLSTP_32:
-    case ARM::MVE_WLSTP_64:
-    case ARM::t2WLS:
-    case ARM::MVE_LETP:
-    case ARM::t2LEUpdate:
-      OpId = 2;
-      break;
-    case ARM::t2LE:
-      OpId = 1;
-      break;
+    const MCInstrDesc &Desc = Info->get(Inst.getOpcode());
+
+    // Find the PC-relative immediate operand in the instruction.
+    for (unsigned OpNum = 0; OpNum < Desc.getNumOperands(); ++OpNum) {
+      if (Inst.getOperand(OpNum).isImm() &&
+          Desc.OpInfo[OpNum].OperandType == MCOI::OPERAND_PCREL) {
+        int64_t Imm = Inst.getOperand(OpNum).getImm();
+        Target = ARM_MC::evaluateBranchTarget(Desc, Addr, Imm);
+        return true;
+      }
     }
-
-    // We only handle PCRel branches for now.
-    if (Info->get(Inst.getOpcode()).OpInfo[OpId].OperandType !=
-        MCOI::OPERAND_PCREL)
-      return false;
-
-    // In Thumb mode the PC is always off by 4 bytes.
-    Target = Addr + Inst.getOperand(OpId).getImm() + 4;
-    return true;
+    return false;
   }
+
+  Optional<uint64_t> evaluateMemoryOperandAddress(const MCInst &Inst,
+                                                  const MCSubtargetInfo *STI,
+                                                  uint64_t Addr,
+                                                  uint64_t Size) const override;
 };
 
+} // namespace
+
+static Optional<uint64_t>
+// NOLINTNEXTLINE(readability-identifier-naming)
+evaluateMemOpAddrForAddrMode_i12(const MCInst &Inst, const MCInstrDesc &Desc,
+                                 unsigned MemOpIndex, uint64_t Addr) {
+  if (MemOpIndex + 1 >= Desc.getNumOperands())
+    return None;
+
+  const MCOperand &MO1 = Inst.getOperand(MemOpIndex);
+  const MCOperand &MO2 = Inst.getOperand(MemOpIndex + 1);
+  if (!MO1.isReg() || MO1.getReg() != ARM::PC || !MO2.isImm())
+    return None;
+
+  int32_t OffImm = (int32_t)MO2.getImm();
+  // Special value for #-0. All others are normal.
+  if (OffImm == INT32_MIN)
+    OffImm = 0;
+  return Addr + OffImm;
+}
+
+static Optional<uint64_t> evaluateMemOpAddrForAddrMode3(const MCInst &Inst,
+                                                        const MCInstrDesc &Desc,
+                                                        unsigned MemOpIndex,
+                                                        uint64_t Addr) {
+  if (MemOpIndex + 2 >= Desc.getNumOperands())
+    return None;
+
+  const MCOperand &MO1 = Inst.getOperand(MemOpIndex);
+  const MCOperand &MO2 = Inst.getOperand(MemOpIndex + 1);
+  const MCOperand &MO3 = Inst.getOperand(MemOpIndex + 2);
+  if (!MO1.isReg() || MO1.getReg() != ARM::PC || MO2.getReg() || !MO3.isImm())
+    return None;
+
+  unsigned ImmOffs = ARM_AM::getAM3Offset(MO3.getImm());
+  ARM_AM::AddrOpc Op = ARM_AM::getAM3Op(MO3.getImm());
+
+  if (Op == ARM_AM::sub)
+    return Addr - ImmOffs;
+  return Addr + ImmOffs;
+}
+
+static Optional<uint64_t> evaluateMemOpAddrForAddrMode5(const MCInst &Inst,
+                                                        const MCInstrDesc &Desc,
+                                                        unsigned MemOpIndex,
+                                                        uint64_t Addr) {
+  if (MemOpIndex + 1 >= Desc.getNumOperands())
+    return None;
+
+  const MCOperand &MO1 = Inst.getOperand(MemOpIndex);
+  const MCOperand &MO2 = Inst.getOperand(MemOpIndex + 1);
+  if (!MO1.isReg() || MO1.getReg() != ARM::PC || !MO2.isImm())
+    return None;
+
+  unsigned ImmOffs = ARM_AM::getAM5Offset(MO2.getImm());
+  ARM_AM::AddrOpc Op = ARM_AM::getAM5Op(MO2.getImm());
+
+  if (Op == ARM_AM::sub)
+    return Addr - ImmOffs * 4;
+  return Addr + ImmOffs * 4;
+}
+
+static Optional<uint64_t>
+evaluateMemOpAddrForAddrMode5FP16(const MCInst &Inst, const MCInstrDesc &Desc,
+                                  unsigned MemOpIndex, uint64_t Addr) {
+  if (MemOpIndex + 1 >= Desc.getNumOperands())
+    return None;
+
+  const MCOperand &MO1 = Inst.getOperand(MemOpIndex);
+  const MCOperand &MO2 = Inst.getOperand(MemOpIndex + 1);
+  if (!MO1.isReg() || MO1.getReg() != ARM::PC || !MO2.isImm())
+    return None;
+
+  unsigned ImmOffs = ARM_AM::getAM5FP16Offset(MO2.getImm());
+  ARM_AM::AddrOpc Op = ARM_AM::getAM5FP16Op(MO2.getImm());
+
+  if (Op == ARM_AM::sub)
+    return Addr - ImmOffs * 2;
+  return Addr + ImmOffs * 2;
+}
+
+static Optional<uint64_t>
+// NOLINTNEXTLINE(readability-identifier-naming)
+evaluateMemOpAddrForAddrModeT2_i8s4(const MCInst &Inst, const MCInstrDesc &Desc,
+                                    unsigned MemOpIndex, uint64_t Addr) {
+  if (MemOpIndex + 1 >= Desc.getNumOperands())
+    return None;
+
+  const MCOperand &MO1 = Inst.getOperand(MemOpIndex);
+  const MCOperand &MO2 = Inst.getOperand(MemOpIndex + 1);
+  if (!MO1.isReg() || MO1.getReg() != ARM::PC || !MO2.isImm())
+    return None;
+
+  int32_t OffImm = (int32_t)MO2.getImm();
+  assert(((OffImm & 0x3) == 0) && "Not a valid immediate!");
+
+  // Special value for #-0. All others are normal.
+  if (OffImm == INT32_MIN)
+    OffImm = 0;
+  return Addr + OffImm;
+}
+
+static Optional<uint64_t>
+// NOLINTNEXTLINE(readability-identifier-naming)
+evaluateMemOpAddrForAddrModeT2_pc(const MCInst &Inst, const MCInstrDesc &Desc,
+                                  unsigned MemOpIndex, uint64_t Addr) {
+  const MCOperand &MO1 = Inst.getOperand(MemOpIndex);
+  if (!MO1.isImm())
+    return None;
+
+  int32_t OffImm = (int32_t)MO1.getImm();
+
+  // Special value for #-0. All others are normal.
+  if (OffImm == INT32_MIN)
+    OffImm = 0;
+  return Addr + OffImm;
+}
+
+static Optional<uint64_t>
+// NOLINTNEXTLINE(readability-identifier-naming)
+evaluateMemOpAddrForAddrModeT1_s(const MCInst &Inst, const MCInstrDesc &Desc,
+                                 unsigned MemOpIndex, uint64_t Addr) {
+  return evaluateMemOpAddrForAddrModeT2_pc(Inst, Desc, MemOpIndex, Addr);
+}
+
+Optional<uint64_t> ARMMCInstrAnalysis::evaluateMemoryOperandAddress(
+    const MCInst &Inst, const MCSubtargetInfo *STI, uint64_t Addr,
+    uint64_t Size) const {
+  const MCInstrDesc &Desc = Info->get(Inst.getOpcode());
+
+  // Only load instructions can have PC-relative memory addressing.
+  if (!Desc.mayLoad())
+    return None;
+
+  // PC-relative addressing does not update the base register.
+  uint64_t TSFlags = Desc.TSFlags;
+  unsigned IndexMode =
+      (TSFlags & ARMII::IndexModeMask) >> ARMII::IndexModeShift;
+  if (IndexMode != ARMII::IndexModeNone)
+    return None;
+
+  // Find the memory addressing operand in the instruction.
+  unsigned OpIndex = Desc.NumDefs;
+  while (OpIndex < Desc.getNumOperands() &&
+         Desc.OpInfo[OpIndex].OperandType != MCOI::OPERAND_MEMORY)
+    ++OpIndex;
+  if (OpIndex == Desc.getNumOperands())
+    return None;
+
+  // Base address for PC-relative addressing is always 32-bit aligned.
+  Addr &= ~0x3;
+
+  // For ARM instructions the PC offset is 8 bytes, for Thumb instructions it
+  // is 4 bytes.
+  switch (Desc.TSFlags & ARMII::FormMask) {
+  default:
+    Addr += 8;
+    break;
+  case ARMII::ThumbFrm:
+    Addr += 4;
+    break;
+  // VLDR* instructions share the same opcode (and thus the same form) for Arm
+  // and Thumb. Use a bit longer route through STI in that case.
+  case ARMII::VFPLdStFrm:
+    Addr += STI->getFeatureBits()[ARM::ModeThumb] ? 4 : 8;
+    break;
+  }
+
+  // Eveluate the address depending on the addressing mode
+  unsigned AddrMode = (TSFlags & ARMII::AddrModeMask);
+  switch (AddrMode) {
+  default:
+    return None;
+  case ARMII::AddrMode_i12:
+    return evaluateMemOpAddrForAddrMode_i12(Inst, Desc, OpIndex, Addr);
+  case ARMII::AddrMode3:
+    return evaluateMemOpAddrForAddrMode3(Inst, Desc, OpIndex, Addr);
+  case ARMII::AddrMode5:
+    return evaluateMemOpAddrForAddrMode5(Inst, Desc, OpIndex, Addr);
+  case ARMII::AddrMode5FP16:
+    return evaluateMemOpAddrForAddrMode5FP16(Inst, Desc, OpIndex, Addr);
+  case ARMII::AddrModeT2_i8s4:
+    return evaluateMemOpAddrForAddrModeT2_i8s4(Inst, Desc, OpIndex, Addr);
+  case ARMII::AddrModeT2_pc:
+    return evaluateMemOpAddrForAddrModeT2_pc(Inst, Desc, OpIndex, Addr);
+  case ARMII::AddrModeT1_s:
+    return evaluateMemOpAddrForAddrModeT1_s(Inst, Desc, OpIndex, Addr);
+  }
 }
 
 static MCInstrAnalysis *createARMMCInstrAnalysis(const MCInstrInfo *Info) {
   return new ARMMCInstrAnalysis(Info);
-}
-
-static MCInstrAnalysis *createThumbMCInstrAnalysis(const MCInstrInfo *Info) {
-  return new ThumbMCInstrAnalysis(Info);
 }
 
 bool ARM::isCDECoproc(size_t Coproc, const MCSubtargetInfo &STI) {
@@ -521,10 +689,9 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeARMTargetMC() {
   }
 
   // Register the MC instruction analyzer.
-  for (Target *T : {&getTheARMLETarget(), &getTheARMBETarget()})
+  for (Target *T : {&getTheARMLETarget(), &getTheARMBETarget(),
+                    &getTheThumbLETarget(), &getTheThumbBETarget()})
     TargetRegistry::RegisterMCInstrAnalysis(*T, createARMMCInstrAnalysis);
-  for (Target *T : {&getTheThumbLETarget(), &getTheThumbBETarget()})
-    TargetRegistry::RegisterMCInstrAnalysis(*T, createThumbMCInstrAnalysis);
 
   for (Target *T : {&getTheARMLETarget(), &getTheThumbLETarget()}) {
     TargetRegistry::RegisterMCCodeEmitter(*T, createARMLEMCCodeEmitter);

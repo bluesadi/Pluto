@@ -99,6 +99,8 @@ STATISTIC(NonEmptyExitBlock, "Candidate has a non-empty exit block with "
 STATISTIC(NonEmptyGuardBlock, "Candidate has a non-empty guard block with "
                               "instructions that cannot be moved");
 STATISTIC(NotRotated, "Candidate is not rotated");
+STATISTIC(OnlySecondCandidateIsGuarded,
+          "The second candidate is guarded while the first one is not");
 
 enum FusionDependenceAnalysisChoice {
   FUSION_DEPENDENCE_ANALYSIS_SCEV,
@@ -190,6 +192,7 @@ struct FusionCandidate {
         GuardBranch(L->getLoopGuardBranch()), PP(PP), AbleToPeel(canPeel(L)),
         Peeled(false), DT(DT), PDT(PDT), ORE(ORE) {
 
+    assert(DT && "Expected non-null DT!");
     // Walk over all blocks in the loop and check for conditions that may
     // prevent fusion. For each block, walk over all instructions and collect
     // the memory reads and writes If any instructions that prevent fusion are
@@ -370,11 +373,13 @@ private:
   bool reportInvalidCandidate(llvm::Statistic &Stat) const {
     using namespace ore;
     assert(L && Preheader && "Fusion candidate not initialized properly!");
+#if LLVM_ENABLE_STATS
     ++Stat;
     ORE.emit(OptimizationRemarkAnalysis(DEBUG_TYPE, Stat.getName(),
                                         L->getStartLoc(), Preheader)
              << "[" << Preheader->getParent()->getName() << "]: "
              << "Loop is not a candidate for fusion: " << Stat.getDesc());
+#endif
     return false;
   }
 };
@@ -763,7 +768,7 @@ private:
     LLVM_DEBUG(dbgs() << "Attempting to peel first " << PeelCount
                       << " iterations of the first loop. \n");
 
-    FC0.Peeled = peelLoop(FC0.L, PeelCount, &LI, &SE, &DT, &AC, true);
+    FC0.Peeled = peelLoop(FC0.L, PeelCount, &LI, &SE, DT, &AC, true);
     if (FC0.Peeled) {
       LLVM_DEBUG(dbgs() << "Done Peeling\n");
 
@@ -888,6 +893,14 @@ private:
             LLVM_DEBUG(dbgs()
                        << "Fusion candidates are not adjacent. Not fusing.\n");
             reportLoopFusion<OptimizationRemarkMissed>(*FC0, *FC1, NonAdjacent);
+            continue;
+          }
+
+          if (!FC0->GuardBranch && FC1->GuardBranch) {
+            LLVM_DEBUG(dbgs() << "The second candidate is guarded while the "
+                                 "first one is not. Not fusing.\n");
+            reportLoopFusion<OptimizationRemarkMissed>(
+                *FC0, *FC1, OnlySecondCandidateIsGuarded);
             continue;
           }
 
@@ -1523,6 +1536,7 @@ private:
     assert(FC0.Preheader && FC1.Preheader &&
            "Expecting valid fusion candidates");
     using namespace ore;
+#if LLVM_ENABLE_STATS
     ++Stat;
     ORE.emit(RemarkKind(DEBUG_TYPE, Stat.getName(), FC0.L->getStartLoc(),
                         FC0.Preheader)
@@ -1530,6 +1544,7 @@ private:
              << "]: " << NV("Cand1", StringRef(FC0.Preheader->getName()))
              << " and " << NV("Cand2", StringRef(FC1.Preheader->getName()))
              << ": " << Stat.getDesc());
+#endif
   }
 
   /// Fuse two guarded fusion candidates, creating a new fused loop.

@@ -7,7 +7,6 @@
 ; This specifically tests that we can generate a binary from the assembler
 ; that produces the same binary as the backend would.
 
-target datalayout = "e-m:e-p:32:32-i64:64-n32:64-S128"
 target triple = "wasm32-unknown-unknown"
 
 declare void @bar()
@@ -24,11 +23,11 @@ entry:
 ; ASM:     	.text
 ; ASM:      	.file	"assembler-binary.ll"
 ; ASM:      	.globl	foo
+; ASM:       	.functype	bar () -> ()
 ; ASM:      foo:
 ; ASM-NEXT: 	.functype	foo (i32) -> ()
 ; ASM-NEXT: 	call	bar
 ; ASM-NEXT: 	end_function
-; ASM:       	.functype	bar () -> ()
 
 
 ; CHECK:      --- !WASM
@@ -50,7 +49,7 @@ entry:
 ; CHECK-NEXT:         Field:           __linear_memory
 ; CHECK-NEXT:         Kind:            MEMORY
 ; CHECK-NEXT:         Memory:
-; CHECK-NEXT:           Initial:         0x0
+; CHECK-NEXT:           Minimum:         0x0
 ; CHECK-NEXT:       - Module:          env
 ; CHECK-NEXT:         Field:           bar
 ; CHECK-NEXT:         Kind:            FUNCTION

@@ -71,6 +71,8 @@ class SIAnnotateControlFlow : public FunctionPass {
 
   bool isElse(PHINode *Phi);
 
+  bool hasKill(const BasicBlock *BB);
+
   void eraseIfUnused(PHINode *Phi);
 
   void openIf(BranchInst *Term);
@@ -98,6 +100,7 @@ public:
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<LegacyDivergenceAnalysis>();
+    AU.addPreserved<LoopInfoWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addRequired<TargetPassConfig>();
     FunctionPass::getAnalysisUsage(AU);
@@ -181,6 +184,15 @@ bool SIAnnotateControlFlow::isElse(PHINode *Phi) {
   return true;
 }
 
+bool SIAnnotateControlFlow::hasKill(const BasicBlock *BB) {
+  for (const Instruction &I : *BB) {
+    if (const CallInst *CI = dyn_cast<CallInst>(&I))
+      if (CI->getIntrinsicID() == Intrinsic::amdgcn_kill)
+        return true;
+  }
+  return false;
+}
+
 // Erase "Phi" if it is not used any more
 void SIAnnotateControlFlow::eraseIfUnused(PHINode *Phi) {
   if (RecursivelyDeleteDeadPHINode(Phi)) {
@@ -229,6 +241,12 @@ Value *SIAnnotateControlFlow::handleLoopCondition(
     Instruction *Insert = Cond == BoolTrue ?
       Term : L->getHeader()->getTerminator();
 
+    Value *Args[] = { Cond, Broken };
+    return CallInst::Create(IfBreak, Args, "", Insert);
+  }
+
+  if (isa<Argument>(Cond)) {
+    Instruction *Insert = L->getHeader()->getFirstNonPHIOrDbgOrLifetime();
     Value *Args[] = { Cond, Broken };
     return CallInst::Create(IfBreak, Args, "", Insert);
   }
@@ -339,7 +357,7 @@ bool SIAnnotateControlFlow::runOnFunction(Function &F) {
 
     if (isTopOfStack(BB)) {
       PHINode *Phi = dyn_cast<PHINode>(Term->getCondition());
-      if (Phi && Phi->getParent() == BB && isElse(Phi)) {
+      if (Phi && Phi->getParent() == BB && isElse(Phi) && !hasKill(BB)) {
         insertElse(Term);
         eraseIfUnused(Phi);
         continue;

@@ -4,6 +4,10 @@
 #error Expected extension 'matrix_types' to be enabled
 #endif
 
+#if !__has_extension(matrix_types_scalar_division)
+#error Expected extension 'matrix_types_scalar_division' to be enabled
+#endif
+
 typedef double dx5x5_t __attribute__((matrix_type(5, 5)));
 
 // CHECK: %struct.Matrix = type { i8, [12 x float], float }
@@ -165,7 +169,7 @@ void matrix_inline_asm_memory_readwrite() {
   // CHECK-NEXT:    [[PTR1:%.+]] = bitcast [16 x double]* [[ALLOCA]] to <16 x double>*
   // CHECK-NEXT:    [[PTR2:%.+]] = bitcast [16 x double]* [[ALLOCA]] to <16 x double>*
   // CHECK-NEXT:    [[VAL:%.+]] = load <16 x double>, <16 x double>* [[PTR2]], align 8
-  // CHECK-NEXT:    call void asm sideeffect "", "=*r|m,0,~{memory},~{dirflag},~{fpsr},~{flags}"(<16 x double>* [[PTR1]], <16 x double> [[VAL]])
+  // CHECK-NEXT:    call void asm sideeffect "", "=*r|m,0,~{memory},~{dirflag},~{fpsr},~{flags}"(<16 x double>* elementtype(<16 x double>) [[PTR1]], <16 x double> [[VAL]])
   // CHECK-NEXT:    ret void
 
   dx4x4_t m;

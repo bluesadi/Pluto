@@ -19,11 +19,11 @@
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DiagnosticPrinter.h"
-#include "llvm/LTO/Caching.h"
 #include "llvm/LTO/LTO.h"
 #include "llvm/Object/Error.h"
 #include "llvm/Remarks/HotnessThresholdParser.h"
 #include "llvm/Support/CachePruning.h"
+#include "llvm/Support/Caching.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
@@ -623,8 +623,10 @@ static ld_plugin_status claim_file_hook(const ld_plugin_input_file *file,
     sym.comdat_key = nullptr;
     int CI = Sym.getComdatIndex();
     if (CI != -1) {
-      StringRef C = Obj->getComdatTable()[CI];
-      sym.comdat_key = strdup(C.str().c_str());
+      // Not setting comdat_key for nodeduplicate ensuress we don't deduplicate.
+      std::pair<StringRef, Comdat::SelectionKind> C = Obj->getComdatTable()[CI];
+      if (C.second != Comdat::NoDeduplicate)
+        sym.comdat_key = strdup(C.first.str().c_str());
     }
 
     sym.resolution = LDPR_UNKNOWN;
@@ -748,10 +750,13 @@ static void addModule(LTO &Lto, claimed_file &F, const void *View,
 
     case LDPR_RESOLVED_IR:
     case LDPR_RESOLVED_EXEC:
-    case LDPR_RESOLVED_DYN:
     case LDPR_PREEMPTED_IR:
     case LDPR_PREEMPTED_REG:
     case LDPR_UNDEF:
+      break;
+
+    case LDPR_RESOLVED_DYN:
+      R.ExportDynamic = true;
       break;
 
     case LDPR_PREVAILING_DEF_IRONLY:
@@ -765,6 +770,9 @@ static void addModule(LTO &Lto, claimed_file &F, const void *View,
 
     case LDPR_PREVAILING_DEF_IRONLY_EXP:
       R.Prevailing = !isUndefined(Sym);
+      // Identify symbols exported dynamically, and that therefore could be
+      // referenced by a shared library not visible to the linker.
+      R.ExportDynamic = true;
       if (!Res.CanOmitFromDynSym)
         R.VisibleToRegularObj = true;
       break;
@@ -912,7 +920,10 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
   case options::OT_BC_ONLY:
     Conf.PostInternalizeModuleHook = [](size_t Task, const Module &M) {
       std::error_code EC;
-      raw_fd_ostream OS(output_name, EC, sys::fs::OpenFlags::OF_None);
+      SmallString<128> TaskFilename;
+      getOutputFileName(output_name, /* TempOutFile */ false, TaskFilename,
+                        Task);
+      raw_fd_ostream OS(TaskFilename, EC, sys::fs::OpenFlags::OF_None);
       if (EC)
         message(LDPL_FATAL, "Failed to write the output file.");
       WriteBitcodeToFile(M, OS, /* ShouldPreserveUseListOrder */ false);
@@ -984,7 +995,7 @@ static void writeEmptyDistributedBuildOutputs(const std::string &ModulePath,
     if (SkipModule) {
       ModuleSummaryIndex Index(/*HaveGVs*/ false);
       Index.setSkipModuleByDistributedBackend();
-      WriteIndexToFile(Index, OS, nullptr);
+      writeIndexToFile(Index, OS, nullptr);
     }
   }
   if (options::thinlto_emit_imports_files) {
@@ -1070,12 +1081,11 @@ static std::vector<std::pair<SmallString<128>, bool>> runLTO() {
   size_t MaxTasks = Lto->getMaxTasks();
   std::vector<std::pair<SmallString<128>, bool>> Files(MaxTasks);
 
-  auto AddStream =
-      [&](size_t Task) -> std::unique_ptr<lto::NativeObjectStream> {
+  auto AddStream = [&](size_t Task) -> std::unique_ptr<CachedFileStream> {
     Files[Task].second = !SaveTemps;
     int FD = getOutputFileName(Filename, /* TempOutFile */ !SaveTemps,
                                Files[Task].first, Task);
-    return std::make_unique<lto::NativeObjectStream>(
+    return std::make_unique<CachedFileStream>(
         std::make_unique<llvm::raw_fd_ostream>(FD, true));
   };
 
@@ -1083,9 +1093,9 @@ static std::vector<std::pair<SmallString<128>, bool>> runLTO() {
     *AddStream(Task)->OS << MB->getBuffer();
   };
 
-  NativeObjectCache Cache;
+  FileCache Cache;
   if (!options::cache_dir.empty())
-    Cache = check(localCache(options::cache_dir, AddBuffer));
+    Cache = check(localCache("ThinLTO", "Thin", options::cache_dir, AddBuffer));
 
   check(Lto->run(AddStream, Cache));
 

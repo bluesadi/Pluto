@@ -76,7 +76,7 @@ class RABasic : public MachineFunctionPass,
   void LRE_WillShrinkVirtReg(Register) override;
 
 public:
-  RABasic();
+  RABasic(const RegClassFilterFunc F = allocateAllRegClasses);
 
   /// Return the pass name.
   StringRef getPassName() const override { return "Basic Register Allocator"; }
@@ -88,7 +88,7 @@ public:
 
   Spiller &spiller() override { return *SpillerInstance; }
 
-  void enqueue(LiveInterval *LI) override {
+  void enqueueImpl(LiveInterval *LI) override {
     Queue.push(LI);
   }
 
@@ -171,7 +171,9 @@ void RABasic::LRE_WillShrinkVirtReg(Register VirtReg) {
   enqueue(&LI);
 }
 
-RABasic::RABasic(): MachineFunctionPass(ID) {
+RABasic::RABasic(RegClassFilterFunc F):
+  MachineFunctionPass(ID),
+  RegAllocBase(F) {
 }
 
 void RABasic::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -215,9 +217,7 @@ bool RABasic::spillInterferences(LiveInterval &VirtReg, MCRegister PhysReg,
   // Collect interferences assigned to any alias of the physical register.
   for (MCRegUnitIterator Units(PhysReg, TRI); Units.isValid(); ++Units) {
     LiveIntervalUnion::Query &Q = Matrix->query(VirtReg, *Units);
-    Q.collectInterferingVRegs();
-    for (unsigned i = Q.interferingVRegs().size(); i; --i) {
-      LiveInterval *Intf = Q.interferingVRegs()[i - 1];
+    for (auto *Intf : reverse(Q.interferingVRegs())) {
       if (!Intf->isSpillable() || Intf->weight() > VirtReg.weight())
         return false;
       Intfs.push_back(Intf);
@@ -286,16 +286,14 @@ MCRegister RABasic::selectOrSplit(LiveInterval &VirtReg,
   }
 
   // Try to spill another interfering reg with less spill weight.
-  for (auto PhysRegI = PhysRegSpillCands.begin(),
-            PhysRegE = PhysRegSpillCands.end();
-       PhysRegI != PhysRegE; ++PhysRegI) {
-    if (!spillInterferences(VirtReg, *PhysRegI, SplitVRegs))
+  for (MCRegister &PhysReg : PhysRegSpillCands) {
+    if (!spillInterferences(VirtReg, PhysReg, SplitVRegs))
       continue;
 
-    assert(!Matrix->checkInterference(VirtReg, *PhysRegI) &&
+    assert(!Matrix->checkInterference(VirtReg, PhysReg) &&
            "Interference after spill.");
     // Tell the caller to allocate to this newly freed physical register.
-    return *PhysRegI;
+    return PhysReg;
   }
 
   // No other spill candidates were found, so spill the current VirtReg.
@@ -322,7 +320,7 @@ bool RABasic::runOnMachineFunction(MachineFunction &mf) {
                       getAnalysis<MachineBlockFrequencyInfo>());
   VRAI.calculateSpillWeightsAndHints();
 
-  SpillerInstance.reset(createInlineSpiller(*this, *MF, *VRM));
+  SpillerInstance.reset(createInlineSpiller(*this, *MF, *VRM, VRAI));
 
   allocatePhysRegs();
   postOptimization();
@@ -334,7 +332,10 @@ bool RABasic::runOnMachineFunction(MachineFunction &mf) {
   return true;
 }
 
-FunctionPass* llvm::createBasicRegisterAllocator()
-{
+FunctionPass* llvm::createBasicRegisterAllocator() {
   return new RABasic();
+}
+
+FunctionPass* llvm::createBasicRegisterAllocator(RegClassFilterFunc F) {
+  return new RABasic(F);
 }

@@ -14,10 +14,11 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_AGGRESSIVE_INSTCOMBINE_INSTCOMBINE_H
-#define LLVM_TRANSFORMS_AGGRESSIVE_INSTCOMBINE_INSTCOMBINE_H
+#ifndef LLVM_TRANSFORMS_AGGRESSIVEINSTCOMBINE_AGGRESSIVEINSTCOMBINE_H
+#define LLVM_TRANSFORMS_AGGRESSIVEINSTCOMBINE_AGGRESSIVEINSTCOMBINE_H
 
 #include "llvm/IR/PassManager.h"
+#include "llvm/Pass.h"
 
 namespace llvm {
 

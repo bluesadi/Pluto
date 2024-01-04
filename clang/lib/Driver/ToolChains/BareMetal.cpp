@@ -9,8 +9,8 @@
 #include "BareMetal.h"
 
 #include "CommonArgs.h"
-#include "InputInfo.h"
 #include "Gnu.h"
+#include "clang/Driver/InputInfo.h"
 
 #include "Arch/RISCV.h"
 #include "clang/Driver/Compilation.h"
@@ -125,6 +125,20 @@ static bool isARMBareMetal(const llvm::Triple &Triple) {
   return true;
 }
 
+/// Is the triple aarch64-none-elf?
+static bool isAArch64BareMetal(const llvm::Triple &Triple) {
+  if (Triple.getArch() != llvm::Triple::aarch64)
+    return false;
+
+  if (Triple.getVendor() != llvm::Triple::UnknownVendor)
+    return false;
+
+  if (Triple.getOS() != llvm::Triple::UnknownOS)
+    return false;
+
+  return Triple.getEnvironmentName() == "elf";
+}
+
 static bool isRISCVBareMetal(const llvm::Triple &Triple) {
   if (Triple.getArch() != llvm::Triple::riscv32 &&
       Triple.getArch() != llvm::Triple::riscv64)
@@ -151,7 +165,8 @@ void BareMetal::findMultilibs(const Driver &D, const llvm::Triple &Triple,
 }
 
 bool BareMetal::handlesTarget(const llvm::Triple &Triple) {
-  return isARMBareMetal(Triple) || isRISCVBareMetal(Triple);
+  return isARMBareMetal(Triple) || isAArch64BareMetal(Triple) ||
+         isRISCVBareMetal(Triple);
 }
 
 Tool *BareMetal::buildLinker() const {
@@ -160,8 +175,9 @@ Tool *BareMetal::buildLinker() const {
 
 std::string BareMetal::getCompilerRTPath() const { return getRuntimesDir(); }
 
-std::string BareMetal::getCompilerRTBasename(const llvm::opt::ArgList &,
-                                             StringRef, FileType, bool) const {
+std::string BareMetal::buildCompilerRTBasename(const llvm::opt::ArgList &,
+                                               StringRef, FileType,
+                                               bool) const {
   return ("libclang_rt.builtins-" + getTriple().getArchName() + ".a").str();
 }
 
@@ -298,12 +314,13 @@ void baremetal::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   CmdArgs.push_back("-Bstatic");
 
-  CmdArgs.push_back(Args.MakeArgString("-L" + TC.getRuntimesDir()));
-
-  TC.AddFilePathLibArgs(Args, CmdArgs);
   Args.AddAllArgs(CmdArgs, {options::OPT_L, options::OPT_T_Group,
                             options::OPT_e, options::OPT_s, options::OPT_t,
                             options::OPT_Z_Flag, options::OPT_r});
+
+  TC.AddFilePathLibArgs(Args, CmdArgs);
+
+  CmdArgs.push_back(Args.MakeArgString("-L" + TC.getRuntimesDir()));
 
   if (TC.ShouldLinkCXXStdlib(Args))
     TC.AddCXXStdlibLibArgs(Args, CmdArgs);

@@ -1,8 +1,4 @@
-; RUN: llc -mtriple=aarch64-linux-gnu -mattr=+sve < %s 2>%t | FileCheck %s
-; RUN: FileCheck --check-prefix=WARN --allow-empty %s <%t
-
-; If this check fails please read test/CodeGen/AArch64/README for instructions on how to resolve it.
-; WARN-NOT: warning
+; RUN: llc -mtriple=aarch64-linux-gnu -mattr=+sve < %s | FileCheck %s
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                             Signed Comparisons                             ;;
@@ -1076,7 +1072,7 @@ define <vscale x 16 x i1> @wide_cmplo_b(<vscale x 16 x i1> %pg, <vscale x 16 x i
 
 define <vscale x 8 x i1> @ir_cmplo_h(<vscale x 8 x i16> %a) {
 ; CHECK-LABEL: ir_cmplo_h
-; CHECK: whilelo p0.h, xzr, xzr
+; CHECK: pfalse p0.b
 ; CHECK-NEXT: ret
   %elt   = insertelement <vscale x 8 x i16> undef, i16 0, i32 0
   %splat = shufflevector <vscale x 8 x i16> %elt, <vscale x 8 x i16> undef, <vscale x 8 x i32> zeroinitializer

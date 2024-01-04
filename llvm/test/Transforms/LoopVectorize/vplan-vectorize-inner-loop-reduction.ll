@@ -28,8 +28,8 @@ define void @inner_loop_reduction(double* noalias nocapture readonly %a.in, doub
 ; CHECK-NEXT: br label %[[FOR2_HEADER:.*]]
 
 ; CHECK: [[FOR2_HEADER]]:
-; CHECK-NEXT: %[[FOR2_INDEX:.*]] = phi <4 x i32> [ %[[FOR2_INDEX_NEXT:.*]], %[[FOR2_HEADER]] ], [ zeroinitializer, %vector.body ]
-; CHECK-NEXT: %[[REDUCTION:.*]] = phi <4 x double> [ %[[REDUCTION_NEXT:.*]], %[[FOR2_HEADER]] ], [ %[[MASKED_GATHER1]], %vector.body ]
+; CHECK-NEXT: %[[FOR2_INDEX:.*]] = phi <4 x i32> [ zeroinitializer, %vector.body ], [ %[[FOR2_INDEX_NEXT:.*]], %[[FOR2_HEADER]] ]
+; CHECK-NEXT: %[[REDUCTION:.*]] = phi <4 x double> [ %[[MASKED_GATHER1]], %vector.body ], [ %[[REDUCTION_NEXT:.*]], %[[FOR2_HEADER]] ]
 ; CHECK-NEXT: %[[REDUCTION_NEXT]] = fadd <4 x double> %[[MASKED_GATHER2]], %[[REDUCTION]]
 ; CHECK-NEXT: %[[FOR2_INDEX_NEXT]] = add nuw nsw <4 x i32> %[[FOR2_INDEX]], <i32 1, i32 1, i32 1, i32 1>
 ; CHECK-NEXT: %[[VEC_PTR:.*]] = icmp eq <4 x i32> %[[FOR2_INDEX_NEXT]], <i32 10000, i32 10000, i32 10000, i32 10000>
@@ -42,8 +42,7 @@ define void @inner_loop_reduction(double* noalias nocapture readonly %a.in, doub
 ; CHECK-NEXT: call void @llvm.masked.scatter.v4f64.v4p0f64(<4 x double> %[[REDUCTION]], <4 x double*> %[[C_PTR]], i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
 ; CHECK-NEXT: %[[VEC_INDEX_NEXT:.*]] = add nuw nsw <4 x i64> %[[VEC_INDEX]], <i64 1, i64 1, i64 1, i64 1>
 ; CHECK-NEXT: %[[VEC_PTR:.*]] = icmp eq <4 x i64> %[[VEC_INDEX_NEXT]], <i64 1000, i64 1000, i64 1000, i64 1000>
-; CHECK-NEXT: %{{.*}} = extractelement <4 x i1> %[[VEC_PTR]], i32 0
-; CHECK-NEXT: %[[FOR1_INDEX_NEXT:.*]] = add i64 %[[FOR1_INDEX]], 4
+; CHECK-NEXT: %[[FOR1_INDEX_NEXT:.*]] = add nuw i64 %[[FOR1_INDEX]], 4
 ; CHECK-NEXT: %{{.*}} = add <4 x i64> %[[VEC_INDEX]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT: %[[EXIT_COND:.*]] = icmp eq i64 %[[FOR1_INDEX_NEXT]], 1000
 ; CHECK-NEXT: br i1 %[[EXIT_COND]], label %{{.*}}, label %vector.body

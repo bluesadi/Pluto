@@ -9,6 +9,7 @@
 #ifndef LLVM_DWARFLINKER_DWARFSTREAMER_H
 #define LLVM_DWARFLINKER_DWARFSTREAMER_H
 
+#include "llvm/BinaryFormat/Swift.h"
 #include "llvm/CodeGen/AccelTable.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/DWARFLinker/DWARFLinker.h"
@@ -44,11 +45,11 @@ class DwarfStreamer : public DwarfEmitter {
 public:
   DwarfStreamer(OutputFileType OutFileType, raw_pwrite_stream &OutFile,
                 std::function<StringRef(StringRef Input)> Translator,
-                bool Minimize, messageHandler Error, messageHandler Warning)
+                messageHandler Error, messageHandler Warning)
       : OutFile(OutFile), OutFileType(OutFileType), Translator(Translator),
-        Minimize(Minimize), ErrorHandler(Error), WarningHandler(Warning) {}
+        ErrorHandler(Error), WarningHandler(Warning) {}
 
-  bool init(Triple TheTriple);
+  bool init(Triple TheTriple, StringRef Swift5ReflectionSegmentName);
 
   /// Dump the file to the disk.
   void finish();
@@ -84,6 +85,11 @@ public:
 
   /// Emit the swift_ast section stored in \p Buffer.
   void emitSwiftAST(StringRef Buffer);
+
+  /// Emit the swift reflection section stored in \p Buffer.
+  void emitSwiftReflectionSection(
+      llvm::binaryformat::Swift5ReflectionSectionKind ReflSectionKind,
+      StringRef Buffer, uint32_t Alignment, uint32_t Size);
 
   /// Emit debug_ranges for \p FuncRange by translating the
   /// original \p Entries.
@@ -189,7 +195,6 @@ private:
   raw_pwrite_stream &OutFile;
   OutputFileType OutFileType = OutputFileType::Object;
   std::function<StringRef(StringRef Input)> Translator;
-  bool Minimize = true;
 
   uint64_t RangesSectionSize = 0;
   uint64_t LocSectionSize = 0;

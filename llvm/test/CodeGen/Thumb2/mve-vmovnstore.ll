@@ -148,11 +148,11 @@ entry:
 define arm_aapcs_vfpcc void @vmovn64_b2(<2 x i64> %src1, <2 x i64> %src2, <2 x i64> *%dest) {
 ; CHECK-LABEL: vmovn64_b2:
 ; CHECK:       @ %bb.0: @ %entry
-; CHECK-NEXT:    vmov.f32 s8, s6
-; CHECK-NEXT:    vmov.f32 s9, s7
-; CHECK-NEXT:    vmov.f32 s10, s0
-; CHECK-NEXT:    vmov.f32 s11, s1
-; CHECK-NEXT:    vstrw.32 q2, [r0]
+; CHECK-NEXT:    vmov.f32 s4, s6
+; CHECK-NEXT:    vmov.f32 s5, s7
+; CHECK-NEXT:    vmov.f32 s6, s0
+; CHECK-NEXT:    vmov.f32 s7, s1
+; CHECK-NEXT:    vstrw.32 q1, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
   %out = shufflevector <2 x i64> %src1, <2 x i64> %src2, <2 x i32> <i32 3, i32 0>
@@ -163,11 +163,11 @@ entry:
 define arm_aapcs_vfpcc void @vmovn64_b3(<2 x i64> %src1, <2 x i64> %src2, <2 x i64> *%dest) {
 ; CHECK-LABEL: vmovn64_b3:
 ; CHECK:       @ %bb.0: @ %entry
-; CHECK-NEXT:    vmov.f32 s8, s2
-; CHECK-NEXT:    vmov.f32 s9, s3
-; CHECK-NEXT:    vmov.f32 s10, s4
-; CHECK-NEXT:    vmov.f32 s11, s5
-; CHECK-NEXT:    vstrw.32 q2, [r0]
+; CHECK-NEXT:    vmov.f32 s0, s2
+; CHECK-NEXT:    vmov.f32 s1, s3
+; CHECK-NEXT:    vmov.f32 s2, s4
+; CHECK-NEXT:    vmov.f32 s3, s5
+; CHECK-NEXT:    vstrw.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
   %out = shufflevector <2 x i64> %src1, <2 x i64> %src2, <2 x i32> <i32 1, i32 2>
@@ -232,11 +232,11 @@ entry:
 define arm_aapcs_vfpcc void @vmovn32_b2(<4 x i32> %src1, <4 x i32> %src2, <4 x i32> *%dest) {
 ; CHECK-LABEL: vmovn32_b2:
 ; CHECK:       @ %bb.0: @ %entry
-; CHECK-NEXT:    vmov.f32 s8, s5
-; CHECK-NEXT:    vmov.f32 s9, s0
-; CHECK-NEXT:    vmov.f32 s10, s7
-; CHECK-NEXT:    vmov.f32 s11, s2
-; CHECK-NEXT:    vstrw.32 q2, [r0]
+; CHECK-NEXT:    vmov.f32 s4, s5
+; CHECK-NEXT:    vmov.f32 s6, s7
+; CHECK-NEXT:    vmov.f32 s5, s0
+; CHECK-NEXT:    vmov.f32 s7, s2
+; CHECK-NEXT:    vstrw.32 q1, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
   %out = shufflevector <4 x i32> %src1, <4 x i32> %src2, <4 x i32> <i32 5, i32 0, i32 7, i32 2>
@@ -247,11 +247,11 @@ entry:
 define arm_aapcs_vfpcc void @vmovn32_b3(<4 x i32> %src1, <4 x i32> %src2, <4 x i32> *%dest) {
 ; CHECK-LABEL: vmovn32_b3:
 ; CHECK:       @ %bb.0: @ %entry
-; CHECK-NEXT:    vmov.f32 s8, s1
-; CHECK-NEXT:    vmov.f32 s9, s4
-; CHECK-NEXT:    vmov.f32 s10, s3
-; CHECK-NEXT:    vmov.f32 s11, s6
-; CHECK-NEXT:    vstrw.32 q2, [r0]
+; CHECK-NEXT:    vmov.f32 s0, s1
+; CHECK-NEXT:    vmov.f32 s2, s3
+; CHECK-NEXT:    vmov.f32 s1, s4
+; CHECK-NEXT:    vmov.f32 s3, s6
+; CHECK-NEXT:    vstrw.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
   %out = shufflevector <4 x i32> %src1, <4 x i32> %src2, <4 x i32> <i32 1, i32 4, i32 3, i32 6>
@@ -314,23 +314,15 @@ entry:
 define arm_aapcs_vfpcc void @vmovn16_b2(<8 x i16> %src1, <8 x i16> %src2, <8 x i16> *%dest) {
 ; CHECK-LABEL: vmovn16_b2:
 ; CHECK:       @ %bb.0: @ %entry
-; CHECK-NEXT:    vmov.u16 r1, q1[1]
-; CHECK-NEXT:    vmov.16 q2[0], r1
-; CHECK-NEXT:    vmov.u16 r1, q0[0]
-; CHECK-NEXT:    vmov.16 q2[1], r1
-; CHECK-NEXT:    vmov.u16 r1, q1[3]
-; CHECK-NEXT:    vmov.16 q2[2], r1
-; CHECK-NEXT:    vmov.u16 r1, q0[2]
-; CHECK-NEXT:    vmov.16 q2[3], r1
-; CHECK-NEXT:    vmov.u16 r1, q1[5]
-; CHECK-NEXT:    vmov.16 q2[4], r1
-; CHECK-NEXT:    vmov.u16 r1, q0[4]
-; CHECK-NEXT:    vmov.16 q2[5], r1
-; CHECK-NEXT:    vmov.u16 r1, q1[7]
-; CHECK-NEXT:    vmov.16 q2[6], r1
-; CHECK-NEXT:    vmov.u16 r1, q0[6]
-; CHECK-NEXT:    vmov.16 q2[7], r1
-; CHECK-NEXT:    vstrw.32 q2, [r0]
+; CHECK-NEXT:    vmovx.f16 s5, s5
+; CHECK-NEXT:    vmovx.f16 s4, s4
+; CHECK-NEXT:    vmovx.f16 s6, s6
+; CHECK-NEXT:    vmovx.f16 s7, s7
+; CHECK-NEXT:    vins.f16 s5, s1
+; CHECK-NEXT:    vins.f16 s4, s0
+; CHECK-NEXT:    vins.f16 s6, s2
+; CHECK-NEXT:    vins.f16 s7, s3
+; CHECK-NEXT:    vstrw.32 q1, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
   %out = shufflevector <8 x i16> %src1, <8 x i16> %src2, <8 x i32> <i32 9, i32 0, i32 11, i32 2, i32 13, i32 4, i32 15, i32 6>
@@ -341,23 +333,15 @@ entry:
 define arm_aapcs_vfpcc void @vmovn16_b3(<8 x i16> %src1, <8 x i16> %src2, <8 x i16> *%dest) {
 ; CHECK-LABEL: vmovn16_b3:
 ; CHECK:       @ %bb.0: @ %entry
-; CHECK-NEXT:    vmov.u16 r1, q0[1]
-; CHECK-NEXT:    vmov.16 q2[0], r1
-; CHECK-NEXT:    vmov.u16 r1, q1[0]
-; CHECK-NEXT:    vmov.16 q2[1], r1
-; CHECK-NEXT:    vmov.u16 r1, q0[3]
-; CHECK-NEXT:    vmov.16 q2[2], r1
-; CHECK-NEXT:    vmov.u16 r1, q1[2]
-; CHECK-NEXT:    vmov.16 q2[3], r1
-; CHECK-NEXT:    vmov.u16 r1, q0[5]
-; CHECK-NEXT:    vmov.16 q2[4], r1
-; CHECK-NEXT:    vmov.u16 r1, q1[4]
-; CHECK-NEXT:    vmov.16 q2[5], r1
-; CHECK-NEXT:    vmov.u16 r1, q0[7]
-; CHECK-NEXT:    vmov.16 q2[6], r1
-; CHECK-NEXT:    vmov.u16 r1, q1[6]
-; CHECK-NEXT:    vmov.16 q2[7], r1
-; CHECK-NEXT:    vstrw.32 q2, [r0]
+; CHECK-NEXT:    vmovx.f16 s1, s1
+; CHECK-NEXT:    vmovx.f16 s0, s0
+; CHECK-NEXT:    vmovx.f16 s2, s2
+; CHECK-NEXT:    vmovx.f16 s3, s3
+; CHECK-NEXT:    vins.f16 s1, s5
+; CHECK-NEXT:    vins.f16 s0, s4
+; CHECK-NEXT:    vins.f16 s2, s6
+; CHECK-NEXT:    vins.f16 s3, s7
+; CHECK-NEXT:    vstrw.32 q0, [r0]
 ; CHECK-NEXT:    bx lr
 entry:
   %out = shufflevector <8 x i16> %src1, <8 x i16> %src2, <8 x i32> <i32 1, i32 8, i32 3, i32 10, i32 5, i32 12, i32 7, i32 14>

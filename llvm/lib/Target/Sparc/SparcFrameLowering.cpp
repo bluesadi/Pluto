@@ -97,14 +97,9 @@ void SparcFrameLowering::emitPrologue(MachineFunction &MF,
   // Debug location must be unknown since the first debug location is used
   // to determine the end of the prologue.
   DebugLoc dl;
-  bool NeedsStackRealignment = RegInfo.needsStackRealignment(MF);
+  bool NeedsStackRealignment = RegInfo.shouldRealignStack(MF);
 
-  // FIXME: unfortunately, returning false from canRealignStack
-  // actually just causes needsStackRealignment to return false,
-  // rather than reporting an error, as would be sensible. This is
-  // poor, but fixing that bogosity is going to be a large project.
-  // For now, just see if it's lied, and report an error here.
-  if (!NeedsStackRealignment && MFI.getMaxAlign() > getStackAlign())
+  if (NeedsStackRealignment && !RegInfo.canRealignStack(MF))
     report_fatal_error("Function \"" + Twine(MF.getName()) + "\" required "
                        "stack re-alignment, but LLVM couldn't handle it "
                        "(probably because it has a dynamic alloca).");
@@ -252,9 +247,8 @@ bool SparcFrameLowering::hasFP(const MachineFunction &MF) const {
 
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   return MF.getTarget().Options.DisableFramePointerElim(MF) ||
-      RegInfo->needsStackRealignment(MF) ||
-      MFI.hasVarSizedObjects() ||
-      MFI.isFrameAddressTaken();
+         RegInfo->hasStackRealignment(MF) || MFI.hasVarSizedObjects() ||
+         MFI.isFrameAddressTaken();
 }
 
 StackOffset
@@ -280,7 +274,7 @@ SparcFrameLowering::getFrameIndexReference(const MachineFunction &MF, int FI,
   } else if (isFixed) {
     // Otherwise, argument access should always use %fp.
     UseFP = true;
-  } else if (RegInfo->needsStackRealignment(MF)) {
+  } else if (RegInfo->hasStackRealignment(MF)) {
     // If there is dynamic stack realignment, all local object
     // references need to be via %sp, to take account of the
     // re-alignment.
@@ -349,19 +343,18 @@ void SparcFrameLowering::remapRegsForLeafProc(MachineFunction &MF) const {
   }
 
   // Rewrite MBB's Live-ins.
-  for (MachineFunction::iterator MBB = MF.begin(), E = MF.end();
-       MBB != E; ++MBB) {
+  for (MachineBasicBlock &MBB : MF) {
     for (unsigned reg = SP::I0_I1; reg <= SP::I6_I7; ++reg) {
-      if (!MBB->isLiveIn(reg))
+      if (!MBB.isLiveIn(reg))
         continue;
-      MBB->removeLiveIn(reg);
-      MBB->addLiveIn(reg - SP::I0_I1 + SP::O0_O1);
+      MBB.removeLiveIn(reg);
+      MBB.addLiveIn(reg - SP::I0_I1 + SP::O0_O1);
     }
     for (unsigned reg = SP::I0; reg <= SP::I7; ++reg) {
-      if (!MBB->isLiveIn(reg))
+      if (!MBB.isLiveIn(reg))
         continue;
-      MBB->removeLiveIn(reg);
-      MBB->addLiveIn(reg - SP::I0 + SP::O0);
+      MBB.removeLiveIn(reg);
+      MBB.addLiveIn(reg - SP::I0 + SP::O0);
     }
   }
 

@@ -5,9 +5,10 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-// This file defines the SmallPtrSet class.  See the doxygen comment for
-// SmallPtrSetImplBase for more details on the algorithm used.
+///
+/// \file
+/// This file defines the SmallPtrSet class.  See the doxygen comment for
+/// SmallPtrSetImplBase for more details on the algorithm used.
 //
 //===----------------------------------------------------------------------===//
 
@@ -364,6 +365,13 @@ public:
   std::pair<iterator, bool> insert(PtrType Ptr) {
     auto p = insert_imp(PtrTraits::getAsVoidPointer(Ptr));
     return std::make_pair(makeIterator(p.first), p.second);
+  }
+
+  /// Insert the given pointer with an iterator hint that is ignored. This is
+  /// identical to calling insert(Ptr), but allows SmallPtrSet to be used by
+  /// std::insert_iterator and std::inserter().
+  iterator insert(iterator, PtrType Ptr) {
+    return insert(Ptr).first;
   }
 
   /// erase - If the set contains the specified pointer, remove it and return

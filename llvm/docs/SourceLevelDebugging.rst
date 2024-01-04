@@ -318,7 +318,7 @@ Compiled to LLVM, this function would be represented like this:
   !1 = !DIFile(filename: "/dev/stdin", directory: "/Users/dexonsmith/data/llvm/debug-info")
   !2 = !{}
   !3 = !{!4}
-  !4 = distinct !DISubprogram(name: "foo", scope: !1, file: !1, line: 1, type: !5, isLocal: false, isDefinition: true, scopeLine: 1, isOptimized: false, variables: !2)
+  !4 = distinct !DISubprogram(name: "foo", scope: !1, file: !1, line: 1, type: !5, isLocal: false, isDefinition: true, scopeLine: 1, isOptimized: false, retainedNodes: !2)
   !5 = !DISubroutineType(types: !6)
   !6 = !{null}
   !7 = !{i32 2, !"Dwarf Version", i32 2}
@@ -361,7 +361,7 @@ scope information for the variable ``X``.
   !14 = !DILocation(line: 2, column: 9, scope: !4)
   !4 = distinct !DISubprogram(name: "foo", scope: !1, file: !1, line: 1, type: !5,
                               isLocal: false, isDefinition: true, scopeLine: 1,
-                              isOptimized: false, variables: !2)
+                              isOptimized: false, retainedNodes: !2)
 
 Here ``!14`` is metadata providing `location information
 <LangRef.html#dilocation>`_.  In this example, scope is encoded by ``!4``, a
@@ -427,7 +427,7 @@ and let the debugger present ``optimized out`` to the developer. Withholding
 these potentially stale variable values from the developer diminishes the
 amount of available debug information, but increases the reliability of the
 remaining information.
- 
+
 To illustrate some potential issues, consider the following example:
 
 .. code-block:: llvm
@@ -576,13 +576,15 @@ the equivalent location is used.
 
 After MIR locations are assigned to each variable, machine pseudo-instructions
 corresponding to each ``llvm.dbg.value`` and ``llvm.dbg.addr`` intrinsic are
-inserted. These ``DBG_VALUE`` instructions appear thus:
+inserted. There are two forms of this type of instruction.
+
+The first form, ``DBG_VALUE``, appears thus:
 
 .. code-block:: text
 
   DBG_VALUE %1, $noreg, !123, !DIExpression()
 
-And have the following operands:
+And has the following operands:
  * The first operand can record the variable location as a register,
    a frame index, an immediate, or the base address register if the original
    debug intrinsic referred to memory. ``$noreg`` indicates the variable
@@ -593,6 +595,22 @@ And have the following operands:
    latter.
  * Operand 3 is the Variable field of the original debug intrinsic.
  * Operand 4 is the Expression field of the original debug intrinsic.
+
+The second form, ``DBG_VALUE_LIST``, appears thus:
+
+.. code-block:: text
+
+  DBG_VALUE_LIST !123, !DIExpression(DW_OP_LLVM_arg, 0, DW_OP_LLVM_arg, 1, DW_OP_plus), %1, %2
+
+And has the following operands:
+ * The first operand is the Variable field of the original debug intrinsic.
+ * The second operand is the Expression field of the original debug intrinsic.
+ * Any number of operands, from the 3rd onwards, record a sequence of variable
+   location operands, which may take any of the same values as the first
+   operand of the ``DBG_VALUE`` instruction above. These variable location
+   operands are inserted into the final DWARF Expression in positions indicated
+   by the DW_OP_LLVM_arg operator in the `DIExpression
+   <LangRef.html#diexpression>`.
 
 The position at which the DBG_VALUEs are inserted should correspond to the
 positions of their matching ``llvm.dbg.value`` intrinsics in the IR block.  As
@@ -752,7 +770,9 @@ VirtRegRewriter pass re-inserts DBG_VALUE instructions in their original
 positions, translating virtual register references into their physical
 machine locations. To avoid encoding incorrect variable locations, in this
 pass any DBG_VALUE of a virtual register that is not live, is replaced by
-the undefined location.
+the undefined location. The LiveDebugVariables may insert redundant DBG_VALUEs
+because of virtual register rewriting. These will be subsequently removed by
+the RemoveRedundantDebugValues pass.
 
 LiveDebugValues expansion of variable locations
 -----------------------------------------------
@@ -777,7 +797,7 @@ presents several difficulties:
   entry:
     br i1 %cond, label %truebr, label %falsebr
 
-  bb1: 
+  bb1:
     %value = phi i32 [ %value1, %truebr ], [ %value2, %falsebr ]
     br label %exit, !dbg !26
 
@@ -793,7 +813,7 @@ presents several difficulties:
     %value = add i32 %input, 2
     br label %bb1
 
-  exit: 
+  exit:
     ret i32 %value, !dbg !30
   }
 
@@ -981,7 +1001,7 @@ a C/C++ front-end would generate the following descriptors:
   !4 = !DISubprogram(name: "main", scope: !1, file: !1, line: 1, type: !5,
                      isLocal: false, isDefinition: true, scopeLine: 1,
                      flags: DIFlagPrototyped, isOptimized: false,
-                     variables: !2)
+                     retainedNodes: !2)
 
   ;;
   ;; Define the subprogram itself.
@@ -1048,7 +1068,7 @@ and this will materialize an additional DWARF attribute as:
 
 .. code-block:: text
 
-  DW_TAG_subprogram [3]  
+  DW_TAG_subprogram [3]
      DW_AT_low_pc [DW_FORM_addr]     (0x0000000000000010 ".text")
      DW_AT_high_pc [DW_FORM_data4]   (0x00000001)
      ...
@@ -1861,6 +1881,7 @@ tag is one of:
 * DW_TAG_subrange_type
 * DW_TAG_base_type
 * DW_TAG_const_type
+* DW_TAG_immutable_type
 * DW_TAG_file_type
 * DW_TAG_namelist
 * DW_TAG_packed_type

@@ -34,9 +34,13 @@ We start by showing you how to construct a pass, everything from setting up the
 code, to compiling, loading, and executing it.  After the basics are down, more
 advanced features are discussed.
 
-This document deals with the legacy pass manager. LLVM is transitioning to
-the new pass manager, which has its own way of defining passes. For more
-details, see :doc:`WritingAnLLVMNewPMPass`.
+.. warning::
+  This document deals with the legacy pass manager. LLVM uses the new pass
+  manager by default for the optimization pipeline (the codegen pipeline is
+  still using the legacy pass manager), which has its own way of defining
+  passes. For more details, see :doc:`WritingAnLLVMNewPMPass` and
+  :doc:`NewPassManager`. To use the legacy pass manager with ``opt``, pass
+  the ``-enable-new-pm=0`` flag to all ``opt`` invocations.
 
 Quick Start --- Writing hello world
 ===================================
@@ -62,7 +66,7 @@ copy the following into ``CMakeLists.txt``:
 
   add_llvm_library( LLVMHello MODULE
     Hello.cpp
-  
+
     PLUGIN_TOOL
     opt
     )
@@ -210,7 +214,7 @@ As a whole, the ``.cpp`` file looks like:
   struct Hello : public FunctionPass {
     static char ID;
     Hello() : FunctionPass(ID) {}
-  
+
     bool runOnFunction(Function &F) override {
       errs() << "Hello: ";
       errs().write_escaped(F.getName()) << '\n';
@@ -303,7 +307,7 @@ you queue up.  For example:
                         ... Pass execution timing report ...
   ===-------------------------------------------------------------------------===
     Total Execution Time: 0.0007 seconds (0.0005 wall clock)
-  
+
      ---User Time---   --User+System--   ---Wall Time---  --- Name ---
      0.0004 ( 55.3%)   0.0004 ( 55.3%)   0.0004 ( 75.7%)  Bitcode Writer
      0.0003 ( 44.7%)   0.0003 ( 44.7%)   0.0001 ( 13.6%)  Hello World Pass
@@ -1436,4 +1440,3 @@ multithreaded constructs, requiring only the LLVM core to have locking in a few
 places (for global resources).  Although this is a simple extension, we simply
 haven't had time (or multiprocessor machines, thus a reason) to implement this.
 Despite that, we have kept the LLVM passes SMP ready, and you should too.
-

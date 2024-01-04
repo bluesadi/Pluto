@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_ANALYSIS_DEPENDENCE_GRAPH_BUILDER_H
-#define LLVM_ANALYSIS_DEPENDENCE_GRAPH_BUILDER_H
+#ifndef LLVM_ANALYSIS_DEPENDENCEGRAPHBUILDER_H
+#define LLVM_ANALYSIS_DEPENDENCEGRAPHBUILDER_H
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/EquivalenceClasses.h"
@@ -43,7 +43,7 @@ public:
   AbstractDependenceGraphBuilder(GraphType &G, DependenceInfo &D,
                                  const BasicBlockListType &BBs)
       : Graph(G), DI(D), BBList(BBs) {}
-  virtual ~AbstractDependenceGraphBuilder() {}
+  virtual ~AbstractDependenceGraphBuilder() = default;
 
   /// The main entry to the graph construction algorithm. It starts by
   /// creating nodes in increasing order of granularity and then
@@ -200,4 +200,4 @@ protected:
 
 } // namespace llvm
 
-#endif // LLVM_ANALYSIS_DEPENDENCE_GRAPH_BUILDER_H
+#endif // LLVM_ANALYSIS_DEPENDENCEGRAPHBUILDER_H

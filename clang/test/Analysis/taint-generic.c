@@ -28,11 +28,11 @@
 // RUN:   -analyzer-checker=alpha.security.taint \
 // RUN:   -analyzer-config \
 // RUN:     alpha.security.taint.TaintPropagation:Config=%S/Inputs/taint-generic-config-ill-formed.yaml \
-// RUN:   2>&1 | FileCheck %s -check-prefix=CHECK-ILL-FORMED
+// RUN:   2>&1 | FileCheck -DMSG=%errc_EINVAL %s -check-prefix=CHECK-ILL-FORMED
 
 // CHECK-ILL-FORMED: (frontend): invalid input for checker option
 // CHECK-ILL-FORMED-SAME:        'alpha.security.taint.TaintPropagation:Config',
-// CHECK-ILL-FORMED-SAME:        that expects a valid yaml file: {{[Ii]}}nvalid argument
+// CHECK-ILL-FORMED-SAME:        that expects a valid yaml file: [[MSG]]
 
 // RUN: not %clang_analyze_cc1 -verify %s \
 // RUN:   -analyzer-checker=alpha.security.taint \
@@ -341,6 +341,16 @@ void constraintManagerShouldTreatAsOpaque(int rhs) {
     *(volatile int *) 0; // no-warning
 }
 
+int sprintf_is_not_a_source(char *buf, char *msg) {
+  int x = sprintf(buf, "%s", msg); // no-warning
+  return 1 / x; // no-warning: 'sprintf' is not a taint source
+}
+
+int sprintf_propagates_taint(char *buf, char *msg) {
+  scanf("%s", msg);
+  int x = sprintf(buf, "%s", msg); // propagate taint!
+  return 1 / x; // expected-warning {{Division by a tainted value, possibly zero}}
+}
 
 // Test configuration
 int mySource1();

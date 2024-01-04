@@ -37,6 +37,42 @@ define <2 x i32> @test1_vector(<2 x i32> %i) {
   ret <2 x i32> %t12
 }
 
+define i16 @test1_trunc(i32 %i) {
+; CHECK-LABEL: @test1_trunc(
+; CHECK-NEXT:    [[T1:%.*]] = lshr i32 [[I:%.*]], 24
+; CHECK-NEXT:    [[T3:%.*]] = lshr i32 [[I]], 8
+; CHECK-NEXT:    [[T4:%.*]] = and i32 [[T3]], 65280
+; CHECK-NEXT:    [[T5:%.*]] = or i32 [[T1]], [[T4]]
+; CHECK-NEXT:    [[T13:%.*]] = trunc i32 [[T5]] to i16
+; CHECK-NEXT:    ret i16 [[T13]]
+;
+  %t1 = lshr i32 %i, 24
+  %t3 = lshr i32 %i, 8
+  %t4 = and i32 %t3, 65280
+  %t5 = or i32 %t1, %t4
+  %t13 = trunc i32 %t5 to i16
+  ret i16 %t13
+}
+
+define i16 @test1_trunc_extra_use(i32 %i) {
+; CHECK-LABEL: @test1_trunc_extra_use(
+; CHECK-NEXT:    [[T1:%.*]] = lshr i32 [[I:%.*]], 24
+; CHECK-NEXT:    [[T3:%.*]] = lshr i32 [[I]], 8
+; CHECK-NEXT:    [[T4:%.*]] = and i32 [[T3]], 65280
+; CHECK-NEXT:    [[T5:%.*]] = or i32 [[T1]], [[T4]]
+; CHECK-NEXT:    call void @extra_use(i32 [[T5]])
+; CHECK-NEXT:    [[T13:%.*]] = trunc i32 [[T5]] to i16
+; CHECK-NEXT:    ret i16 [[T13]]
+;
+  %t1 = lshr i32 %i, 24
+  %t3 = lshr i32 %i, 8
+  %t4 = and i32 %t3, 65280
+  %t5 = or i32 %t1, %t4
+  call void @extra_use(i32 %t5)
+  %t13 = trunc i32 %t5 to i16
+  ret i16 %t13
+}
+
 define i32 @test2(i32 %arg) {
 ; CHECK-LABEL: @test2(
 ; CHECK-NEXT:    [[T14:%.*]] = call i32 @llvm.bswap.i32(i32 [[ARG:%.*]])
@@ -596,19 +632,7 @@ define i64 @bswap_and_mask_2(i64 %0) {
 
 define i64 @bswap_trunc(i64 %x01234567) {
 ; CHECK-LABEL: @bswap_trunc(
-; CHECK-NEXT:    [[X7ZZZZZZZ:%.*]] = shl i64 [[X01234567:%.*]], 56
-; CHECK-NEXT:    [[XZ0123456:%.*]] = lshr i64 [[X01234567]], 8
-; CHECK-NEXT:    [[XZZZZZ012:%.*]] = lshr i64 [[X01234567]], 40
-; CHECK-NEXT:    [[X3456:%.*]] = trunc i64 [[XZ0123456]] to i32
-; CHECK-NEXT:    [[XZ012:%.*]] = trunc i64 [[XZZZZZ012]] to i32
-; CHECK-NEXT:    [[X6543:%.*]] = call i32 @llvm.bswap.i32(i32 [[X3456]])
-; CHECK-NEXT:    [[X210Z:%.*]] = call i32 @llvm.bswap.i32(i32 [[XZ012]])
-; CHECK-NEXT:    [[XZ210:%.*]] = lshr exact i32 [[X210Z]], 8
-; CHECK-NEXT:    [[XZZZZ6543:%.*]] = zext i32 [[X6543]] to i64
-; CHECK-NEXT:    [[XZZZZZ210:%.*]] = zext i32 [[XZ210]] to i64
-; CHECK-NEXT:    [[XZ6543ZZZ:%.*]] = shl nuw nsw i64 [[XZZZZ6543]], 24
-; CHECK-NEXT:    [[XZ6543210:%.*]] = or i64 [[XZ6543ZZZ]], [[XZZZZZ210]]
-; CHECK-NEXT:    [[X76543210:%.*]] = or i64 [[XZ6543210]], [[X7ZZZZZZZ]]
+; CHECK-NEXT:    [[X76543210:%.*]] = call i64 @llvm.bswap.i64(i64 [[X01234567:%.*]])
 ; CHECK-NEXT:    ret i64 [[X76543210]]
 ;
   %x7zzzzzzz = shl i64 %x01234567, 56
@@ -748,6 +772,31 @@ define i32 @funnel_and(i32 %abcd) {
   ret i32 %dcba
 }
 
+; Don't attempt to collectBitParts from >128 bit integers
+define i16 @trunc_bswap_i160(i160* %a0) {
+; CHECK-LABEL: @trunc_bswap_i160(
+; CHECK-NEXT:    [[LOAD:%.*]] = load i160, i160* [[A0:%.*]], align 4
+; CHECK-NEXT:    [[LSHR1:%.*]] = lshr i160 [[LOAD]], 136
+; CHECK-NEXT:    [[CAST1:%.*]] = trunc i160 [[LSHR1]] to i16
+; CHECK-NEXT:    [[AND1:%.*]] = and i16 [[CAST1]], 255
+; CHECK-NEXT:    [[SH_DIFF:%.*]] = lshr i160 [[LOAD]], 120
+; CHECK-NEXT:    [[TR_SH_DIFF:%.*]] = trunc i160 [[SH_DIFF]] to i16
+; CHECK-NEXT:    [[SHL:%.*]] = and i16 [[TR_SH_DIFF]], -256
+; CHECK-NEXT:    [[OR:%.*]] = or i16 [[AND1]], [[SHL]]
+; CHECK-NEXT:    ret i16 [[OR]]
+;
+  %load = load i160, i160* %a0, align 4
+  %lshr0 = lshr i160 %load, 128
+  %lshr1 = lshr i160 %load, 136
+  %cast0 = trunc i160 %lshr0 to i16
+  %cast1 = trunc i160 %lshr1 to i16
+  %and0 = and i16 %cast0, 255
+  %and1 = and i16 %cast1, 255
+  %shl = shl i16 %and0, 8
+  %or = or i16 %and1, %shl
+  ret i16 %or
+}
+
 ; PR47191 - deep IR trees prevent ADD/XOR instructions being simplified to OR.
 
 define i64 @PR47191_problem1(i64 %0) {
@@ -864,4 +913,20 @@ define i64 @PR47191_problem4(i64 %0) {
   %21 = and i64 %20, 1095216660480
   %22 = add i64 %19, %21
   ret i64 %22
+}
+
+declare i64 @llvm.bswap.i64(i64)
+
+define i32 @PR50910(i64 %t0) {
+; CHECK-LABEL: @PR50910(
+; CHECK-NEXT:    [[T5:%.*]] = call i64 @llvm.bswap.i64(i64 [[T0:%.*]])
+; CHECK-NEXT:    [[T6:%.*]] = trunc i64 [[T5]] to i32
+; CHECK-NEXT:    ret i32 [[T6]]
+;
+  %t2 = and i64 %t0, 72057594037927935
+  %t3 = call i64 @llvm.bswap.i64(i64 %t2)
+  %t4 = lshr i64 %t0, 56
+  %t5 = or i64 %t3, %t4
+  %t6 = trunc i64 %t5 to i32
+  ret i32 %t6
 }

@@ -14,7 +14,11 @@
 #ifndef LLVM_CODEGEN_GLOBALISEL_UTILS_H
 #define LLVM_CODEGEN_GLOBALISEL_UTILS_H
 
+#include "GISelWorkList.h"
+#include "LostDebugLocObserver.h"
+#include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/Register.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/LowLevelTypeImpl.h"
@@ -23,6 +27,7 @@
 namespace llvm {
 
 class AnalysisUsage;
+class BlockFrequencyInfo;
 class GISelKnownBits;
 class MachineFunction;
 class MachineInstr;
@@ -32,6 +37,7 @@ class MachineOptimizationRemarkMissed;
 struct MachinePointerInfo;
 class MachineRegisterInfo;
 class MCInstrDesc;
+class ProfileSummaryInfo;
 class RegisterBankInfo;
 class TargetInstrInfo;
 class TargetLowering;
@@ -40,6 +46,40 @@ class TargetRegisterInfo;
 class TargetRegisterClass;
 class ConstantFP;
 class APFloat;
+class MachineIRBuilder;
+
+// Convenience macros for dealing with vector reduction opcodes.
+#define GISEL_VECREDUCE_CASES_ALL                                              \
+  case TargetOpcode::G_VECREDUCE_SEQ_FADD:                                     \
+  case TargetOpcode::G_VECREDUCE_SEQ_FMUL:                                     \
+  case TargetOpcode::G_VECREDUCE_FADD:                                         \
+  case TargetOpcode::G_VECREDUCE_FMUL:                                         \
+  case TargetOpcode::G_VECREDUCE_FMAX:                                         \
+  case TargetOpcode::G_VECREDUCE_FMIN:                                         \
+  case TargetOpcode::G_VECREDUCE_ADD:                                          \
+  case TargetOpcode::G_VECREDUCE_MUL:                                          \
+  case TargetOpcode::G_VECREDUCE_AND:                                          \
+  case TargetOpcode::G_VECREDUCE_OR:                                           \
+  case TargetOpcode::G_VECREDUCE_XOR:                                          \
+  case TargetOpcode::G_VECREDUCE_SMAX:                                         \
+  case TargetOpcode::G_VECREDUCE_SMIN:                                         \
+  case TargetOpcode::G_VECREDUCE_UMAX:                                         \
+  case TargetOpcode::G_VECREDUCE_UMIN:
+
+#define GISEL_VECREDUCE_CASES_NONSEQ                                           \
+  case TargetOpcode::G_VECREDUCE_FADD:                                         \
+  case TargetOpcode::G_VECREDUCE_FMUL:                                         \
+  case TargetOpcode::G_VECREDUCE_FMAX:                                         \
+  case TargetOpcode::G_VECREDUCE_FMIN:                                         \
+  case TargetOpcode::G_VECREDUCE_ADD:                                          \
+  case TargetOpcode::G_VECREDUCE_MUL:                                          \
+  case TargetOpcode::G_VECREDUCE_AND:                                          \
+  case TargetOpcode::G_VECREDUCE_OR:                                           \
+  case TargetOpcode::G_VECREDUCE_XOR:                                          \
+  case TargetOpcode::G_VECREDUCE_SMAX:                                         \
+  case TargetOpcode::G_VECREDUCE_SMIN:                                         \
+  case TargetOpcode::G_VECREDUCE_UMAX:                                         \
+  case TargetOpcode::G_VECREDUCE_UMIN:
 
 /// Try to constrain Reg to the specified register class. If this fails,
 /// create a new virtual register in the correct class.
@@ -125,13 +165,12 @@ void reportGISelWarning(MachineFunction &MF, const TargetPassConfig &TPC,
                         MachineOptimizationRemarkMissed &R);
 
 /// If \p VReg is defined by a G_CONSTANT, return the corresponding value.
-Optional<APInt> getConstantVRegVal(Register VReg,
-                                   const MachineRegisterInfo &MRI);
+Optional<APInt> getIConstantVRegVal(Register VReg,
+                                    const MachineRegisterInfo &MRI);
 
-/// If \p VReg is defined by a G_CONSTANT fits in int64_t
-/// returns it.
-Optional<int64_t> getConstantVRegSExtVal(Register VReg,
-                                         const MachineRegisterInfo &MRI);
+/// If \p VReg is defined by a G_CONSTANT fits in int64_t returns it.
+Optional<int64_t> getIConstantVRegSExtVal(Register VReg,
+                                          const MachineRegisterInfo &MRI);
 
 /// Simple struct used to hold a constant integer value and a virtual
 /// register.
@@ -139,20 +178,32 @@ struct ValueAndVReg {
   APInt Value;
   Register VReg;
 };
-/// If \p VReg is defined by a statically evaluable chain of
-/// instructions rooted on a G_F/CONSTANT (\p LookThroughInstrs == true)
-/// and that constant fits in int64_t, returns its value as well as the
-/// virtual register defined by this G_F/CONSTANT.
-/// When \p LookThroughInstrs == false this function behaves like
-/// getConstantVRegVal.
-/// When \p HandleFConstants == false the function bails on G_FCONSTANTs.
-/// When \p LookThroughAnyExt == true the function treats G_ANYEXT same as
-/// G_SEXT.
+
+/// If \p VReg is defined by a statically evaluable chain of instructions rooted
+/// on a G_CONSTANT returns its APInt value and def register.
 Optional<ValueAndVReg>
-getConstantVRegValWithLookThrough(Register VReg, const MachineRegisterInfo &MRI,
-                                  bool LookThroughInstrs = true,
-                                  bool HandleFConstants = true,
-                                  bool LookThroughAnyExt = false);
+getIConstantVRegValWithLookThrough(Register VReg,
+                                   const MachineRegisterInfo &MRI,
+                                   bool LookThroughInstrs = true);
+
+/// If \p VReg is defined by a statically evaluable chain of instructions rooted
+/// on a G_CONSTANT or G_FCONSTANT returns its value as APInt and def register.
+Optional<ValueAndVReg> getAnyConstantVRegValWithLookThrough(
+    Register VReg, const MachineRegisterInfo &MRI,
+    bool LookThroughInstrs = true, bool LookThroughAnyExt = false);
+
+struct FPValueAndVReg {
+  APFloat Value;
+  Register VReg;
+};
+
+/// If \p VReg is defined by a statically evaluable chain of instructions rooted
+/// on a G_FCONSTANT returns its APFloat value and def register.
+Optional<FPValueAndVReg>
+getFConstantVRegValWithLookThrough(Register VReg,
+                                   const MachineRegisterInfo &MRI,
+                                   bool LookThroughInstrs = true);
+
 const ConstantFP* getConstantFPVRegVal(Register VReg,
                                        const MachineRegisterInfo &MRI);
 
@@ -171,11 +222,15 @@ struct DefinitionAndSourceRegister {
 
 /// Find the def instruction for \p Reg, and underlying value Register folding
 /// away any copies.
+///
+/// Also walks through hints such as G_ASSERT_ZEXT.
 Optional<DefinitionAndSourceRegister>
 getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI);
 
 /// Find the def instruction for \p Reg, folding away any trivial copies. May
 /// return nullptr if \p Reg is not a generic virtual register.
+///
+/// Also walks through hints such as G_ASSERT_ZEXT.
 MachineInstr *getDefIgnoringCopies(Register Reg,
                                    const MachineRegisterInfo &MRI);
 
@@ -183,8 +238,19 @@ MachineInstr *getDefIgnoringCopies(Register Reg,
 /// will be an output register of the instruction that getDefIgnoringCopies
 /// returns. May return an invalid register if \p Reg is not a generic virtual
 /// register.
-Register getSrcRegIgnoringCopies(Register Reg,
-                                 const MachineRegisterInfo &MRI);
+///
+/// Also walks through hints such as G_ASSERT_ZEXT.
+Register getSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI);
+
+// Templated variant of getOpcodeDef returning a MachineInstr derived T.
+/// See if Reg is defined by an single def instruction of type T
+/// Also try to do trivial folding if it's a COPY with
+/// same types. Returns null otherwise.
+template <class T>
+T *getOpcodeDef(Register Reg, const MachineRegisterInfo &MRI) {
+  MachineInstr *DefMI = getDefIgnoringCopies(Reg, MRI);
+  return dyn_cast_or_null<T>(DefMI);
+}
 
 /// Returns an APFloat from Val converted to the appropriate size.
 APFloat getAPFloatFromSize(double Val, unsigned Size);
@@ -196,9 +262,30 @@ void getSelectionDAGFallbackAnalysisUsage(AnalysisUsage &AU);
 Optional<APInt> ConstantFoldBinOp(unsigned Opcode, const Register Op1,
                                   const Register Op2,
                                   const MachineRegisterInfo &MRI);
+Optional<APFloat> ConstantFoldFPBinOp(unsigned Opcode, const Register Op1,
+                                      const Register Op2,
+                                      const MachineRegisterInfo &MRI);
+
+/// Tries to constant fold a vector binop with sources \p Op1 and \p Op2.
+/// If successful, returns the G_BUILD_VECTOR representing the folded vector
+/// constant. \p MIB should have an insertion point already set to create new
+/// G_CONSTANT instructions as needed.
+Register ConstantFoldVectorBinop(unsigned Opcode, const Register Op1,
+                                 const Register Op2,
+                                 const MachineRegisterInfo &MRI,
+                                 MachineIRBuilder &MIB);
 
 Optional<APInt> ConstantFoldExtOp(unsigned Opcode, const Register Op1,
                                   uint64_t Imm, const MachineRegisterInfo &MRI);
+
+Optional<APFloat> ConstantFoldIntToFloat(unsigned Opcode, LLT DstTy,
+                                         Register Src,
+                                         const MachineRegisterInfo &MRI);
+
+/// Tries to constant fold a G_CTLZ operation on \p Src. If \p Src is a vector
+/// then it tries to do an element-wise constant fold.
+Optional<SmallVector<unsigned>>
+ConstantFoldCTLZ(Register Src, const MachineRegisterInfo &MRI);
 
 /// Test if the given value is known to have exactly one bit set. This differs
 /// from computeKnownBits in that it doesn't necessarily determine which bit is
@@ -224,10 +311,11 @@ Align inferAlignFromPtrInfo(MachineFunction &MF, const MachinePointerInfo &MPO);
 ///
 /// If there is an existing live-in argument register, it will be returned.
 /// This will also ensure there is a valid copy
-Register getFunctionLiveInPhysReg(MachineFunction &MF, const TargetInstrInfo &TII,
+Register getFunctionLiveInPhysReg(MachineFunction &MF,
+                                  const TargetInstrInfo &TII,
                                   MCRegister PhysReg,
                                   const TargetRegisterClass &RC,
-                                  LLT RegTy = LLT());
+                                  const DebugLoc &DL, LLT RegTy = LLT());
 
 /// Return the least common multiple type of \p OrigTy and \p TargetTy, by changing the
 /// number of vector elements or scalar bitwidth. The intent is a
@@ -235,6 +323,11 @@ Register getFunctionLiveInPhysReg(MachineFunction &MF, const TargetInstrInfo &TI
 /// \p OrigTy elements, and unmerged into \p TargetTy
 LLVM_READNONE
 LLT getLCMType(LLT OrigTy, LLT TargetTy);
+
+LLVM_READNONE
+/// Return smallest type that covers both \p OrigTy and \p TargetTy and is
+/// multiple of TargetTy.
+LLT getCoverTy(LLT OrigTy, LLT TargetTy);
 
 /// Return a type where the total size is the greatest common divisor of \p
 /// OrigTy and \p TargetTy. This will try to either change the number of vector
@@ -252,6 +345,31 @@ LLT getLCMType(LLT OrigTy, LLT TargetTy);
 LLVM_READNONE
 LLT getGCDType(LLT OrigTy, LLT TargetTy);
 
+/// Represents a value which can be a Register or a constant.
+///
+/// This is useful in situations where an instruction may have an interesting
+/// register operand or interesting constant operand. For a concrete example,
+/// \see getVectorSplat.
+class RegOrConstant {
+  int64_t Cst;
+  Register Reg;
+  bool IsReg;
+
+public:
+  explicit RegOrConstant(Register Reg) : Reg(Reg), IsReg(true) {}
+  explicit RegOrConstant(int64_t Cst) : Cst(Cst), IsReg(false) {}
+  bool isReg() const { return IsReg; }
+  bool isCst() const { return !IsReg; }
+  Register getReg() const {
+    assert(isReg() && "Expected a register!");
+    return Reg;
+  }
+  int64_t getCst() const {
+    assert(isCst() && "Expected a constant!");
+    return Cst;
+  }
+};
+
 /// \returns The splat index of a G_SHUFFLE_VECTOR \p MI when \p MI is a splat.
 /// If \p MI is not a splat, returns None.
 Optional<int> getSplatIndex(MachineInstr &MI);
@@ -260,15 +378,75 @@ Optional<int> getSplatIndex(MachineInstr &MI);
 Optional<int64_t> getBuildVectorConstantSplat(const MachineInstr &MI,
                                               const MachineRegisterInfo &MRI);
 
+/// Returns a floating point scalar constant of a build vector splat if it
+/// exists. When \p AllowUndef == true some elements can be undef but not all.
+Optional<FPValueAndVReg> getFConstantSplat(Register VReg,
+                                           const MachineRegisterInfo &MRI,
+                                           bool AllowUndef = true);
+
+/// Return true if the specified register is defined by G_BUILD_VECTOR or
+/// G_BUILD_VECTOR_TRUNC where all of the elements are \p SplatValue or undef.
+bool isBuildVectorConstantSplat(const Register Reg,
+                                const MachineRegisterInfo &MRI,
+                                int64_t SplatValue, bool AllowUndef);
+
+/// Return true if the specified instruction is a G_BUILD_VECTOR or
+/// G_BUILD_VECTOR_TRUNC where all of the elements are \p SplatValue or undef.
+bool isBuildVectorConstantSplat(const MachineInstr &MI,
+                                const MachineRegisterInfo &MRI,
+                                int64_t SplatValue, bool AllowUndef);
+
 /// Return true if the specified instruction is a G_BUILD_VECTOR or
 /// G_BUILD_VECTOR_TRUNC where all of the elements are 0 or undef.
 bool isBuildVectorAllZeros(const MachineInstr &MI,
-                           const MachineRegisterInfo &MRI);
+                           const MachineRegisterInfo &MRI,
+                           bool AllowUndef = false);
 
 /// Return true if the specified instruction is a G_BUILD_VECTOR or
 /// G_BUILD_VECTOR_TRUNC where all of the elements are ~0 or undef.
 bool isBuildVectorAllOnes(const MachineInstr &MI,
-                          const MachineRegisterInfo &MRI);
+                          const MachineRegisterInfo &MRI,
+                          bool AllowUndef = false);
+
+/// \returns a value when \p MI is a vector splat. The splat can be either a
+/// Register or a constant.
+///
+/// Examples:
+///
+/// \code
+///   %reg = COPY $physreg
+///   %reg_splat = G_BUILD_VECTOR %reg, %reg, ..., %reg
+/// \endcode
+///
+/// If called on the G_BUILD_VECTOR above, this will return a RegOrConstant
+/// containing %reg.
+///
+/// \code
+///   %cst = G_CONSTANT iN 4
+///   %constant_splat = G_BUILD_VECTOR %cst, %cst, ..., %cst
+/// \endcode
+///
+/// In the above case, this will return a RegOrConstant containing 4.
+Optional<RegOrConstant> getVectorSplat(const MachineInstr &MI,
+                                       const MachineRegisterInfo &MRI);
+
+/// Determines if \p MI defines a constant integer or a build vector of
+/// constant integers. Treats undef values as constants.
+bool isConstantOrConstantVector(MachineInstr &MI,
+                                const MachineRegisterInfo &MRI);
+
+/// Determines if \p MI defines a constant integer or a splat vector of
+/// constant integers.
+/// \returns the scalar constant or None.
+Optional<APInt> isConstantOrConstantSplatVector(MachineInstr &MI,
+                                                const MachineRegisterInfo &MRI);
+
+/// Attempt to match a unary predicate against a scalar/splat constant or every
+/// element of a constant G_BUILD_VECTOR. If \p ConstVal is null, the source
+/// value was undef.
+bool matchUnaryPredicate(const MachineRegisterInfo &MRI, Register Reg,
+                         std::function<bool(const Constant *ConstVal)> Match,
+                         bool AllowUndefs = false);
 
 /// Returns true if given the TargetLowering's boolean contents information,
 /// the value \p Val contains a true value.
@@ -278,5 +456,19 @@ bool isConstTrueVal(const TargetLowering &TLI, int64_t Val, bool IsVector,
 /// Returns an integer representing true, as defined by the
 /// TargetBooleanContents.
 int64_t getICmpTrueVal(const TargetLowering &TLI, bool IsVector, bool IsFP);
+
+/// Returns true if the given block should be optimized for size.
+bool shouldOptForSize(const MachineBasicBlock &MBB, ProfileSummaryInfo *PSI,
+                      BlockFrequencyInfo *BFI);
+
+using SmallInstListTy = GISelWorkList<4>;
+void saveUsesAndErase(MachineInstr &MI, MachineRegisterInfo &MRI,
+                      LostDebugLocObserver *LocObserver,
+                      SmallInstListTy &DeadInstChain);
+void eraseInstrs(ArrayRef<MachineInstr *> DeadInstrs, MachineRegisterInfo &MRI,
+                 LostDebugLocObserver *LocObserver = nullptr);
+void eraseInstr(MachineInstr &MI, MachineRegisterInfo &MRI,
+                LostDebugLocObserver *LocObserver = nullptr);
+
 } // End namespace llvm.
 #endif

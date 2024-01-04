@@ -220,8 +220,7 @@ bool LazyCallGraph::invalidate(Module &, const PreservedAnalyses &PA,
   // Check whether the analysis, all analyses on functions, or the function's
   // CFG have been preserved.
   auto PAC = PA.getChecker<llvm::LazyCallGraphAnalysis>();
-  return !(PAC.preserved() || PAC.preservedSet<AllAnalysesOn<Module>>() ||
-           PAC.preservedSet<CFGAnalyses>());
+  return !(PAC.preserved() || PAC.preservedSet<AllAnalysesOn<Module>>());
 }
 
 LazyCallGraph &LazyCallGraph::operator=(LazyCallGraph &&G) {
@@ -241,7 +240,7 @@ LLVM_DUMP_METHOD void LazyCallGraph::SCC::dump() const {
 }
 #endif
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) || defined(EXPENSIVE_CHECKS)
 void LazyCallGraph::SCC::verify() {
   assert(OuterRefSCC && "Can't have a null RefSCC!");
   assert(!Nodes.empty() && "Can't have an empty SCC!");
@@ -333,7 +332,7 @@ LLVM_DUMP_METHOD void LazyCallGraph::RefSCC::dump() const {
 }
 #endif
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) || defined(EXPENSIVE_CHECKS)
 void LazyCallGraph::RefSCC::verify() {
   assert(G && "Can't have a null graph!");
   assert(!SCCs.empty() && "Can't have an empty SCC!");
@@ -588,9 +587,7 @@ LazyCallGraph::RefSCC::switchInternalEdgeToCall(
   assert(!(*SourceN)[TargetN].isCall() && "Must start with a ref edge!");
   SmallVector<SCC *, 1> DeletedSCCs;
 
-#ifndef NDEBUG
-  // In a debug build, verify the RefSCC is valid to start with and when this
-  // routine finishes.
+#ifdef EXPENSIVE_CHECKS
   verify();
   auto VerifyOnExit = make_scope_exit([&]() { verify(); });
 #endif
@@ -620,7 +617,7 @@ LazyCallGraph::RefSCC::switchInternalEdgeToCall(
 
   // Compute the SCCs which (transitively) reach the source.
   auto ComputeSourceConnectedSet = [&](SmallPtrSetImpl<SCC *> &ConnectedSet) {
-#ifndef NDEBUG
+#ifdef EXPENSIVE_CHECKS
     // Check that the RefSCC is still valid before computing this as the
     // results will be nonsensical of we've broken its invariants.
     verify();
@@ -646,7 +643,7 @@ LazyCallGraph::RefSCC::switchInternalEdgeToCall(
   // but because this is forward connectivity we just "recurse" through the
   // edges.
   auto ComputeTargetConnectedSet = [&](SmallPtrSetImpl<SCC *> &ConnectedSet) {
-#ifndef NDEBUG
+#ifdef EXPENSIVE_CHECKS
     // Check that the RefSCC is still valid before computing this as the
     // results will be nonsensical of we've broken its invariants.
     verify();
@@ -694,7 +691,7 @@ LazyCallGraph::RefSCC::switchInternalEdgeToCall(
     return false; // No new cycle.
   }
 
-#ifndef NDEBUG
+#ifdef EXPENSIVE_CHECKS
   // Before merging, check that the RefSCC remains valid after all the
   // postorder updates.
   verify();
@@ -735,9 +732,7 @@ void LazyCallGraph::RefSCC::switchTrivialInternalEdgeToRef(Node &SourceN,
                                                            Node &TargetN) {
   assert((*SourceN)[TargetN].isCall() && "Must start with a call edge!");
 
-#ifndef NDEBUG
-  // In a debug build, verify the RefSCC is valid to start with and when this
-  // routine finishes.
+#ifdef EXPENSIVE_CHECKS
   verify();
   auto VerifyOnExit = make_scope_exit([&]() { verify(); });
 #endif
@@ -757,9 +752,7 @@ iterator_range<LazyCallGraph::RefSCC::iterator>
 LazyCallGraph::RefSCC::switchInternalEdgeToRef(Node &SourceN, Node &TargetN) {
   assert((*SourceN)[TargetN].isCall() && "Must start with a call edge!");
 
-#ifndef NDEBUG
-  // In a debug build, verify the RefSCC is valid to start with and when this
-  // routine finishes.
+#ifdef EXPENSIVE_CHECKS
   verify();
   auto VerifyOnExit = make_scope_exit([&]() { verify(); });
 #endif
@@ -956,8 +949,7 @@ void LazyCallGraph::RefSCC::switchOutgoingEdgeToCall(Node &SourceN,
   // just flip the edge here.
   SourceN->setEdgeKind(TargetN, Edge::Call);
 
-#ifndef NDEBUG
-  // Check that the RefSCC is still valid.
+#ifdef EXPENSIVE_CHECKS
   verify();
 #endif
 }
@@ -978,8 +970,7 @@ void LazyCallGraph::RefSCC::switchOutgoingEdgeToRef(Node &SourceN,
   // just flip the edge here.
   SourceN->setEdgeKind(TargetN, Edge::Ref);
 
-#ifndef NDEBUG
-  // Check that the RefSCC is still valid.
+#ifdef EXPENSIVE_CHECKS
   verify();
 #endif
 }
@@ -991,8 +982,7 @@ void LazyCallGraph::RefSCC::insertInternalRefEdge(Node &SourceN,
 
   SourceN->insertEdgeInternal(TargetN, Edge::Ref);
 
-#ifndef NDEBUG
-  // Check that the RefSCC is still valid.
+#ifdef EXPENSIVE_CHECKS
   verify();
 #endif
 }
@@ -1011,8 +1001,7 @@ void LazyCallGraph::RefSCC::insertOutgoingEdge(Node &SourceN, Node &TargetN,
          "Target must be a descendant of the Source.");
 #endif
 
-#ifndef NDEBUG
-  // Check that the RefSCC is still valid.
+#ifdef EXPENSIVE_CHECKS
   verify();
 #endif
 }
@@ -1029,9 +1018,7 @@ LazyCallGraph::RefSCC::insertIncomingRefEdge(Node &SourceN, Node &TargetN) {
 
   SmallVector<RefSCC *, 1> DeletedRefSCCs;
 
-#ifndef NDEBUG
-  // In a debug build, verify the RefSCC is valid to start with and when this
-  // routine finishes.
+#ifdef EXPENSIVE_CHECKS
   verify();
   auto VerifyOnExit = make_scope_exit([&]() { verify(); });
 #endif
@@ -1167,9 +1154,7 @@ void LazyCallGraph::RefSCC::removeOutgoingEdge(Node &SourceN, Node &TargetN) {
   assert(G->lookupRefSCC(TargetN) != this &&
          "The target must not be a member of this RefSCC");
 
-#ifndef NDEBUG
-  // In a debug build, verify the RefSCC is valid to start with and when this
-  // routine finishes.
+#ifdef EXPENSIVE_CHECKS
   verify();
   auto VerifyOnExit = make_scope_exit([&]() { verify(); });
 #endif
@@ -1186,10 +1171,10 @@ LazyCallGraph::RefSCC::removeInternalRefEdge(Node &SourceN,
   // We return a list of the resulting *new* RefSCCs in post-order.
   SmallVector<RefSCC *, 1> Result;
 
-#ifndef NDEBUG
-  // In a debug build, verify the RefSCC is valid to start with and that either
-  // we return an empty list of result RefSCCs and this RefSCC remains valid,
-  // or we return new RefSCCs and this RefSCC is dead.
+#ifdef EXPENSIVE_CHECKS
+  // Verify the RefSCC is valid to start with and that either we return an empty
+  // list of result RefSCCs and this RefSCC remains valid, or we return new
+  // RefSCCs and this RefSCC is dead.
   verify();
   auto VerifyOnExit = make_scope_exit([&]() {
     // If we didn't replace our RefSCC with new ones, check that this one
@@ -1407,7 +1392,7 @@ LazyCallGraph::RefSCC::removeInternalRefEdge(Node &SourceN,
   SCCs.clear();
   SCCIndices.clear();
 
-#ifndef NDEBUG
+#ifdef EXPENSIVE_CHECKS
   // Verify the new RefSCCs we've built.
   for (RefSCC *RC : Result)
     RC->verify();
@@ -1419,11 +1404,9 @@ LazyCallGraph::RefSCC::removeInternalRefEdge(Node &SourceN,
 
 void LazyCallGraph::RefSCC::insertTrivialCallEdge(Node &SourceN,
                                                   Node &TargetN) {
-#ifndef NDEBUG
-  // Check that the RefSCC is still valid when we finish.
+#ifdef EXPENSIVE_CHECKS
   auto ExitVerifier = make_scope_exit([this] { verify(); });
 
-#ifdef EXPENSIVE_CHECKS
   // Check that we aren't breaking some invariants of the SCC graph. Note that
   // this is quadratic in the number of edges in the call graph!
   SCC &SourceC = *G->lookupSCC(SourceN);
@@ -1431,8 +1414,7 @@ void LazyCallGraph::RefSCC::insertTrivialCallEdge(Node &SourceN,
   if (&SourceC != &TargetC)
     assert(SourceC.isAncestorOf(TargetC) &&
            "Call edge is not trivial in the SCC graph!");
-#endif // EXPENSIVE_CHECKS
-#endif // NDEBUG
+#endif
 
   // First insert it into the source or find the existing edge.
   auto InsertResult =
@@ -1450,19 +1432,16 @@ void LazyCallGraph::RefSCC::insertTrivialCallEdge(Node &SourceN,
 }
 
 void LazyCallGraph::RefSCC::insertTrivialRefEdge(Node &SourceN, Node &TargetN) {
-#ifndef NDEBUG
-  // Check that the RefSCC is still valid when we finish.
+#ifdef EXPENSIVE_CHECKS
   auto ExitVerifier = make_scope_exit([this] { verify(); });
 
-#ifdef EXPENSIVE_CHECKS
   // Check that we aren't breaking some invariants of the RefSCC graph.
   RefSCC &SourceRC = *G->lookupRefSCC(SourceN);
   RefSCC &TargetRC = *G->lookupRefSCC(TargetN);
   if (&SourceRC != &TargetRC)
     assert(SourceRC.isAncestorOf(TargetRC) &&
            "Ref edge is not trivial in the RefSCC graph!");
-#endif // EXPENSIVE_CHECKS
-#endif // NDEBUG
+#endif
 
   // First insert it into the source or find the existing edge.
   auto InsertResult =
@@ -1478,8 +1457,7 @@ void LazyCallGraph::RefSCC::insertTrivialRefEdge(Node &SourceN, Node &TargetN) {
 void LazyCallGraph::RefSCC::replaceNodeFunction(Node &N, Function &NewF) {
   Function &OldF = N.getFunction();
 
-#ifndef NDEBUG
-  // Check that the RefSCC is still valid when we finish.
+#ifdef EXPENSIVE_CHECKS
   auto ExitVerifier = make_scope_exit([this] { verify(); });
 
   assert(G->lookupRefSCC(N) == this &&
@@ -1525,7 +1503,7 @@ void LazyCallGraph::removeEdge(Node &SourceN, Node &TargetN) {
 void LazyCallGraph::removeDeadFunction(Function &F) {
   // FIXME: This is unnecessarily restrictive. We should be able to remove
   // functions which recursively call themselves.
-  assert(F.use_empty() &&
+  assert(F.hasZeroLiveUses() &&
          "This routine should only be called on trivially dead functions!");
 
   // We shouldn't remove library functions as they are never really dead while
@@ -1544,13 +1522,6 @@ void LazyCallGraph::removeDeadFunction(Function &F) {
   // Remove this from the entry edges if present.
   EntryEdges.removeEdgeInternal(N);
 
-  if (SCCMap.empty()) {
-    // No SCCs have been formed, so removing this is fine and there is nothing
-    // else necessary at this point but clearing out the node.
-    N.clear();
-    return;
-  }
-
   // Cannot remove a function which has yet to be visited in the DFS walk, so
   // if we have a node at all then we must have an SCC and RefSCC.
   auto CI = SCCMap.find(&N);
@@ -1566,15 +1537,9 @@ void LazyCallGraph::removeDeadFunction(Function &F) {
   assert(C.size() == 1 && "Dead functions must be in a singular SCC");
   assert(RC.size() == 1 && "Dead functions must be in a singular RefSCC");
 
-  auto RCIndexI = RefSCCIndices.find(&RC);
-  int RCIndex = RCIndexI->second;
-  PostOrderRefSCCs.erase(PostOrderRefSCCs.begin() + RCIndex);
-  RefSCCIndices.erase(RCIndexI);
-  for (int i = RCIndex, Size = PostOrderRefSCCs.size(); i < Size; ++i)
-    RefSCCIndices[PostOrderRefSCCs[i]] = i;
-
   // Finally clear out all the data structures from the node down through the
-  // components.
+  // components. postorder_ref_scc_iterator will skip empty RefSCCs, so no need
+  // to adjust LazyCallGraph data structures.
   N.clear();
   N.G = nullptr;
   N.F = nullptr;
@@ -1638,7 +1603,7 @@ void LazyCallGraph::addSplitFunction(Function &OriginalFunction,
   SCC *OriginalC = lookupSCC(OriginalN);
   RefSCC *OriginalRC = lookupRefSCC(OriginalN);
 
-#ifndef NDEBUG
+#ifdef EXPENSIVE_CHECKS
   OriginalRC->verify();
   auto VerifyOnExit = make_scope_exit([&]() { OriginalRC->verify(); });
 #endif
@@ -1717,14 +1682,12 @@ void LazyCallGraph::addSplitRefRecursiveFunctions(
   Node &OriginalN = get(OriginalFunction);
   RefSCC *OriginalRC = lookupRefSCC(OriginalN);
 
-#ifndef NDEBUG
+#ifdef EXPENSIVE_CHECKS
   OriginalRC->verify();
   auto VerifyOnExit = make_scope_exit([&]() {
     OriginalRC->verify();
-#ifdef EXPENSIVE_CHECKS
     for (Function *NewFunction : NewFunctions)
       lookupRefSCC(get(*NewFunction))->verify();
-#endif
   });
 #endif
 
@@ -1979,10 +1942,33 @@ void LazyCallGraph::buildRefSCCs() {
         (void)Inserted;
         assert(Inserted && "Cannot already have this RefSCC in the index map!");
         PostOrderRefSCCs.push_back(NewRC);
-#ifndef NDEBUG
+#ifdef EXPENSIVE_CHECKS
         NewRC->verify();
 #endif
       });
+}
+
+void LazyCallGraph::visitReferences(SmallVectorImpl<Constant *> &Worklist,
+                                    SmallPtrSetImpl<Constant *> &Visited,
+                                    function_ref<void(Function &)> Callback) {
+  while (!Worklist.empty()) {
+    Constant *C = Worklist.pop_back_val();
+
+    if (Function *F = dyn_cast<Function>(C)) {
+      if (!F->isDeclaration())
+        Callback(*F);
+      continue;
+    }
+
+    // blockaddresses are weird and don't participate in the call graph anyway,
+    // skip them.
+    if (isa<BlockAddress>(C))
+      continue;
+
+    for (Value *Op : C->operand_values())
+      if (Visited.insert(cast<Constant>(Op)).second)
+        Worklist.push_back(cast<Constant>(Op));
+  }
 }
 
 AnalysisKey LazyCallGraphAnalysis::Key;

@@ -79,6 +79,11 @@ static cl::opt<bool>
                           cl::desc("enable elimination of zero-extensions"),
                           cl::init(false), cl::Hidden);
 
+static cl::opt<bool>
+    EnableTrapOptimization("ppc-opt-conditional-trap",
+                           cl::desc("enable optimization of conditional traps"),
+                           cl::init(false), cl::Hidden);
+
 namespace {
 
 struct PPCMIPeephole : public MachineFunctionPass {
@@ -102,10 +107,10 @@ private:
   void initialize(MachineFunction &MFParm);
 
   // Perform peepholes.
-  bool simplifyCode(void);
+  bool simplifyCode();
 
   // Perform peepholes.
-  bool eliminateRedundantCompare(void);
+  bool eliminateRedundantCompare();
   bool eliminateRedundantTOCSaves(std::map<MachineInstr *, bool> &TOCSaves);
   bool combineSEXTAndSHL(MachineInstr &MI, MachineInstr *&ToErase);
   bool emitRLDICWhenLoweringJumpTables(MachineInstr &MI);
@@ -226,37 +231,39 @@ getKnownLeadingZeroCount(MachineInstr *MI, const PPCInstrInfo *TII) {
 void PPCMIPeephole::UpdateTOCSaves(
   std::map<MachineInstr *, bool> &TOCSaves, MachineInstr *MI) {
   assert(TII->isTOCSaveMI(*MI) && "Expecting a TOC save instruction here");
-  assert(MF->getSubtarget<PPCSubtarget>().isELFv2ABI() &&
-         "TOC-save removal only supported on ELFv2");
-  PPCFunctionInfo *FI = MF->getInfo<PPCFunctionInfo>();
+  // FIXME: Saving TOC in prologue hasn't been implemented well in AIX ABI part,
+  // here only support it under ELFv2.
+  if (MF->getSubtarget<PPCSubtarget>().isELFv2ABI()) {
+    PPCFunctionInfo *FI = MF->getInfo<PPCFunctionInfo>();
 
-  MachineBasicBlock *Entry = &MF->front();
-  uint64_t CurrBlockFreq = MBFI->getBlockFreq(MI->getParent()).getFrequency();
+    MachineBasicBlock *Entry = &MF->front();
+    uint64_t CurrBlockFreq = MBFI->getBlockFreq(MI->getParent()).getFrequency();
 
-  // If the block in which the TOC save resides is in a block that
-  // post-dominates Entry, or a block that is hotter than entry (keep in mind
-  // that early MachineLICM has already run so the TOC save won't be hoisted)
-  // we can just do the save in the prologue.
-  if (CurrBlockFreq > EntryFreq || MPDT->dominates(MI->getParent(), Entry))
-    FI->setMustSaveTOC(true);
+    // If the block in which the TOC save resides is in a block that
+    // post-dominates Entry, or a block that is hotter than entry (keep in mind
+    // that early MachineLICM has already run so the TOC save won't be hoisted)
+    // we can just do the save in the prologue.
+    if (CurrBlockFreq > EntryFreq || MPDT->dominates(MI->getParent(), Entry))
+      FI->setMustSaveTOC(true);
 
-  // If we are saving the TOC in the prologue, all the TOC saves can be removed
-  // from the code.
-  if (FI->mustSaveTOC()) {
-    for (auto &TOCSave : TOCSaves)
-      TOCSave.second = false;
-    // Add new instruction to map.
-    TOCSaves[MI] = false;
-    return;
+    // If we are saving the TOC in the prologue, all the TOC saves can be
+    // removed from the code.
+    if (FI->mustSaveTOC()) {
+      for (auto &TOCSave : TOCSaves)
+        TOCSave.second = false;
+      // Add new instruction to map.
+      TOCSaves[MI] = false;
+      return;
+    }
   }
 
   bool Keep = true;
-  for (auto It = TOCSaves.begin(); It != TOCSaves.end(); It++ ) {
-    MachineInstr *CurrInst = It->first;
+  for (auto &I : TOCSaves) {
+    MachineInstr *CurrInst = I.first;
     // If new instruction dominates an existing one, mark existing one as
     // redundant.
-    if (It->second && MDT->dominates(MI, CurrInst))
-      It->second = false;
+    if (I.second && MDT->dominates(MI, CurrInst))
+      I.second = false;
     // Check if the new instruction is redundant.
     if (MDT->dominates(CurrInst, MI)) {
       Keep = false;
@@ -320,8 +327,7 @@ static void convertUnprimedAccPHIs(const PPCInstrInfo *TII,
                                    SmallVectorImpl<MachineInstr *> &PHIs,
                                    Register Dst) {
   DenseMap<MachineInstr *, MachineInstr *> ChangedPHIMap;
-  for (auto It = PHIs.rbegin(), End = PHIs.rend(); It != End; ++It) {
-    MachineInstr *PHI = *It;
+  for (MachineInstr *PHI : llvm::reverse(PHIs)) {
     SmallVector<std::pair<MachineOperand, MachineOperand>, 4> PHIOps;
     // We check if the current PHI node can be changed by looking at its
     // operands. If all the operands are either copies from primed
@@ -375,8 +381,9 @@ static void convertUnprimedAccPHIs(const PPCInstrInfo *TII,
 }
 
 // Perform peephole optimizations.
-bool PPCMIPeephole::simplifyCode(void) {
+bool PPCMIPeephole::simplifyCode() {
   bool Simplified = false;
+  bool TrapOpt = false;
   MachineInstr* ToErase = nullptr;
   std::map<MachineInstr *, bool> TOCSaves;
   const TargetRegisterInfo *TRI = &TII->getRegisterInfo();
@@ -417,6 +424,13 @@ bool PPCMIPeephole::simplifyCode(void) {
       if (ToErase) {
         ToErase->eraseFromParent();
         ToErase = nullptr;
+      }
+      // If a conditional trap instruction got optimized to an
+      // unconditional trap, eliminate all the instructions after
+      // the trap.
+      if (EnableTrapOptimization && TrapOpt) {
+        ToErase = &MI;
+        continue;
       }
 
       // Ignore debug instructions.
@@ -467,7 +481,7 @@ bool PPCMIPeephole::simplifyCode(void) {
         // PPC::ZERO.
         if (!MI.getOperand(1).isImm() || MI.getOperand(1).getImm() != 0)
           break;
-        unsigned MIDestReg = MI.getOperand(0).getReg();
+        Register MIDestReg = MI.getOperand(0).getReg();
         for (MachineInstr& UseMI : MRI->use_instructions(MIDestReg))
           Simplified |= TII->onlyFoldImmediate(UseMI, MI, MIDestReg);
         if (MRI->use_nodbg_empty(MIDestReg)) {
@@ -476,10 +490,12 @@ bool PPCMIPeephole::simplifyCode(void) {
         }
         break;
       }
+      case PPC::STW:
       case PPC::STD: {
         MachineFrameInfo &MFI = MF->getFrameInfo();
         if (MFI.hasVarSizedObjects() ||
-            !MF->getSubtarget<PPCSubtarget>().isELFv2ABI())
+            (!MF->getSubtarget<PPCSubtarget>().isELFv2ABI() &&
+             !MF->getSubtarget<PPCSubtarget>().isAIXABI()))
           break;
         // When encountering a TOC save instruction, call UpdateTOCSaves
         // to add it to the TOCSaves map and mark any existing TOC saves
@@ -503,9 +519,9 @@ bool PPCMIPeephole::simplifyCode(void) {
         //   XXPERMDI t, SUBREG_TO_REG(s), SUBREG_TO_REG(s), immed.
         // We have to look through chains of COPY and SUBREG_TO_REG
         // to find the real source values for comparison.
-        unsigned TrueReg1 =
+        Register TrueReg1 =
           TRI->lookThruCopyLike(MI.getOperand(1).getReg(), MRI);
-        unsigned TrueReg2 =
+        Register TrueReg2 =
           TRI->lookThruCopyLike(MI.getOperand(2).getReg(), MRI);
 
         if (!(TrueReg1 == TrueReg2 && Register::isVirtualRegister(TrueReg1)))
@@ -525,7 +541,7 @@ bool PPCMIPeephole::simplifyCode(void) {
         auto isConversionOfLoadAndSplat = [=]() -> bool {
           if (DefOpc != PPC::XVCVDPSXDS && DefOpc != PPC::XVCVDPUXDS)
             return false;
-          unsigned FeedReg1 =
+          Register FeedReg1 =
             TRI->lookThruCopyLike(DefMI->getOperand(1).getReg(), MRI);
           if (Register::isVirtualRegister(FeedReg1)) {
             MachineInstr *LoadMI = MRI->getVRegDef(FeedReg1);
@@ -549,16 +565,16 @@ bool PPCMIPeephole::simplifyCode(void) {
         // If this is a splat or a swap fed by another splat, we
         // can replace it with a copy.
         if (DefOpc == PPC::XXPERMDI) {
-          unsigned DefReg1 = DefMI->getOperand(1).getReg();
-          unsigned DefReg2 = DefMI->getOperand(2).getReg();
+          Register DefReg1 = DefMI->getOperand(1).getReg();
+          Register DefReg2 = DefMI->getOperand(2).getReg();
           unsigned DefImmed = DefMI->getOperand(3).getImm();
 
           // If the two inputs are not the same register, check to see if
           // they originate from the same virtual register after only
           // copy-like instructions.
           if (DefReg1 != DefReg2) {
-            unsigned FeedReg1 = TRI->lookThruCopyLike(DefReg1, MRI);
-            unsigned FeedReg2 = TRI->lookThruCopyLike(DefReg2, MRI);
+            Register FeedReg1 = TRI->lookThruCopyLike(DefReg1, MRI);
+            Register FeedReg2 = TRI->lookThruCopyLike(DefReg2, MRI);
 
             if (!(FeedReg1 == FeedReg2 &&
                   Register::isVirtualRegister(FeedReg1)))
@@ -599,14 +615,24 @@ bool PPCMIPeephole::simplifyCode(void) {
             ToErase = &MI;
             Simplified = true;
           }
-        } else if ((Immed == 0 || Immed == 3) && DefOpc == PPC::XXPERMDIs &&
+        } else if ((Immed == 0 || Immed == 3 || Immed == 2) &&
+                   DefOpc == PPC::XXPERMDIs &&
                    (DefMI->getOperand(2).getImm() == 0 ||
                     DefMI->getOperand(2).getImm() == 3)) {
+          ToErase = &MI;
+          Simplified = true;
+          // Swap of a splat, convert to copy.
+          if (Immed == 2) {
+            LLVM_DEBUG(dbgs() << "Optimizing swap(splat) => copy(splat): ");
+            LLVM_DEBUG(MI.dump());
+            BuildMI(MBB, &MI, MI.getDebugLoc(), TII->get(PPC::COPY),
+                    MI.getOperand(0).getReg())
+                .add(MI.getOperand(1));
+            break;
+          }
           // Splat fed by another splat - switch the output of the first
           // and remove the second.
           DefMI->getOperand(0).setReg(MI.getOperand(0).getReg());
-          ToErase = &MI;
-          Simplified = true;
           LLVM_DEBUG(dbgs() << "Removing redundant splat: ");
           LLVM_DEBUG(MI.dump());
         }
@@ -617,7 +643,7 @@ bool PPCMIPeephole::simplifyCode(void) {
       case PPC::XXSPLTW: {
         unsigned MyOpcode = MI.getOpcode();
         unsigned OpNo = MyOpcode == PPC::XXSPLTW ? 1 : 2;
-        unsigned TrueReg =
+        Register TrueReg =
           TRI->lookThruCopyLike(MI.getOperand(OpNo).getReg(), MRI);
         if (!Register::isVirtualRegister(TrueReg))
           break;
@@ -660,7 +686,8 @@ bool PPCMIPeephole::simplifyCode(void) {
           Register ShiftOp1 = DefMI->getOperand(1).getReg();
           Register ShiftOp2 = DefMI->getOperand(2).getReg();
           unsigned ShiftImm = DefMI->getOperand(3).getImm();
-          unsigned SplatImm = MI.getOperand(2).getImm();
+          unsigned SplatImm =
+              MI.getOperand(MyOpcode == PPC::XXSPLTW ? 2 : 1).getImm();
           if (ShiftOp1 == ShiftOp2) {
             unsigned NewElem = (SplatImm + ShiftImm) & 0x3;
             if (MRI->hasOneNonDBGUse(ShiftRes)) {
@@ -680,7 +707,7 @@ bool PPCMIPeephole::simplifyCode(void) {
       }
       case PPC::XVCVDPSP: {
         // If this is a DP->SP conversion fed by an FRSP, the FRSP is redundant.
-        unsigned TrueReg =
+        Register TrueReg =
           TRI->lookThruCopyLike(MI.getOperand(1).getReg(), MRI);
         if (!Register::isVirtualRegister(TrueReg))
           break;
@@ -689,9 +716,9 @@ bool PPCMIPeephole::simplifyCode(void) {
         // This can occur when building a vector of single precision or integer
         // values.
         if (DefMI && DefMI->getOpcode() == PPC::XXPERMDI) {
-          unsigned DefsReg1 =
+          Register DefsReg1 =
             TRI->lookThruCopyLike(DefMI->getOperand(1).getReg(), MRI);
-          unsigned DefsReg2 =
+          Register DefsReg2 =
             TRI->lookThruCopyLike(DefMI->getOperand(2).getReg(), MRI);
           if (!Register::isVirtualRegister(DefsReg1) ||
               !Register::isVirtualRegister(DefsReg2))
@@ -992,6 +1019,51 @@ bool PPCMIPeephole::simplifyCode(void) {
           ++NumRotatesCollapsed;
         break;
       }
+      // We will replace TD/TW/TDI/TWI with an unconditional trap if it will
+      // always trap, we will delete the node if it will never trap.
+      case PPC::TDI:
+      case PPC::TWI:
+      case PPC::TD:
+      case PPC::TW: {
+        if (!EnableTrapOptimization) break;
+        MachineInstr *LiMI1 = getVRegDefOrNull(&MI.getOperand(1), MRI);
+        MachineInstr *LiMI2 = getVRegDefOrNull(&MI.getOperand(2), MRI);
+        bool IsOperand2Immediate = MI.getOperand(2).isImm();
+        // We can only do the optimization if we can get immediates
+        // from both operands
+        if (!(LiMI1 && (LiMI1->getOpcode() == PPC::LI ||
+                        LiMI1->getOpcode() == PPC::LI8)))
+          break;
+        if (!IsOperand2Immediate &&
+            !(LiMI2 && (LiMI2->getOpcode() == PPC::LI ||
+                        LiMI2->getOpcode() == PPC::LI8)))
+          break;
+
+        auto ImmOperand0 = MI.getOperand(0).getImm();
+        auto ImmOperand1 = LiMI1->getOperand(1).getImm();
+        auto ImmOperand2 = IsOperand2Immediate ? MI.getOperand(2).getImm()
+                                               : LiMI2->getOperand(1).getImm();
+
+        // We will replace the MI with an unconditional trap if it will always
+        // trap.
+        if ((ImmOperand0 == 31) ||
+            ((ImmOperand0 & 0x10) &&
+             ((int64_t)ImmOperand1 < (int64_t)ImmOperand2)) ||
+            ((ImmOperand0 & 0x8) &&
+             ((int64_t)ImmOperand1 > (int64_t)ImmOperand2)) ||
+            ((ImmOperand0 & 0x2) &&
+             ((uint64_t)ImmOperand1 < (uint64_t)ImmOperand2)) ||
+            ((ImmOperand0 & 0x1) &&
+             ((uint64_t)ImmOperand1 > (uint64_t)ImmOperand2)) ||
+            ((ImmOperand0 & 0x4) && (ImmOperand1 == ImmOperand2))) {
+          BuildMI(MBB, &MI, MI.getDebugLoc(), TII->get(PPC::TRAP));
+          TrapOpt = true;
+        }
+        // We will delete the MI if it will never trap.
+        ToErase = &MI;
+        Simplified = true;
+        break;
+      }
       }
     }
 
@@ -1001,6 +1073,9 @@ bool PPCMIPeephole::simplifyCode(void) {
       ToErase->eraseFromParent();
       ToErase = nullptr;
     }
+    // Reset TrapOpt to false at the end of the basic block.
+    if (EnableTrapOptimization)
+      TrapOpt = false;
   }
 
   // Eliminate all the TOC save instructions which are redundant.
@@ -1103,7 +1178,7 @@ static unsigned getIncomingRegForBlock(MachineInstr *Phi,
 static unsigned getSrcVReg(unsigned Reg, MachineBasicBlock *BB1,
                            MachineBasicBlock *BB2, MachineRegisterInfo *MRI) {
   unsigned SrcReg = Reg;
-  while (1) {
+  while (true) {
     unsigned NextReg = SrcReg;
     MachineInstr *Inst = MRI->getVRegDef(SrcReg);
     if (BB1 && Inst->getOpcode() == PPC::PHI && Inst->getParent() == BB2) {
@@ -1259,7 +1334,7 @@ bool PPCMIPeephole::eliminateRedundantTOCSaves(
 //   cmpwi  r3, 0       ; greather than -1 means greater or equal to 0
 //   bge    0, .LBB0_4
 
-bool PPCMIPeephole::eliminateRedundantCompare(void) {
+bool PPCMIPeephole::eliminateRedundantCompare() {
   bool Simplified = false;
 
   for (MachineBasicBlock &MBB2 : *MF) {
@@ -1662,4 +1737,3 @@ INITIALIZE_PASS_END(PPCMIPeephole, DEBUG_TYPE,
 char PPCMIPeephole::ID = 0;
 FunctionPass*
 llvm::createPPCMIPeepholePass() { return new PPCMIPeephole(); }
-

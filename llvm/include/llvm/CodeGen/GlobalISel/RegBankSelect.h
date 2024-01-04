@@ -6,9 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 //
-/// \file This file describes the interface of the MachineFunctionPass
+/// \file
+/// This file describes the interface of the MachineFunctionPass
 /// responsible for assigning the generic virtual registers to register bank.
-
+///
 /// By default, the reg bank selector relies on local decisions to
 /// assign the register bank. In other words, it looks at one instruction
 /// at a time to decide where the operand of that instruction should live.
@@ -252,7 +253,7 @@ public:
 
   public:
     MBBInsertPoint(MachineBasicBlock &MBB, bool Beginning = true)
-        : InsertPoint(), MBB(MBB), Beginning(Beginning) {
+        : MBB(MBB), Beginning(Beginning) {
       // If we try to insert before phis, we should use the insertion
       // points on the incoming edges.
       assert((!Beginning || MBB.getFirstNonPHI() == MBB.begin()) &&
@@ -298,7 +299,7 @@ public:
 
   public:
     EdgeInsertPoint(MachineBasicBlock &Src, MachineBasicBlock &Dst, Pass &P)
-        : InsertPoint(), Src(Src), DstOrSplit(&Dst), P(P) {}
+        : Src(Src), DstOrSplit(&Dst), P(P) {}
 
     bool isSplit() const override {
       return Src.succ_size() > 1 && DstOrSplit->pred_size() > 1;

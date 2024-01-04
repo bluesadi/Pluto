@@ -15,12 +15,12 @@
 
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Analysis/InlineModelFeatureMaps.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include <cassert>
 #include <climits>
 
 namespace llvm {
-class AssumptionCacheTracker;
 class BlockFrequencyInfo;
 class CallBase;
 class DataLayout;
@@ -43,7 +43,7 @@ const int OptAggressiveThreshold = 250;
 // Various magic constants used to adjust heuristics.
 const int InstrCost = 5;
 const int IndirectCallThreshold = 100;
-const int CallPenalty = 25;
+const int LoopPenalty = 25;
 const int LastCallToStaticBonus = 15000;
 const int ColdccPenalty = 2000;
 /// Do not inline functions which allocate this many bytes on the stack
@@ -52,7 +52,24 @@ const unsigned TotalAllocaSizeRecursiveCaller = 1024;
 /// Do not inline dynamic allocas that have been constant propagated to be
 /// static allocas above this amount in bytes.
 const uint64_t MaxSimplifiedDynamicAllocaToInline = 65536;
+
+const char FunctionInlineCostMultiplierAttributeName[] =
+    "function-inline-cost-multiplier";
 } // namespace InlineConstants
+
+// The cost-benefit pair computed by cost-benefit analysis.
+class CostBenefitPair {
+public:
+  CostBenefitPair(APInt Cost, APInt Benefit) : Cost(Cost), Benefit(Benefit) {}
+
+  const APInt &getCost() const { return Cost; }
+
+  const APInt &getBenefit() const { return Benefit; }
+
+private:
+  APInt Cost;
+  APInt Benefit;
+};
 
 /// Represents the cost of inlining a function.
 ///
@@ -76,9 +93,14 @@ class InlineCost {
   /// Must be set for Always and Never instances.
   const char *Reason = nullptr;
 
+  /// The cost-benefit pair computed by cost-benefit analysis.
+  Optional<CostBenefitPair> CostBenefit = None;
+
   // Trivial constructor, interesting logic in the factory functions below.
-  InlineCost(int Cost, int Threshold, const char *Reason = nullptr)
-      : Cost(Cost), Threshold(Threshold), Reason(Reason) {
+  InlineCost(int Cost, int Threshold, const char *Reason = nullptr,
+             Optional<CostBenefitPair> CostBenefit = None)
+      : Cost(Cost), Threshold(Threshold), Reason(Reason),
+        CostBenefit(CostBenefit) {
     assert((isVariable() || Reason) &&
            "Reason must be provided for Never or Always");
   }
@@ -89,11 +111,13 @@ public:
     assert(Cost < NeverInlineCost && "Cost crosses sentinel value");
     return InlineCost(Cost, Threshold);
   }
-  static InlineCost getAlways(const char *Reason) {
-    return InlineCost(AlwaysInlineCost, 0, Reason);
+  static InlineCost getAlways(const char *Reason,
+                              Optional<CostBenefitPair> CostBenefit = None) {
+    return InlineCost(AlwaysInlineCost, 0, Reason, CostBenefit);
   }
-  static InlineCost getNever(const char *Reason) {
-    return InlineCost(NeverInlineCost, 0, Reason);
+  static InlineCost getNever(const char *Reason,
+                             Optional<CostBenefitPair> CostBenefit = None) {
+    return InlineCost(NeverInlineCost, 0, Reason, CostBenefit);
   }
 
   /// Test whether the inline cost is low enough for inlining.
@@ -115,6 +139,9 @@ public:
     assert(isVariable() && "Invalid access of InlineCost");
     return Threshold;
   }
+
+  /// Get the cost-benefit pair which was computed by cost-benefit analysis
+  Optional<CostBenefitPair> getCostBenefit() const { return CostBenefit; }
 
   /// Get the reason of Always or Never.
   const char *getReason() const {
@@ -187,8 +214,13 @@ struct InlineParams {
   Optional<bool> ComputeFullInlineCost;
 
   /// Indicate whether we should allow inline deferral.
-  Optional<bool> EnableDeferral = true;
+  Optional<bool> EnableDeferral;
+
+  /// Indicate whether we allow inlining for recursive call.
+  Optional<bool> AllowRecursiveCall = false;
 };
+
+Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind);
 
 /// Generate the parameters to tune the inline cost analysis based only on the
 /// commandline options.
@@ -264,6 +296,15 @@ Optional<InlineResult> getAttributeBasedInliningDecision(
 /// - None, if the inlining cannot happen (is illegal)
 /// - an integer, representing the cost.
 Optional<int> getInliningCostEstimate(
+    CallBase &Call, TargetTransformInfo &CalleeTTI,
+    function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
+    function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
+    ProfileSummaryInfo *PSI = nullptr,
+    OptimizationRemarkEmitter *ORE = nullptr);
+
+/// Get the expanded cost features. The features are returned unconditionally,
+/// even if inlining is impossible.
+Optional<InlineCostFeatures> getInliningCostFeatures(
     CallBase &Call, TargetTransformInfo &CalleeTTI,
     function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,

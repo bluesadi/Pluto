@@ -17,8 +17,7 @@
 
 #define DEBUG_TYPE "format-test"
 
-using clang::tooling::ReplacementTest;
-using testing::internal::ScopedTrace;
+using testing::ScopedTrace;
 
 namespace clang {
 namespace format {
@@ -977,6 +976,19 @@ TEST_F(FormatTestObjC, FormatObjCMethodExpr) {
       "        performSelectorOnMainThread:@selector(loadAccessories)\n"
       "                         withObject:nil\n"
       "                      waitUntilDone:false];");
+
+  // The appropriate indentation is used after a block statement.
+  Style.ContinuationIndentWidth = 4;
+  verifyFormat(
+      "void aaaaaaaaaaaaaaaaaaaaa(int c) {\n"
+      "  if (c) {\n"
+      "    f();\n"
+      "  }\n"
+      "  [dddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n"
+      "      eeeeeeeeeeeeeeeeeeeeeeeeeeeee:^(fffffffffffffff gggggggg) {\n"
+      "        f(SSSSS, c);\n"
+      "      }];\n"
+      "}");
 }
 
 TEST_F(FormatTestObjC, ObjCAt) {
@@ -1512,6 +1524,18 @@ TEST_F(FormatTestObjC, IfNotUnlikely) {
                "  [obj func:arg];\n"
                "else [[likely]]\n"
                "  [obj func:arg2];");
+}
+
+TEST_F(FormatTestObjC, Attributes) {
+  verifyFormat("__attribute__((objc_subclassing_restricted))\n"
+               "@interface Foo\n"
+               "@end");
+  verifyFormat("__attribute__((objc_subclassing_restricted))\n"
+               "@protocol Foo\n"
+               "@end");
+  verifyFormat("__attribute__((objc_subclassing_restricted))\n"
+               "@implementation Foo\n"
+               "@end");
 }
 
 } // end namespace

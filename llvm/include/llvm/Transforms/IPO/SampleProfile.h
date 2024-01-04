@@ -15,6 +15,7 @@
 #define LLVM_TRANSFORMS_IPO_SAMPLEPROFILE_H
 
 #include "llvm/IR/PassManager.h"
+#include "llvm/Pass.h"
 #include <string>
 
 namespace llvm {
@@ -40,4 +41,4 @@ private:
 
 } // end namespace llvm
 
-#endif // LLVM_TRANSFORMS_SAMPLEPROFILE_H
+#endif // LLVM_TRANSFORMS_IPO_SAMPLEPROFILE_H

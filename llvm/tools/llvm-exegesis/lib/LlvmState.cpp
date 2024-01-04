@@ -13,8 +13,8 @@
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCFixup.h"
 #include "llvm/MC/MCObjectFileInfo.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Host.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
@@ -61,9 +61,10 @@ std::unique_ptr<LLVMTargetMachine> LLVMState::createTargetMachine() const {
 }
 
 bool LLVMState::canAssemble(const MCInst &Inst) const {
-  MCObjectFileInfo ObjectFileInfo;
-  MCContext Context(TheTargetMachine->getMCAsmInfo(),
-                    TheTargetMachine->getMCRegisterInfo(), &ObjectFileInfo);
+  MCContext Context(TheTargetMachine->getTargetTriple(),
+                    TheTargetMachine->getMCAsmInfo(),
+                    TheTargetMachine->getMCRegisterInfo(),
+                    TheTargetMachine->getMCSubtargetInfo());
   std::unique_ptr<const MCCodeEmitter> CodeEmitter(
       TheTargetMachine->getTarget().createMCCodeEmitter(
           *TheTargetMachine->getMCInstrInfo(), *TheTargetMachine->getMCRegisterInfo(),

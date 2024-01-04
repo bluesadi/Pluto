@@ -26,6 +26,7 @@ enum class AccelTableKind {
   Apple,   ///< .apple_names, .apple_namespaces, .apple_types, .apple_objc.
   Dwarf,   ///< DWARF v5 .debug_names.
   Default, ///< Dwarf for DWARF5 or later, Apple otherwise.
+  Pub,     ///< .debug_pubnames, .debug_pubtypes
 };
 
 /// Partial address range. Besides an offset, only the
@@ -61,32 +62,33 @@ public:
   virtual bool areRelocationsResolved() const = 0;
 
   /// Checks that there are valid relocations against a .debug_info
-  /// section. Reset current relocation pointer if neccessary.
-  virtual bool hasValidRelocs(bool ResetRelocsPtr = true) = 0;
+  /// section.
+  virtual bool hasValidRelocs() = 0;
 
   /// Checks that the specified DIE has a DW_AT_Location attribute
-  /// that references into a live code section. This function
-  /// must be called with DIE offsets in strictly ascending order.
+  /// that references into a live code section.
+  ///
+  /// \returns true and sets Info.InDebugMap if it is the case.
   virtual bool hasLiveMemoryLocation(const DWARFDie &DIE,
                                      CompileUnit::DIEInfo &Info) = 0;
 
   /// Checks that the specified DIE has a DW_AT_Low_pc attribute
-  /// that references into a live code section. This function
-  /// must be called with DIE offsets in strictly ascending order.
+  /// that references into a live code section.
+  ///
+  /// \returns true and sets Info.InDebugMap if it is the case.
   virtual bool hasLiveAddressRange(const DWARFDie &DIE,
                                    CompileUnit::DIEInfo &Info) = 0;
 
   /// Apply the valid relocations to the buffer \p Data, taking into
-  /// account that Data is at \p BaseOffset in the debug_info section.
-  ///
-  /// This function must be called with monotonic \p BaseOffset values.
+  /// account that Data is at \p BaseOffset in the .debug_info section.
   ///
   /// \returns true whether any reloc has been applied.
   virtual bool applyValidRelocs(MutableArrayRef<char> Data, uint64_t BaseOffset,
                                 bool IsLittleEndian) = 0;
 
   /// Relocate the given address offset if a valid relocation exists.
-  virtual llvm::Expected<uint64_t> relocateIndexedAddr(uint64_t Offset) = 0;
+  virtual llvm::Expected<uint64_t> relocateIndexedAddr(uint64_t StartOffset,
+                                                       uint64_t EndOffset) = 0;
 
   /// Returns all valid functions address ranges(i.e., those ranges
   /// which points to sections with code).
@@ -107,7 +109,7 @@ public:
   /// Emit section named SecName with data SecData.
   virtual void emitSectionContents(StringRef SecData, StringRef SecName) = 0;
 
-  /// Emit the abbreviation table \p Abbrevs to the debug_abbrev section.
+  /// Emit the abbreviation table \p Abbrevs to the .debug_abbrev section.
   virtual void
   emitAbbrevs(const std::vector<std::unique_ptr<DIEAbbrev>> &Abbrevs,
               unsigned DwarfVersion) = 0;
@@ -135,7 +137,7 @@ public:
   virtual void
   emitAppleTypes(AccelTable<AppleAccelTableStaticTypeData> &Table) = 0;
 
-  /// Emit debug_ranges for \p FuncRange by translating the
+  /// Emit .debug_ranges for \p FuncRange by translating the
   /// original \p Entries.
   virtual void emitRangesEntries(
       int64_t UnitPcOffset, uint64_t OrigLowPc,
@@ -143,17 +145,17 @@ public:
       const std::vector<DWARFDebugRangeList::RangeListEntry> &Entries,
       unsigned AddressSize) = 0;
 
-  /// Emit debug_aranges entries for \p Unit and if \p DoRangesSection is true,
-  /// also emit the debug_ranges entries for the DW_TAG_compile_unit's
+  /// Emit .debug_aranges entries for \p Unit and if \p DoRangesSection is true,
+  /// also emit the .debug_ranges entries for the DW_TAG_compile_unit's
   /// DW_AT_ranges attribute.
   virtual void emitUnitRangesEntries(CompileUnit &Unit,
                                      bool DoRangesSection) = 0;
 
-  /// Copy the debug_line over to the updated binary while unobfuscating the
+  /// Copy the .debug_line over to the updated binary while unobfuscating the
   /// file names and directories.
   virtual void translateLineTable(DataExtractor LineData, uint64_t Offset) = 0;
 
-  /// Emit the line table described in \p Rows into the debug_line section.
+  /// Emit the line table described in \p Rows into the .debug_line section.
   virtual void emitLineTableForUnit(MCDwarfLineTableParams Params,
                                     StringRef PrologueBytes,
                                     unsigned MinInstLength,
@@ -173,7 +175,7 @@ public:
   virtual void emitFDE(uint32_t CIEOffset, uint32_t AddreSize, uint32_t Address,
                        StringRef Bytes) = 0;
 
-  /// Emit the debug_loc contribution for \p Unit by copying the entries from
+  /// Emit the .debug_loc contribution for \p Unit by copying the entries from
   /// \p Dwarf and offsetting them. Update the location attributes to point to
   /// the new entries.
   virtual void emitLocationsForUnit(
@@ -182,7 +184,7 @@ public:
           ProcessExpr) = 0;
 
   /// Emit the compilation unit header for \p Unit in the
-  /// debug_info section.
+  /// .debug_info section.
   ///
   /// As a side effect, this also switches the current Dwarf version
   /// of the MC layer to the one of U.getOrigUnit().
@@ -278,6 +280,11 @@ public:
 
   /// update existing DWARF info(for the linked binary).
   void setUpdate(bool Update) { Options.Update = Update; }
+
+  /// Set whether to keep the enclosing function for a static variable.
+  void setKeepFunctionForStatic(bool KeepFunctionForStatic) {
+    Options.KeepFunctionForStatic = KeepFunctionForStatic;
+  }
 
   /// Use specified number of threads for parallel files linking.
   void setNumThreads(unsigned NumThreads) { Options.Threads = NumThreads; }
@@ -378,8 +385,8 @@ private:
         : Die(Die), Type(T), CU(CU), Flags(0), OtherInfo(OtherInfo) {}
 
     WorklistItem(unsigned AncestorIdx, CompileUnit &CU, unsigned Flags)
-        : Die(), Type(WorklistItemType::LookForParentDIEsToKeep), CU(CU),
-          Flags(Flags), AncestorIdx(AncestorIdx) {}
+        : Type(WorklistItemType::LookForParentDIEsToKeep), CU(CU), Flags(Flags),
+          AncestorIdx(AncestorIdx) {}
   };
 
   /// returns true if we need to translate strings.
@@ -688,7 +695,7 @@ private:
   /// Assign an abbreviation number to \p Abbrev
   void assignAbbrev(DIEAbbrev &Abbrev);
 
-  /// Compute and emit debug_ranges section for \p Unit, and
+  /// Compute and emit .debug_ranges section for \p Unit, and
   /// patch the attributes referencing it.
   void patchRangesForUnit(const CompileUnit &Unit, DWARFContext &Dwarf,
                           const DWARFFile &File) const;
@@ -699,7 +706,7 @@ private:
 
   /// Extract the line tables from the original dwarf, extract the relevant
   /// parts according to the linked function ranges and emit the result in the
-  /// debug_line section.
+  /// .debug_line section.
   void patchLineTableForUnit(CompileUnit &Unit, DWARFContext &OrigDwarf,
                              const DWARFFile &File);
 
@@ -707,6 +714,7 @@ private:
   void emitAcceleratorEntriesForUnit(CompileUnit &Unit);
   void emitDwarfAcceleratorEntriesForUnit(CompileUnit &Unit);
   void emitAppleAcceleratorEntriesForUnit(CompileUnit &Unit);
+  void emitPubAcceleratorEntriesForUnit(CompileUnit &Unit);
 
   /// Patch the frame info for an object file and emit it.
   void patchFrameInfoForObject(const DWARFFile &, RangesTy &Ranges,
@@ -745,7 +753,7 @@ private:
   StringMap<uint32_t> EmittedCIEs;
 
   /// Offset of the last CIE that has been emitted in the output
-  /// debug_frame section.
+  /// .debug_frame section.
   uint32_t LastCIEOffset = 0;
 
   /// Apple accelerator tables.
@@ -778,6 +786,10 @@ private:
 
     /// Update
     bool Update = false;
+
+    /// Whether we want a static variable to force us to keep its enclosing
+    /// function.
+    bool KeepFunctionForStatic = false;
 
     /// Number of threads.
     unsigned Threads = 1;

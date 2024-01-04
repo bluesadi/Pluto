@@ -28,7 +28,7 @@ using namespace llvm;
 static cl::opt<bool>
 EnableExpensiveChecks("enable-legalize-types-checking", cl::Hidden);
 
-/// Do extensive, expensive, sanity checking.
+/// Do extensive, expensive, basic correctness checking.
 void DAGTypeLegalizer::PerformExpensiveChecks() {
   // If a node is not processed, then none of its values should be mapped by any
   // of PromotedIntegers, ExpandedIntegers, ..., ReplacedValues.
@@ -83,7 +83,7 @@ void DAGTypeLegalizer::PerformExpensiveChecks() {
       SDValue Res(&Node, i);
       bool Failed = false;
       // Don't create a value in map.
-      auto ResId = (ValueToIdMap.count(Res)) ? ValueToIdMap[Res] : 0;
+      auto ResId = ValueToIdMap.lookup(Res);
 
       unsigned Mapped = 0;
       if (ResId && (ReplacedValues.find(ResId) != ReplacedValues.end())) {
@@ -182,9 +182,8 @@ void DAGTypeLegalizer::PerformExpensiveChecks() {
   // Checked that NewNodes are only used by other NewNodes.
   for (unsigned i = 0, e = NewNodes.size(); i != e; ++i) {
     SDNode *N = NewNodes[i];
-    for (SDNode::use_iterator UI = N->use_begin(), UE = N->use_end();
-         UI != UE; ++UI)
-      assert(UI->getNodeId() == NewNode && "NewNode used by non-NewNode!");
+    for (SDNode *U : N->uses())
+      assert(U->getNodeId() == NewNode && "NewNode used by non-NewNode!");
   }
 #endif
 }
@@ -224,8 +223,7 @@ bool DAGTypeLegalizer::run() {
 #endif
       PerformExpensiveChecks();
 
-    SDNode *N = Worklist.back();
-    Worklist.pop_back();
+    SDNode *N = Worklist.pop_back_val();
     assert(N->getNodeId() == ReadyToProcess &&
            "Node should be ready if on worklist!");
 
@@ -303,7 +301,7 @@ ScanOperands:
       if (IgnoreNodeResults(N->getOperand(i).getNode()))
         continue;
 
-      const auto Op = N->getOperand(i);
+      const auto &Op = N->getOperand(i);
       LLVM_DEBUG(dbgs() << "Analyzing operand: "; Op.dump(&DAG));
       EVT OpVT = Op.getValueType();
       switch (getTypeAction(OpVT)) {
@@ -396,9 +394,7 @@ NodeDone:
     assert(N->getNodeId() == ReadyToProcess && "Node ID recalculated?");
     N->setNodeId(Processed);
 
-    for (SDNode::use_iterator UI = N->use_begin(), E = N->use_end();
-         UI != E; ++UI) {
-      SDNode *User = *UI;
+    for (SDNode *User : N->uses()) {
       int NodeId = User->getNodeId();
 
       // This node has two options: it can either be a new node or its Node ID
@@ -538,7 +534,8 @@ SDNode *DAGTypeLegalizer::AnalyzeNewNode(SDNode *N) {
       // The node morphed into a different node.  Normally for this to happen
       // the original node would have to be marked NewNode.  However this can
       // in theory momentarily not be the case while ReplaceValueWith is doing
-      // its stuff.  Mark the original node NewNode to help sanity checking.
+      // its stuff.  Mark the original node NewNode to help basic correctness
+      // checking.
       N->setNodeId(NewNode);
       if (M->getNodeId() != NewNode && M->getNodeId() != Unanalyzed)
         // It morphed into a previously analyzed node - nothing more to do.
@@ -1010,11 +1007,7 @@ SDValue DAGTypeLegalizer::JoinIntegers(SDValue Lo, SDValue Hi) {
 ///
 /// ValVT is the type of values that produced the boolean.
 SDValue DAGTypeLegalizer::PromoteTargetBoolean(SDValue Bool, EVT ValVT) {
-  SDLoc dl(Bool);
-  EVT BoolVT = getSetCCResultType(ValVT);
-  ISD::NodeType ExtendCode =
-      TargetLowering::getExtendForContent(TLI.getBooleanContents(ValVT));
-  return DAG.getNode(ExtendCode, dl, BoolVT, Bool);
+  return TLI.promoteTargetBoolean(DAG, Bool, ValVT);
 }
 
 /// Return the lower LoVT bits of Op in Lo and the upper HiVT bits in Hi.

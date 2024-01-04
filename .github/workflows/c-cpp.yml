@@ -2,20 +2,48 @@ name: C/C++ CI
 
 on:
   push:
-    branches: [ "llvm-14.0.6" ]
+    branches: [ "llvm-14.0.6", "main" ]
   pull_request:
-    branches: [ "llvm-14.0.6" ]
+    branches: [ "llvm-14.0.6", "main" ]
 
 jobs:
-  build:
+  Ubuntu:
 
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
-    - name: make build
-      run: make build
-    - name: make install
-      run: make install
-    - name: make tests
-      run: make tests
+    - name: Install ninja-build
+      run: sudo apt install ninja-build -y
+    - name: Install z3
+      run: sudo apt install libz3-dev -y
+    - name: Install lld
+      run: sudo apt install lld -y
+    - name: git submodule update --init
+      run: git submodule update --init
+    - name: ./build.sh
+      run: ./build.sh
+    - name: Test tiny-aes
+      run: ./tests/test-aes.sh
+    - name: Test jsoncpp
+      run: ./tests/test-jsoncpp.sh
+    - name: Test json
+      run: ./tests/test-json.sh
+    - name: Test openssl
+      run: ./tests/test-openssl.sh
+  # Windows:
+
+  #   runs-on: windows-latest
+
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   - name: sudo apt install ninja-build -y
+  #     run: sudo apt install ninja-build -y
+  #   - name: git submodule update --init --recursive
+  #     run: git submodule update --init --recursive
+  #   - name: make build
+  #     run: make build
+  #   - name: make install
+  #     run: make install
+  #   - name: make check
+  #     run: make check

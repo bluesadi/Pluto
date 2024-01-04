@@ -597,7 +597,7 @@ v_max_f32 v0, vccz, v0
 v_max_f64 v[0:1], scc, v[0:1]
 
 // NOSICIVI: error: instruction not supported on this GPU
-// GFX9: v_pk_add_f16 v0, src_execz, v0  ; encoding: [0x00,0x00,0x8f,0xd3,0xfc,0x00,0x02,0x18]
+// GFX9: v_pk_add_f16 v0, src_execz, v0  ; encoding: [0x00,0x40,0x8f,0xd3,0xfc,0x00,0x02,0x18]
 v_pk_add_f16 v0, execz, v0
 
 // NOSICI: error: instruction not supported on this GPU
@@ -737,7 +737,7 @@ v_max_f32 v0, src_shared_base, v0
 v_max_f64 v[0:1], src_shared_base, v[0:1]
 
 // NOSICIVI: error: instruction not supported on this GPU
-// GFX9: v_pk_add_f16 v0, src_shared_base, v0 ; encoding: [0x00,0x00,0x8f,0xd3,0xeb,0x00,0x02,0x18]
+// GFX9: v_pk_add_f16 v0, src_shared_base, v0 ; encoding: [0x00,0x40,0x8f,0xd3,0xeb,0x00,0x02,0x18]
 v_pk_add_f16 v0, src_shared_base, v0
 
 // GFX9: v_ceil_f16_e64 v0, -src_shared_base ; encoding: [0x00,0x00,0x85,0xd1,0xeb,0x00,0x00,0x20]
@@ -842,6 +842,20 @@ v_madak_f32 v0, shared_base, v0, 0x11213141
 
 // NOGCN: error: invalid operand (violates constant bus restrictions)
 v_madak_f32 v0, scc, v0, 0x11213141
+
+// NOGCN: error: only one literal operand is allowed
+v_madak_f32 v0, 0xff32ff, v0, 0x11213141
+
+// NOGCN: error: only one literal operand is allowed
+v_madmk_f32 v0, 0xff32ff, 0x11213141, v0
+
+// NOSICI: error: instruction not supported on this GPU
+// NOGFX89: error: only one literal operand is allowed
+v_madak_f16 v0, 0xff32, v0, 0x1122
+
+// NOSICI: error: instruction not supported on this GPU
+// NOGFX89: error: only one literal operand is allowed
+v_madmk_f16 v0, 0xff32, 0x1122, v0
 
 // NOSICIVI: error: register not available on this GPU
 // NOGFX9: error: invalid operand (violates constant bus restrictions)

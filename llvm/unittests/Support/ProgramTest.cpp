@@ -110,17 +110,26 @@ protected:
 };
 
 #ifdef _WIN32
+void checkSeparators(StringRef Path) {
+  char UndesiredSeparator = sys::path::get_separator()[0] == '/' ? '\\' : '/';
+  ASSERT_EQ(Path.find(UndesiredSeparator), StringRef::npos);
+}
+
 TEST_F(ProgramEnvTest, CreateProcessLongPath) {
   if (getenv("LLVM_PROGRAM_TEST_LONG_PATH"))
     exit(0);
 
   // getMainExecutable returns an absolute path; prepend the long-path prefix.
-  std::string MyAbsExe =
-      sys::fs::getMainExecutable(TestMainArgv0, &ProgramTestStringArg1);
+  SmallString<128> MyAbsExe(
+      sys::fs::getMainExecutable(TestMainArgv0, &ProgramTestStringArg1));
+  checkSeparators(MyAbsExe);
+  // Force a path with backslashes, when we are going to prepend the \\?\
+  // prefix.
+  sys::path::native(MyAbsExe, sys::path::Style::windows_backslash);
   std::string MyExe;
   if (!StringRef(MyAbsExe).startswith("\\\\?\\"))
     MyExe.append("\\\\?\\");
-  MyExe.append(MyAbsExe);
+  MyExe.append(std::string(MyAbsExe.begin(), MyAbsExe.end()));
 
   StringRef ArgV[] = {MyExe,
                       "--gtest_filter=ProgramEnvTest.CreateProcessLongPath"};
@@ -278,8 +287,8 @@ TEST(ProgramTest, TestExecuteNegative) {
     bool ExecutionFailed;
     int RetCode = ExecuteAndWait(Executable, argv, llvm::None, {}, 0, 0, &Error,
                                  &ExecutionFailed);
-    ASSERT_TRUE(RetCode < 0) << "On error ExecuteAndWait should return 0 or "
-                                "positive value indicating the result code";
+    ASSERT_LT(RetCode, 0) << "On error ExecuteAndWait should return 0 or "
+                             "positive value indicating the result code";
     ASSERT_TRUE(ExecutionFailed);
     ASSERT_FALSE(Error.empty());
   }
@@ -320,13 +329,15 @@ TEST(ProgramTest, TestWriteWithSystemEncoding) {
 #if defined(_WIN32)
   char buf[18];
   ASSERT_EQ(::read(fd, buf, 18), 18);
+  const char *utf16_text;
   if (strncmp(buf, "\xfe\xff", 2) == 0) { // UTF16-BE
-    ASSERT_EQ(strncmp(&buf[2], utf16be_text, 16), 0);
+    utf16_text = utf16be_text;
   } else if (strncmp(buf, "\xff\xfe", 2) == 0) { // UTF16-LE
-    ASSERT_EQ(strncmp(&buf[2], utf16le_text, 16), 0);
+    utf16_text = utf16le_text;
   } else {
     FAIL() << "Invalid BOM in UTF-16 file";
   }
+  ASSERT_EQ(strncmp(&buf[2], utf16_text, 16), 0);
 #else
   char buf[10];
   ASSERT_EQ(::read(fd, buf, 10), 10);

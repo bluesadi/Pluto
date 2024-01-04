@@ -11,8 +11,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_MCA_SCHEDULER_H
-#define LLVM_MCA_SCHEDULER_H
+#ifndef LLVM_MCA_HARDWAREUNITS_SCHEDULER_H
+#define LLVM_MCA_HARDWAREUNITS_SCHEDULER_H
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/MC/MCSchedule.h"
@@ -264,9 +264,10 @@ public:
   // Update the ready queues.
   void dump() const;
 
-  // This routine performs a sanity check.  This routine should only be called
-  // when we know that 'IR' is not in the scheduler's instruction queues.
-  void sanityCheck(const InstRef &IR) const {
+  // This routine performs a basic correctness check.  This routine should only
+  // be called when we know that 'IR' is not in the scheduler's instruction
+  // queues.
+  void instructionCheck(const InstRef &IR) const {
     assert(!is_contained(WaitSet, IR) && "Already in the wait set!");
     assert(!is_contained(ReadySet, IR) && "Already in the ready set!");
     assert(!is_contained(IssuedSet, IR) && "Already executing!");
@@ -276,4 +277,4 @@ public:
 } // namespace mca
 } // namespace llvm
 
-#endif // LLVM_MCA_SCHEDULER_H
+#endif // LLVM_MCA_HARDWAREUNITS_SCHEDULER_H

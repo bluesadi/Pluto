@@ -22,8 +22,8 @@
 // PROF-INSTR-PATH: constant [25 x i8] c"for_codegen-test.profraw\00"
 
 // CHECK: [[IDENT_T_TY:%.+]] = type { i32, i32, i32, i32, i8* }
-// CHECK-DAG: [[IMPLICIT_BARRIER_LOC:@.+]] = private unnamed_addr constant %{{.+}} { i32 0, i32 66, i32 0, i32 0, i8*
-// CHECK-DAG: [[LOOP_LOC:@.+]] = private unnamed_addr constant %{{.+}} { i32 0, i32 514, i32 0, i32 0, i8*
+// CHECK-DAG: [[IMPLICIT_BARRIER_LOC:@.+]] = private unnamed_addr constant %{{.+}} { i32 0, i32 66, i32 0, i32 {{[0-9]+}}, i8*
+// CHECK-DAG: [[LOOP_LOC:@.+]] = private unnamed_addr constant %{{.+}} { i32 0, i32 514, i32 0, i32 {{[0-9]+}}, i8*
 // CHECK-DAG: [[I:@.+]] ={{.*}} global i8 1,
 // CHECK-DAG: [[J:@.+]] ={{.*}} global i8 2,
 // CHECK-DAG: [[K:@.+]] ={{.*}} global i8 3,
@@ -198,7 +198,29 @@ void loop_with_counter_collapse() {
     }
   }
 }
-// CHECK-LABEL: define {{.*void}} @{{.*}}without_schedule_clause{{.*}}(float* {{.+}}, float* {{.+}}, float* {{.+}}, float* {{.+}})
+
+// CHECK-LABEL: loop_with_counter_collapse4
+void loop_with_counter_collapse4() {
+
+  // Check bounds calculation when collapse > 2
+  // CHECK: store i32 0, i32* [[I_TMP:%.+]],
+  // CHECK: [[VAL:%.+]] = load i32, i32* [[I_TMP]],
+  // CHECK: store i32 [[VAL]], i32* [[K_LB_MIN:%.+]],
+  // CHECK: store i32 6, i32* [[I_TMP]],
+  // CHECK: [[VAL:%.+]] = load i32, i32* [[I_TMP]],
+  // CHECK: store i32 [[VAL]], i32* [[K_LB_MAX:%.+]],
+  #pragma omp for collapse(4)
+  for (int i = 0; i < 7; i++) {
+    for (int j = 0; j < 11; j++) {
+      for (int k = i; k < 7; k++) {
+        for (int l = 0; l < 11; l++) {
+        }
+      }
+    }
+  }
+}
+
+// CHECK-LABEL: define {{.*void}} @{{.*}}without_schedule_clause{{.*}}(float* noundef {{.+}}, float* noundef {{.+}}, float* noundef {{.+}}, float* noundef {{.+}})
 void without_schedule_clause(float *a, float *b, float *c, float *d) {
 // CHECK: [[GTID:%.+]] = call i32 @__kmpc_global_thread_num([[IDENT_T_TY]]* [[DEFAULT_LOC:[@%].+]])
   #pragma omp for nowait
@@ -239,7 +261,7 @@ void without_schedule_clause(float *a, float *b, float *c, float *d) {
 // CHECK: ret void
 }
 
-// CHECK-LABEL: define {{.*void}} @{{.*}}static_not_chunked{{.*}}(float* {{.+}}, float* {{.+}}, float* {{.+}}, float* {{.+}})
+// CHECK-LABEL: define {{.*void}} @{{.*}}static_not_chunked{{.*}}(float* noundef {{.+}}, float* noundef {{.+}}, float* noundef {{.+}}, float* noundef {{.+}})
 void static_not_chunked(float *a, float *b, float *c, float *d) {
 // CHECK: [[GTID:%.+]] = call i32 @__kmpc_global_thread_num([[IDENT_T_TY]]* [[DEFAULT_LOC:[@%].+]])
   #pragma omp for schedule(static)
@@ -280,7 +302,7 @@ void static_not_chunked(float *a, float *b, float *c, float *d) {
 // CHECK: ret void
 }
 
-// CHECK-LABEL: define {{.*void}} @{{.*}}static_chunked{{.*}}(float* {{.+}}, float* {{.+}}, float* {{.+}}, float* {{.+}})
+// CHECK-LABEL: define {{.*void}} @{{.*}}static_chunked{{.*}}(float* noundef {{.+}}, float* noundef {{.+}}, float* noundef {{.+}}, float* noundef {{.+}})
 void static_chunked(float *a, float *b, float *c, float *d) {
 // CHECK: [[GTID:%.+]] = call i32 @__kmpc_global_thread_num([[IDENT_T_TY]]* [[DEFAULT_LOC:[@%].+]])
   #pragma omp for schedule(monotonic: static, 5)
@@ -340,7 +362,7 @@ void static_chunked(float *a, float *b, float *c, float *d) {
 // CHECK: ret void
 }
 
-// CHECK-LABEL: define {{.*void}} @{{.*}}dynamic1{{.*}}(float* {{.+}}, float* {{.+}}, float* {{.+}}, float* {{.+}})
+// CHECK-LABEL: define {{.*void}} @{{.*}}dynamic1{{.*}}(float* noundef {{.+}}, float* noundef {{.+}}, float* noundef {{.+}}, float* noundef {{.+}})
 void dynamic1(float *a, float *b, float *c, float *d) {
 // CHECK: [[GTID:%.+]] = call i32 @__kmpc_global_thread_num([[IDENT_T_TY]]* [[DEFAULT_LOC:[@%].+]])
   #pragma omp for schedule(nonmonotonic: dynamic)
@@ -382,7 +404,7 @@ void dynamic1(float *a, float *b, float *c, float *d) {
 // CHECK: ret void
 }
 
-// CHECK-LABEL: define {{.*void}} @{{.*}}guided7{{.*}}(float* {{.+}}, float* {{.+}}, float* {{.+}}, float* {{.+}})
+// CHECK-LABEL: define {{.*void}} @{{.*}}guided7{{.*}}(float* noundef {{.+}}, float* noundef {{.+}}, float* noundef {{.+}}, float* noundef {{.+}})
 void guided7(float *a, float *b, float *c, float *d) {
 // CHECK: [[GTID:%.+]] = call i32 @__kmpc_global_thread_num([[IDENT_T_TY]]* [[DEFAULT_LOC:[@%].+]])
   #pragma omp for schedule(guided, 7)
@@ -425,7 +447,7 @@ void guided7(float *a, float *b, float *c, float *d) {
 // CHECK: ret void
 }
 
-// CHECK-LABEL: define {{.*void}} @{{.*}}test_auto{{.*}}(float* {{.+}}, float* {{.+}}, float* {{.+}}, float* {{.+}})
+// CHECK-LABEL: define {{.*void}} @{{.*}}test_auto{{.*}}(float* noundef {{.+}}, float* noundef {{.+}}, float* noundef {{.+}}, float* noundef {{.+}})
 void test_auto(float *a, float *b, float *c, float *d) {
   unsigned int x = 0;
   unsigned int y = 0;
@@ -471,7 +493,7 @@ void test_auto(float *a, float *b, float *c, float *d) {
 // CHECK: ret void
 }
 
-// CHECK-LABEL: define {{.*void}} @{{.*}}runtime{{.*}}(float* {{.+}}, float* {{.+}}, float* {{.+}}, float* {{.+}})
+// CHECK-LABEL: define {{.*void}} @{{.*}}runtime{{.*}}(float* noundef {{.+}}, float* noundef {{.+}}, float* noundef {{.+}}, float* noundef {{.+}})
 void runtime(float *a, float *b, float *c, float *d) {
   int x = 0;
 // CHECK: [[GTID:%.+]] = call i32 @__kmpc_global_thread_num([[IDENT_T_TY]]* [[DEFAULT_LOC:[@%].+]])
@@ -544,7 +566,7 @@ void parallel_for(float *a) {
 #pragma omp for schedule(static, 5)
   // TERM_DEBUG-NOT: __kmpc_global_thread_num
   // TERM_DEBUG:     call void @__kmpc_for_static_init_4u({{.+}}), !dbg [[DBG_LOC:![0-9]+]]
-  // TERM_DEBUG:     invoke i32 {{.*}}foo{{.*}}()
+  // TERM_DEBUG:     invoke noundef i32 {{.*}}foo{{.*}}()
   // TERM_DEBUG:     unwind label %[[TERM_LPAD:.+]],
   // TERM_DEBUG-NOT: __kmpc_global_thread_num
   // TERM_DEBUG:     call void @__kmpc_for_static_fini({{.+}}), !dbg [[DBG_LOC]]

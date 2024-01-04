@@ -573,9 +573,7 @@ void llvm::calculateClrEHStateNumbers(const Function *Fn,
       const auto *CatchSwitch = cast<CatchSwitchInst>(Pad);
       int CatchState = -1, FollowerState = -1;
       SmallVector<const BasicBlock *, 4> CatchBlocks(CatchSwitch->handlers());
-      for (auto CBI = CatchBlocks.rbegin(), CBE = CatchBlocks.rend();
-           CBI != CBE; ++CBI, FollowerState = CatchState) {
-        const BasicBlock *CatchBlock = *CBI;
+      for (const BasicBlock *CatchBlock : llvm::reverse(CatchBlocks)) {
         // Create the entry for this catch with the appropriate handler
         // properties.
         const auto *Catch = cast<CatchPadInst>(CatchBlock->getFirstNonPHI());
@@ -591,6 +589,7 @@ void llvm::calculateClrEHStateNumbers(const Function *Fn,
               Worklist.emplace_back(I, CatchState);
         // Remember this catch's state.
         FuncInfo.EHPadStateMap[Catch] = CatchState;
+        FollowerState = CatchState;
       }
       // Associate the catchswitch with the state of its first catch.
       assert(CatchSwitch->getNumHandlers());
@@ -601,11 +600,9 @@ void llvm::calculateClrEHStateNumbers(const Function *Fn,
   // Step two: record the TryParentState of each state.  For cleanuppads that
   // don't have cleanuprets, we may need to infer this from their child pads,
   // so visit pads in descendant-most to ancestor-most order.
-  for (auto Entry = FuncInfo.ClrEHUnwindMap.rbegin(),
-            End = FuncInfo.ClrEHUnwindMap.rend();
-       Entry != End; ++Entry) {
+  for (ClrEHUnwindMapEntry &Entry : llvm::reverse(FuncInfo.ClrEHUnwindMap)) {
     const Instruction *Pad =
-        Entry->Handler.get<const BasicBlock *>()->getFirstNonPHI();
+        Entry.Handler.get<const BasicBlock *>()->getFirstNonPHI();
     // For most pads, the TryParentState is the state associated with the
     // unwind dest of exceptional exits from it.
     const BasicBlock *UnwindDest;
@@ -615,7 +612,7 @@ void llvm::calculateClrEHStateNumbers(const Function *Fn,
       // that's not the unwind dest of exceptions escaping the catch.  Those
       // cases were already assigned a TryParentState in the first pass, so
       // skip them.
-      if (Entry->TryParentState != -1)
+      if (Entry.TryParentState != -1)
         continue;
       // Otherwise, get the unwind dest from the catchswitch.
       UnwindDest = Catch->getCatchSwitch()->getUnwindDest();
@@ -692,7 +689,7 @@ void llvm::calculateClrEHStateNumbers(const Function *Fn,
       UnwindDestState = FuncInfo.EHPadStateMap[UnwindDest->getFirstNonPHI()];
     }
 
-    Entry->TryParentState = UnwindDestState;
+    Entry.TryParentState = UnwindDestState;
   }
 
   // Step three: transfer information from pads to invokes.
@@ -714,16 +711,14 @@ void WinEHPrepare::demotePHIsOnFunclets(Function &F,
                                         bool DemoteCatchSwitchPHIOnly) {
   // Strip PHI nodes off of EH pads.
   SmallVector<PHINode *, 16> PHINodes;
-  for (Function::iterator FI = F.begin(), FE = F.end(); FI != FE;) {
-    BasicBlock *BB = &*FI++;
-    if (!BB->isEHPad())
+  for (BasicBlock &BB : make_early_inc_range(F)) {
+    if (!BB.isEHPad())
       continue;
-    if (DemoteCatchSwitchPHIOnly && !isa<CatchSwitchInst>(BB->getFirstNonPHI()))
+    if (DemoteCatchSwitchPHIOnly && !isa<CatchSwitchInst>(BB.getFirstNonPHI()))
       continue;
 
-    for (BasicBlock::iterator BI = BB->begin(), BE = BB->end(); BI != BE;) {
-      Instruction *I = &*BI++;
-      auto *PN = dyn_cast<PHINode>(I);
+    for (Instruction &I : make_early_inc_range(BB)) {
+      auto *PN = dyn_cast<PHINode>(&I);
       // Stop at the first non-PHI.
       if (!PN)
         break;
@@ -986,9 +981,9 @@ void WinEHPrepare::removeImplausibleInstructions(Function &F) {
           BasicBlock::iterator CallI =
               std::prev(BB->getTerminator()->getIterator());
           auto *CI = cast<CallInst>(&*CallI);
-          changeToUnreachable(CI, /*UseLLVMTrap=*/false);
+          changeToUnreachable(CI);
         } else {
-          changeToUnreachable(&I, /*UseLLVMTrap=*/false);
+          changeToUnreachable(&I);
         }
 
         // There are no more instructions in the block (except for unreachable),
@@ -1009,7 +1004,7 @@ void WinEHPrepare::removeImplausibleInstructions(Function &F) {
         IsUnreachableCleanupret = CRI->getCleanupPad() != CleanupPad;
       if (IsUnreachableRet || IsUnreachableCatchret ||
           IsUnreachableCleanupret) {
-        changeToUnreachable(TI, /*UseLLVMTrap=*/false);
+        changeToUnreachable(TI);
       } else if (isa<InvokeInst>(TI)) {
         if (Personality == EHPersonality::MSVC_CXX && CleanupPad) {
           // Invokes within a cleanuppad for the MSVC++ personality never
@@ -1025,11 +1020,10 @@ void WinEHPrepare::removeImplausibleInstructions(Function &F) {
 void WinEHPrepare::cleanupPreparedFunclets(Function &F) {
   // Clean-up some of the mess we made by removing useles PHI nodes, trivial
   // branches, etc.
-  for (Function::iterator FI = F.begin(), FE = F.end(); FI != FE;) {
-    BasicBlock *BB = &*FI++;
-    SimplifyInstructionsInBlock(BB);
-    ConstantFoldTerminator(BB, /*DeleteDeadConditions=*/true);
-    MergeBlockIntoPredecessor(BB);
+  for (BasicBlock &BB : llvm::make_early_inc_range(F)) {
+    SimplifyInstructionsInBlock(&BB);
+    ConstantFoldTerminator(&BB, /*DeleteDeadConditions=*/true);
+    MergeBlockIntoPredecessor(&BB);
   }
 
   // We might have some unreachable blocks after cleaning up some impossible
@@ -1109,9 +1103,7 @@ AllocaInst *WinEHPrepare::insertPHILoads(PHINode *PN, Function &F) {
   // Otherwise, we have a PHI on a terminator EHPad, and we give up and insert
   // loads of the slot before every use.
   DenseMap<BasicBlock *, Value *> Loads;
-  for (Value::use_iterator UI = PN->use_begin(), UE = PN->use_end();
-       UI != UE;) {
-    Use &U = *UI++;
+  for (Use &U : llvm::make_early_inc_range(PN->uses())) {
     auto *UsingInst = cast<Instruction>(U.getUser());
     if (isa<PHINode>(UsingInst) && UsingInst->getParent()->isEHPad()) {
       // Use is on an EH pad phi.  Leave it alone; we'll insert loads and

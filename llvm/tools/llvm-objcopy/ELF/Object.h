@@ -9,8 +9,7 @@
 #ifndef LLVM_TOOLS_OBJCOPY_OBJECT_H
 #define LLVM_TOOLS_OBJCOPY_OBJECT_H
 
-#include "Buffer.h"
-#include "CopyConfig.h"
+#include "CommonConfig.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
@@ -19,6 +18,7 @@
 #include "llvm/Object/ELFObjectFile.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/FileOutputBuffer.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -48,12 +48,12 @@ class Object;
 struct Symbol;
 
 class SectionTableRef {
-  MutableArrayRef<std::unique_ptr<SectionBase>> Sections;
+  ArrayRef<std::unique_ptr<SectionBase>> Sections;
 
 public:
-  using iterator = pointee_iterator<std::unique_ptr<SectionBase> *>;
+  using iterator = pointee_iterator<const std::unique_ptr<SectionBase> *>;
 
-  explicit SectionTableRef(MutableArrayRef<std::unique_ptr<SectionBase>> Secs)
+  explicit SectionTableRef(ArrayRef<std::unique_ptr<SectionBase>> Secs)
       : Sections(Secs) {}
   SectionTableRef(const SectionTableRef &) = default;
 
@@ -106,7 +106,7 @@ public:
 
 class SectionWriter : public SectionVisitor {
 protected:
-  Buffer &Out;
+  WritableMemoryBuffer &Out;
 
 public:
   virtual ~SectionWriter() = default;
@@ -123,7 +123,7 @@ public:
   virtual Error visit(const CompressedSection &Sec) override = 0;
   virtual Error visit(const DecompressedSection &Sec) override = 0;
 
-  explicit SectionWriter(Buffer &Buf) : Out(Buf) {}
+  explicit SectionWriter(WritableMemoryBuffer &Buf) : Out(Buf) {}
 };
 
 template <class ELFT> class ELFSectionWriter : public SectionWriter {
@@ -143,7 +143,7 @@ public:
   Error visit(const CompressedSection &Sec) override;
   Error visit(const DecompressedSection &Sec) override;
 
-  explicit ELFSectionWriter(Buffer &Buf) : SectionWriter(Buf) {}
+  explicit ELFSectionWriter(WritableMemoryBuffer &Buf) : SectionWriter(Buf) {}
 };
 
 template <class ELFT> class ELFSectionSizer : public MutableSectionVisitor {
@@ -187,7 +187,8 @@ public:
   Error visit(const CompressedSection &Sec) override;
   Error visit(const DecompressedSection &Sec) override;
 
-  explicit BinarySectionWriter(Buffer &Buf) : SectionWriter(Buf) {}
+  explicit BinarySectionWriter(WritableMemoryBuffer &Buf)
+      : SectionWriter(Buf) {}
 };
 
 using IHexLineData = SmallVector<char, 64>;
@@ -283,7 +284,8 @@ protected:
   virtual void writeData(uint8_t Type, uint16_t Addr, ArrayRef<uint8_t> Data);
 
 public:
-  explicit IHexSectionWriterBase(Buffer &Buf) : BinarySectionWriter(Buf) {}
+  explicit IHexSectionWriterBase(WritableMemoryBuffer &Buf)
+      : BinarySectionWriter(Buf) {}
 
   uint64_t getBufferOffset() const { return Offset; }
   Error visit(const Section &Sec) final;
@@ -296,7 +298,7 @@ public:
 // Real IHEX section writer
 class IHexSectionWriter : public IHexSectionWriterBase {
 public:
-  IHexSectionWriter(Buffer &Buf) : IHexSectionWriterBase(Buf) {}
+  IHexSectionWriter(WritableMemoryBuffer &Buf) : IHexSectionWriterBase(Buf) {}
 
   void writeData(uint8_t Type, uint16_t Addr, ArrayRef<uint8_t> Data) override;
   Error visit(const StringTableSection &Sec) override;
@@ -305,14 +307,15 @@ public:
 class Writer {
 protected:
   Object &Obj;
-  Buffer &Buf;
+  std::unique_ptr<WritableMemoryBuffer> Buf;
+  raw_ostream &Out;
 
 public:
   virtual ~Writer();
   virtual Error finalize() = 0;
   virtual Error write() = 0;
 
-  Writer(Object &O, Buffer &B) : Obj(O), Buf(B) {}
+  Writer(Object &O, raw_ostream &Out) : Obj(O), Out(Out) {}
 };
 
 template <class ELFT> class ELFWriter : public Writer {
@@ -349,7 +352,7 @@ public:
 
   Error finalize() override;
   Error write() override;
-  ELFWriter(Object &Obj, Buffer &Buf, bool WSH, bool OnlyKeepDebug);
+  ELFWriter(Object &Obj, raw_ostream &Out, bool WSH, bool OnlyKeepDebug);
 };
 
 class BinaryWriter : public Writer {
@@ -362,7 +365,7 @@ public:
   ~BinaryWriter() {}
   Error finalize() override;
   Error write() override;
-  BinaryWriter(Object &Obj, Buffer &Buf) : Writer(Obj, Buf) {}
+  BinaryWriter(Object &Obj, raw_ostream &Out) : Writer(Obj, Out) {}
 };
 
 class IHexWriter : public Writer {
@@ -381,7 +384,7 @@ public:
   ~IHexWriter() {}
   Error finalize() override;
   Error write() override;
-  IHexWriter(Object &Obj, Buffer &Buf) : Writer(Obj, Buf) {}
+  IHexWriter(Object &Obj, raw_ostream &Out) : Writer(Obj, Out) {}
 };
 
 class SectionBase {
@@ -426,6 +429,7 @@ public:
   virtual void markSymbols();
   virtual void
   replaceSectionReferences(const DenseMap<SectionBase *, SectionBase *> &);
+  virtual bool hasContents() const { return false; }
   // Notify the section that it is subject to removal.
   virtual void onRemove();
 };
@@ -490,6 +494,9 @@ public:
       function_ref<bool(const SectionBase *)> ToRemove) override;
   Error initialize(SectionTableRef SecTable) override;
   void finalize() override;
+  bool hasContents() const override {
+    return Type != ELF::SHT_NOBITS && Type != ELF::SHT_NULL;
+  }
 };
 
 class OwnedDataSection : public SectionBase {
@@ -515,9 +522,15 @@ public:
     OriginalOffset = SecOff;
   }
 
+  OwnedDataSection(SectionBase &S, ArrayRef<uint8_t> Data)
+      : SectionBase(S), Data(std::begin(Data), std::end(Data)) {
+    Size = Data.size();
+  }
+
   void appendHexData(StringRef HexData);
   Error accept(SectionVisitor &Sec) const override;
   Error accept(MutableSectionVisitor &Visitor) override;
+  bool hasContents() const override { return true; }
 };
 
 class CompressedSection : public SectionBase {
@@ -742,6 +755,8 @@ public:
   const SectionBase *getSection() const { return SecToApplyRel; }
   void setSection(SectionBase *Sec) { SecToApplyRel = Sec; }
 
+  StringRef getNamePrefix() const;
+
   static bool classof(const SectionBase *S) {
     return S->OriginalType == ELF::SHT_REL || S->OriginalType == ELF::SHT_RELA;
   }
@@ -768,8 +783,10 @@ class RelocationSection
   MAKE_SEC_WRITER_FRIEND
 
   std::vector<Relocation> Relocations;
+  const Object &Obj;
 
 public:
+  RelocationSection(const Object &O) : Obj(O) {}
   void addRelocation(Relocation Rel) { Relocations.push_back(Rel); }
   Error accept(SectionVisitor &Visitor) const override;
   Error accept(MutableSectionVisitor &Visitor) override;
@@ -780,6 +797,7 @@ public:
   void markSymbols() override;
   void replaceSectionReferences(
       const DenseMap<SectionBase *, SectionBase *> &FromTo) override;
+  const Object &getObject() const { return Obj; }
 
   static bool classof(const SectionBase *S) {
     if (S->OriginalFlags & ELF::SHF_ALLOC)
@@ -916,8 +934,7 @@ class BinaryELFBuilder : public BasicELFBuilder {
 
 public:
   BinaryELFBuilder(MemoryBuffer *MB, uint8_t NewSymbolVisibility)
-      : BasicELFBuilder(), MemBuf(MB),
-        NewSymbolVisibility(NewSymbolVisibility) {}
+      : MemBuf(MB), NewSymbolVisibility(NewSymbolVisibility) {}
 
   Expected<std::unique_ptr<Object>> build();
 };
@@ -928,8 +945,7 @@ class IHexELFBuilder : public BasicELFBuilder {
   void addDataSections();
 
 public:
-  IHexELFBuilder(const std::vector<IHexRecord> &Records)
-      : BasicELFBuilder(), Records(Records) {}
+  IHexELFBuilder(const std::vector<IHexRecord> &Records) : Records(Records) {}
 
   Expected<std::unique_ptr<Object>> build();
 };
@@ -956,9 +972,7 @@ private:
 
 public:
   ELFBuilder(const ELFObjectFile<ELFT> &ElfObj, Object &Obj,
-             Optional<StringRef> ExtractPartition)
-      : ElfFile(ElfObj.getELFFile()), Obj(Obj),
-        ExtractPartition(ExtractPartition) {}
+             Optional<StringRef> ExtractPartition);
 
   Error build(bool EnsureSymtab);
 };
@@ -1013,16 +1027,13 @@ private:
   std::vector<SecPtr> Sections;
   std::vector<SegPtr> Segments;
   std::vector<SecPtr> RemovedSections;
+  DenseMap<SectionBase *, std::vector<uint8_t>> UpdatedSections;
 
   static bool sectionIsAlloc(const SectionBase &Sec) {
     return Sec.Flags & ELF::SHF_ALLOC;
   };
 
 public:
-  template <class T>
-  using Range = iterator_range<
-      pointee_iterator<typename std::vector<std::unique_ptr<T>>::iterator>>;
-
   template <class T>
   using ConstRange = iterator_range<pointee_iterator<
       typename std::vector<std::unique_ptr<T>>::const_iterator>>;
@@ -1051,17 +1062,18 @@ public:
   SymbolTableSection *SymbolTable = nullptr;
   SectionIndexSection *SectionIndexTable = nullptr;
 
-  void sortSections();
-  SectionTableRef sections() { return SectionTableRef(Sections); }
-  ConstRange<SectionBase> sections() const {
-    return make_pointee_range(Sections);
-  }
+  bool IsMips64EL = false;
+
+  SectionTableRef sections() const { return SectionTableRef(Sections); }
   iterator_range<
       filter_iterator<pointee_iterator<std::vector<SecPtr>::const_iterator>,
                       decltype(&sectionIsAlloc)>>
   allocSections() const {
     return make_filter_range(make_pointee_range(Sections), sectionIsAlloc);
   }
+
+  const auto &getUpdatedSections() const { return UpdatedSections; }
+  Error updateSection(StringRef Name, ArrayRef<uint8_t> Data);
 
   SectionBase *findSection(StringRef Name) {
     auto SecIt =
@@ -1070,11 +1082,11 @@ public:
   }
   SectionTableRef removedSections() { return SectionTableRef(RemovedSections); }
 
-  Range<Segment> segments() { return make_pointee_range(Segments); }
   ConstRange<Segment> segments() const { return make_pointee_range(Segments); }
 
   Error removeSections(bool AllowBrokenLinks,
                        std::function<bool(const SectionBase &)> ToRemove);
+  Error replaceSections(const DenseMap<SectionBase *, SectionBase *> &FromTo);
   Error removeSymbols(function_ref<bool(const Symbol &)> ToRemove);
   template <class T, class... Ts> T &addSection(Ts &&... Args) {
     auto Sec = std::make_unique<T>(std::forward<Ts>(Args)...);

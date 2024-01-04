@@ -1,18 +1,15 @@
-#include "llvm/IR/Function.h"
-#include "llvm/Pass.h"
+#pragma once
 
-namespace llvm {
+#include "llvm/Passes/PassBuilder.h"
 
-class HelloWorld : public FunctionPass {
-public:
-    static char ID;
-    bool enable;
+using namespace llvm;
 
-    HelloWorld(bool enable) : FunctionPass(ID) { this->enable = enable; }
+namespace Pluto {
 
-    bool runOnFunction(Function &F);
+struct HelloWorld : PassInfoMixin<HelloWorld> {
+    PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+
+    static bool isRequired() { return true; }
 };
 
-FunctionPass *createHelloWorldPass(bool enable);
-
-} // namespace llvm
+}; // namespace Pluto

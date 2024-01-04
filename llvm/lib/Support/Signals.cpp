@@ -12,7 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Signals.h"
-#include "llvm/ADT/STLExtras.h"
+
+#include "DebugOptions.h"
+
+#include "llvm/ADT/STLArrayExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/Support/CommandLine.h"
@@ -25,6 +28,7 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Mutex.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/StringSaver.h"
 #include "llvm/Support/raw_ostream.h"
@@ -39,10 +43,33 @@ using namespace llvm;
 
 // Use explicit storage to avoid accessing cl::opt in a signal handler.
 static bool DisableSymbolicationFlag = false;
-static cl::opt<bool, true>
-    DisableSymbolication("disable-symbolication",
-                         cl::desc("Disable symbolizing crash backtraces."),
-                         cl::location(DisableSymbolicationFlag), cl::Hidden);
+static ManagedStatic<std::string> CrashDiagnosticsDirectory;
+namespace {
+struct CreateDisableSymbolication {
+  static void *call() {
+    return new cl::opt<bool, true>(
+        "disable-symbolication",
+        cl::desc("Disable symbolizing crash backtraces."),
+        cl::location(DisableSymbolicationFlag), cl::Hidden);
+  }
+};
+struct CreateCrashDiagnosticsDir {
+  static void *call() {
+    return new cl::opt<std::string, true>(
+        "crash-diagnostics-dir", cl::value_desc("directory"),
+        cl::desc("Directory for crash diagnostic files."),
+        cl::location(*CrashDiagnosticsDirectory), cl::Hidden);
+  }
+};
+} // namespace
+void llvm::initSignalsOptions() {
+  static ManagedStatic<cl::opt<bool, true>, CreateDisableSymbolication>
+      DisableSymbolication;
+  static ManagedStatic<cl::opt<std::string, true>, CreateCrashDiagnosticsDir>
+      CrashDiagnosticsDir;
+  *DisableSymbolication;
+  *CrashDiagnosticsDir;
+}
 
 constexpr char DisableSymbolizationEnv[] = "LLVM_DISABLE_SYMBOLIZATION";
 constexpr char LLVMSymbolizerPathEnv[] = "LLVM_SYMBOLIZER_PATH";
@@ -61,8 +88,7 @@ static CallbackAndCookie CallBacksToRun[MaxSignalHandlerCallbacks];
 
 // Signal-safe.
 void sys::RunSignalHandlers() {
-  for (size_t I = 0; I < MaxSignalHandlerCallbacks; ++I) {
-    auto &RunMe = CallBacksToRun[I];
+  for (CallbackAndCookie &RunMe : CallBacksToRun) {
     auto Expected = CallbackAndCookie::Status::Initialized;
     auto Desired = CallbackAndCookie::Status::Executing;
     if (!RunMe.Flag.compare_exchange_strong(Expected, Desired))
@@ -77,8 +103,7 @@ void sys::RunSignalHandlers() {
 // Signal-safe.
 static void insertSignalHandler(sys::SignalHandlerCallback FnPtr,
                                 void *Cookie) {
-  for (size_t I = 0; I < MaxSignalHandlerCallbacks; ++I) {
-    auto &SetMe = CallBacksToRun[I];
+  for (CallbackAndCookie &SetMe : CallBacksToRun) {
     auto Expected = CallbackAndCookie::Status::Empty;
     auto Desired = CallbackAndCookie::Status::Initializing;
     if (!SetMe.Flag.compare_exchange_strong(Expected, Desired))
@@ -160,8 +185,8 @@ static bool printSymbolizedStackTrace(StringRef Argv0, void **StackTrace,
     }
   }
 
-  Optional<StringRef> Redirects[] = {StringRef(InputFile),
-                                     StringRef(OutputFile), StringRef("")};
+  Optional<StringRef> Redirects[] = {InputFile.str(), OutputFile.str(),
+                                     StringRef("")};
   StringRef Args[] = {"llvm-symbolizer", "--functions=linkage", "--inlining",
 #ifdef _WIN32
                       // Pass --relative-address on Windows so that we don't

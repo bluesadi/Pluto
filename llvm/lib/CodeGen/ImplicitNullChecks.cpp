@@ -242,7 +242,7 @@ bool ImplicitNullChecks::canHandle(const MachineInstr *MI) {
   auto IsRegMask = [](const MachineOperand &MO) { return MO.isRegMask(); };
   (void)IsRegMask;
 
-  assert(!llvm::any_of(MI->operands(), IsRegMask) &&
+  assert(llvm::none_of(MI->operands(), IsRegMask) &&
          "Calls were filtered out above!");
 
   auto IsUnordered = [](MachineMemOperand *MMO) { return MMO->isUnordered(); };
@@ -353,10 +353,9 @@ ImplicitNullChecks::areMemoryOpsAliased(const MachineInstr &MI,
           return AR_MayAlias;
         continue;
       }
-      llvm::AliasResult AAResult = AA->alias(
-          MemoryLocation::getAfter(MMO1->getValue(), MMO1->getAAInfo()),
-          MemoryLocation::getAfter(MMO2->getValue(), MMO2->getAAInfo()));
-      if (AAResult != NoAlias)
+      if (!AA->isNoAlias(
+              MemoryLocation::getAfter(MMO1->getValue(), MMO1->getAAInfo()),
+              MemoryLocation::getAfter(MMO2->getValue(), MMO2->getAAInfo())))
         return AR_MayAlias;
     }
   }

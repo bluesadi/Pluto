@@ -8,6 +8,7 @@
 
 #include "IndexingContext.h"
 #include "clang/AST/Attr.h"
+#include "clang/AST/Decl.h"
 #include "clang/AST/DeclVisitor.h"
 #include "clang/Index/IndexDataConsumer.h"
 
@@ -369,6 +370,15 @@ public:
                                    Relations, D->getLexicalDeclContext());
       }
     }
+    return true;
+  }
+
+  bool VisitEnumDecl(const EnumDecl *ED) {
+    TRY_TO(VisitTagDecl(ED));
+    // Indexing for enumdecl itself is handled inside TagDecl, we just want to
+    // visit integer-base here, which is different than other TagDecl bases.
+    if (auto *TSI = ED->getIntegerTypeSourceInfo())
+      IndexCtx.indexTypeSourceInfo(TSI, ED, ED, /*isBase=*/true);
     return true;
   }
 
@@ -759,7 +769,7 @@ bool IndexingContext::indexDeclContext(const DeclContext *DC) {
 }
 
 bool IndexingContext::indexTopLevelDecl(const Decl *D) {
-  if (D->getLocation().isInvalid())
+  if (!D || D->getLocation().isInvalid())
     return true;
 
   if (isa<ObjCMethodDecl>(D))

@@ -20,8 +20,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_SUPPORT_GENERIC_IDF_H
-#define LLVM_SUPPORT_GENERIC_IDF_H
+#ifndef LLVM_SUPPORT_GENERICITERATEDDOMINANCEFRONTIER_H
+#define LLVM_SUPPORT_GENERICITERATEDDOMINANCEFRONTIER_H
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -37,7 +37,7 @@ namespace IDFCalculatorDetail {
 /// May be specialized if, for example, one wouldn't like to return nullpointer
 /// successors.
 template <class NodeTy, bool IsPostDom> struct ChildrenGetterTy {
-  using NodeRef = typename GraphTraits<NodeTy>::NodeRef;
+  using NodeRef = typename GraphTraits<NodeTy *>::NodeRef;
   using ChildrenTy = SmallVector<NodeRef, 8>;
 
   ChildrenTy get(const NodeRef &N);

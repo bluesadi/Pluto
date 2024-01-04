@@ -59,7 +59,7 @@ multiple file formats.
 
  Remove most local symbols from the output. Different file formats may limit
  this to a subset of the local symbols. For example, file and section symbols in
- ELF objects will not be discarded.
+ ELF objects will not be discarded. Additionally, remove all debug sections.
 
 .. option:: --dump-section <section>=<file>
 
@@ -285,23 +285,6 @@ them.
  Allow :program:`llvm-objcopy` to remove sections even if it would leave invalid
  section references. Any invalid sh_link fields will be set to zero.
 
-.. option:: --build-id-link-dir <dir>
-
- Set the directory used by :option:`--build-id-link-input` and
- :option:`--build-id-link-output`.
-
-.. option:: --build-id-link-input <suffix>
-
- Hard-link the input to ``<dir>/xx/xxx<suffix>``, where ``<dir>`` is the directory
- specified by :option:`--build-id-link-dir`. The path used is derived from the
- hex build ID.
-
-.. option:: --build-id-link-output <suffix>
-
- Hard-link the output to ``<dir>/xx/xxx<suffix>``, where ``<dir>`` is the directory
- specified by :option:`--build-id-link-dir`. The path used is derived from the
- hex build ID.
-
 .. option:: --change-start <incr>, --adjust-start
 
  Add ``<incr>`` to the program's start address. Can be specified multiple
@@ -355,7 +338,7 @@ them.
 
  Keep symbols of type `STT_FILE`, even if they would otherwise be stripped.
 
-.. option:: --keep-global-symbol <symbol>
+.. option:: --keep-global-symbol <symbol>, -G
 
  Make all symbols local in the output, except for symbols with the name
  ``<symbol>``. Can be specified multiple times to ignore multiple symbols.
@@ -400,7 +383,7 @@ them.
  represents a single symbol, with leading and trailing whitespace ignored, as is
  anything following a '#'. Can be specified multiple times to read names from
  multiple files.
- 
+
 .. option:: --new-symbol-visibility <visibility>
 
  Specify the visibility of the symbols automatically created when using binary
@@ -487,6 +470,20 @@ them.
 
  Mark all defined global symbols as weak in the output.
 
+MACH-O-SPECIFIC OPTIONS
+-----------------------
+
+.. option:: --keep-undefined
+
+ Keep undefined symbols, even if they would otherwise be stripped.
+
+COFF-SPECIFIC OPTIONS
+---------------------
+
+.. option:: --subsystem <name>[:<version>]
+
+ Set the PE subsystem, and optionally subsystem version.
+
 SUPPORTED FORMATS
 -----------------
 
@@ -546,7 +543,7 @@ Otherwise, it exits with code 0.
 BUGS
 ----
 
-To report bugs, please visit <https://bugs.llvm.org/>.
+To report bugs, please visit <https://github.com/llvm/llvm-project/labels/tools:llvm-objcopy/strip/>.
 
 There is a known issue with :option:`--input-target` and :option:`--target`
 causing only ``binary`` and ``ihex`` formats to have any effect. Other values

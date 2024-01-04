@@ -92,7 +92,7 @@ define void @test5_as1(i8 %B) {
 ; This should be turned into a constexpr instead of being an instruction
 define void @test_evaluate_gep_nested_as_ptrs(i32 addrspace(2)* %B) {
 ; CHECK-LABEL: @test_evaluate_gep_nested_as_ptrs(
-; CHECK-NEXT:    store i32 addrspace(2)* [[B:%.*]], i32 addrspace(2)* addrspace(1)* getelementptr inbounds (%as2_ptr_struct, [[AS2_PTR_STRUCT:%.*]] addrspace(1)* @global_as1_as2_ptr, i16 0, i32 0), align 8
+; CHECK-NEXT:    store i32 addrspace(2)* [[B:%.*]], i32 addrspace(2)* addrspace(1)* getelementptr inbounds ([[AS2_PTR_STRUCT:%.*]], [[AS2_PTR_STRUCT]] addrspace(1)* @global_as1_as2_ptr, i16 0, i32 0), align 8
 ; CHECK-NEXT:    ret void
 ;
   %A = getelementptr %as2_ptr_struct, %as2_ptr_struct addrspace(1)* @global_as1_as2_ptr, i16 0, i32 0
@@ -146,14 +146,28 @@ define i32 @test9() {
 
 define i1 @test10({ i32, i32 }* %x, { i32, i32 }* %y) {
 ; CHECK-LABEL: @test10(
-; CHECK-NEXT:    [[TMP_4:%.*]] = icmp eq { i32, i32 }* [[X:%.*]], [[Y:%.*]]
-; CHECK-NEXT:    ret i1 [[TMP_4]]
+; CHECK-NEXT:    [[T4:%.*]] = icmp eq { i32, i32 }* [[X:%.*]], [[Y:%.*]]
+; CHECK-NEXT:    ret i1 [[T4]]
 ;
-  %tmp.1 = getelementptr { i32, i32 }, { i32, i32 }* %x, i32 0, i32 1
-  %tmp.3 = getelementptr { i32, i32 }, { i32, i32 }* %y, i32 0, i32 1
-  ;; seteq x, y
-  %tmp.4 = icmp eq i32* %tmp.1, %tmp.3
-  ret i1 %tmp.4
+  %t1 = getelementptr { i32, i32 }, { i32, i32 }* %x, i32 0, i32 1
+  %t3 = getelementptr { i32, i32 }, { i32, i32 }* %y, i32 0, i32 1
+  %t4 = icmp eq i32* %t1, %t3
+  ret i1 %t4
+}
+
+define i1 @test10_addrspacecast({ i32, i32 }* %x, { i32, i32 } addrspace(3)* %y) {
+; CHECK-LABEL: @test10_addrspacecast(
+; CHECK-NEXT:    [[T1:%.*]] = getelementptr { i32, i32 }, { i32, i32 }* [[X:%.*]], i64 0, i32 1
+; CHECK-NEXT:    [[T3:%.*]] = getelementptr { i32, i32 }, { i32, i32 } addrspace(3)* [[Y:%.*]], i64 0, i32 1
+; CHECK-NEXT:    [[T3_C:%.*]] = addrspacecast i32 addrspace(3)* [[T3]] to i32*
+; CHECK-NEXT:    [[T4:%.*]] = icmp eq i32* [[T1]], [[T3_C]]
+; CHECK-NEXT:    ret i1 [[T4]]
+;
+  %t1 = getelementptr { i32, i32 }, { i32, i32 }* %x, i32 0, i32 1
+  %t3 = getelementptr { i32, i32 }, { i32, i32 } addrspace(3)* %y, i32 0, i32 1
+  %t3.c = addrspacecast i32 addrspace(3)* %t3 to i32*
+  %t4 = icmp eq i32* %t1, %t3.c
+  ret i1 %t4
 }
 
 define i1 @test11({ i32, i32 }* %X) {
@@ -215,10 +229,10 @@ define <2 x i1> @test13_vector(<2 x i64> %X, <2 x %S*> %P) nounwind {
 
 define <2 x i1> @test13_vector2(i64 %X, <2 x %S*> %P) nounwind {
 ; CHECK-LABEL: @test13_vector2(
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 [[X:%.*]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 [[X:%.*]], i64 0
 ; CHECK-NEXT:    [[TMP1:%.*]] = shl <2 x i64> [[DOTSPLATINSERT]], <i64 2, i64 0>
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq <2 x i64> [[TMP1]], <i64 -4, i64 poison>
-; CHECK-NEXT:    [[C:%.*]] = shufflevector <2 x i1> [[TMP2]], <2 x i1> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[C:%.*]] = shufflevector <2 x i1> [[TMP2]], <2 x i1> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    ret <2 x i1> [[C]]
 ;
   %A = getelementptr inbounds %S, <2 x %S*> %P, <2 x i64> zeroinitializer, <2 x i32> <i32 1, i32 1>, i64 %X
@@ -230,10 +244,10 @@ define <2 x i1> @test13_vector2(i64 %X, <2 x %S*> %P) nounwind {
 ; This is a test of icmp + shl nuw in disguise - 4611... is 0x3fff...
 define <2 x i1> @test13_vector3(i64 %X, <2 x %S*> %P) nounwind {
 ; CHECK-LABEL: @test13_vector3(
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 [[X:%.*]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 [[X:%.*]], i64 0
 ; CHECK-NEXT:    [[TMP1:%.*]] = shl <2 x i64> [[DOTSPLATINSERT]], <i64 2, i64 0>
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq <2 x i64> [[TMP1]], <i64 4, i64 poison>
-; CHECK-NEXT:    [[C:%.*]] = shufflevector <2 x i1> [[TMP2]], <2 x i1> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[C:%.*]] = shufflevector <2 x i1> [[TMP2]], <2 x i1> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    ret <2 x i1> [[C]]
 ;
   %A = getelementptr inbounds %S, <2 x %S*> %P, <2 x i64> zeroinitializer, <2 x i32> <i32 1, i32 1>, i64 %X
@@ -303,12 +317,12 @@ define i1 @test13_i128(i128 %X, %S* %P) {
 define i8* @test14(i32 %idx) {
 ; CHECK-LABEL: @test14(
 ; CHECK-NEXT:    [[ZEXT:%.*]] = zext i32 [[IDX:%.*]] to i64
-; CHECK-NEXT:    [[TMP:%.*]] = getelementptr [3 x i8], [3 x i8]* @G, i64 0, i64 [[ZEXT]]
-; CHECK-NEXT:    ret i8* [[TMP]]
+; CHECK-NEXT:    [[T:%.*]] = getelementptr [3 x i8], [3 x i8]* @G, i64 0, i64 [[ZEXT]]
+; CHECK-NEXT:    ret i8* [[T]]
 ;
   %zext = zext i32 %idx to i64
-  %tmp = getelementptr i8, i8* getelementptr ([3 x i8], [3 x i8]* @G, i32 0, i32 0), i64 %zext
-  ret i8* %tmp
+  %t = getelementptr i8, i8* getelementptr ([3 x i8], [3 x i8]* @G, i32 0, i32 0), i64 %zext
+  ret i8* %t
 }
 
 
@@ -359,8 +373,8 @@ define i1 @test18(i16* %P, i32 %I) {
 ; Larger than the pointer size for a non-zero address space
 define i1 @test18_as1(i16 addrspace(1)* %P, i32 %I) {
 ; CHECK-LABEL: @test18_as1(
-; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[I:%.*]] to i16
-; CHECK-NEXT:    [[C:%.*]] = icmp slt i16 [[TMP1]], 0
+; CHECK-NEXT:    [[TMP1:%.*]] = and i32 [[I:%.*]], 32768
+; CHECK-NEXT:    [[C:%.*]] = icmp ne i32 [[TMP1]], 0
 ; CHECK-NEXT:    ret i1 [[C]]
 ;
   %X = getelementptr inbounds i16, i16 addrspace(1)* %P, i32 %I
@@ -371,8 +385,8 @@ define i1 @test18_as1(i16 addrspace(1)* %P, i32 %I) {
 ; Smaller than the pointer size for a non-zero address space
 define i1 @test18_as1_i32(i16 addrspace(1)* %P, i32 %I) {
 ; CHECK-LABEL: @test18_as1_i32(
-; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[I:%.*]] to i16
-; CHECK-NEXT:    [[C:%.*]] = icmp slt i16 [[TMP1]], 0
+; CHECK-NEXT:    [[TMP1:%.*]] = and i32 [[I:%.*]], 32768
+; CHECK-NEXT:    [[C:%.*]] = icmp ne i32 [[TMP1]], 0
 ; CHECK-NEXT:    ret i1 [[C]]
 ;
   %X = getelementptr inbounds i16, i16 addrspace(1)* %P, i32 %I
@@ -405,8 +419,8 @@ define i1 @test18_i64(i16* %P, i64 %I) {
 ; Larger than the pointer size
 define i1 @test18_i128(i16* %P, i128 %I) {
 ; CHECK-LABEL: @test18_i128(
-; CHECK-NEXT:    [[TMP1:%.*]] = trunc i128 [[I:%.*]] to i64
-; CHECK-NEXT:    [[C:%.*]] = icmp slt i64 [[TMP1]], 0
+; CHECK-NEXT:    [[TMP1:%.*]] = and i128 [[I:%.*]], 9223372036854775808
+; CHECK-NEXT:    [[C:%.*]] = icmp ne i128 [[TMP1]], 0
 ; CHECK-NEXT:    ret i1 [[C]]
 ;
   %X = getelementptr inbounds i16, i16* %P, i128 %I
@@ -416,40 +430,40 @@ define i1 @test18_i128(i16* %P, i128 %I) {
 
 define i32 @test19(i32* %P, i32 %A, i32 %B) {
 ; CHECK-LABEL: @test19(
-; CHECK-NEXT:    [[TMP_10:%.*]] = icmp eq i32 [[A:%.*]], [[B:%.*]]
-; CHECK-NEXT:    [[TMP_11:%.*]] = zext i1 [[TMP_10]] to i32
-; CHECK-NEXT:    ret i32 [[TMP_11]]
+; CHECK-NEXT:    [[T10:%.*]] = icmp eq i32 [[A:%.*]], [[B:%.*]]
+; CHECK-NEXT:    [[T11:%.*]] = zext i1 [[T10]] to i32
+; CHECK-NEXT:    ret i32 [[T11]]
 ;
-  %tmp.4 = getelementptr inbounds i32, i32* %P, i32 %A
-  %tmp.9 = getelementptr inbounds i32, i32* %P, i32 %B
-  %tmp.10 = icmp eq i32* %tmp.4, %tmp.9
-  %tmp.11 = zext i1 %tmp.10 to i32
-  ret i32 %tmp.11
+  %t4 = getelementptr inbounds i32, i32* %P, i32 %A
+  %t9 = getelementptr inbounds i32, i32* %P, i32 %B
+  %t10 = icmp eq i32* %t4, %t9
+  %t11 = zext i1 %t10 to i32
+  ret i32 %t11
 }
 
 define i32 @test20(i32* %P, i32 %A, i32 %B) {
 ; CHECK-LABEL: @test20(
-; CHECK-NEXT:    [[TMP_6:%.*]] = icmp eq i32 [[A:%.*]], 0
-; CHECK-NEXT:    [[TMP_7:%.*]] = zext i1 [[TMP_6]] to i32
-; CHECK-NEXT:    ret i32 [[TMP_7]]
+; CHECK-NEXT:    [[T6:%.*]] = icmp eq i32 [[A:%.*]], 0
+; CHECK-NEXT:    [[T7:%.*]] = zext i1 [[T6]] to i32
+; CHECK-NEXT:    ret i32 [[T7]]
 ;
-  %tmp.4 = getelementptr inbounds i32, i32* %P, i32 %A
-  %tmp.6 = icmp eq i32* %tmp.4, %P
-  %tmp.7 = zext i1 %tmp.6 to i32
-  ret i32 %tmp.7
+  %t4 = getelementptr inbounds i32, i32* %P, i32 %A
+  %t6 = icmp eq i32* %t4, %P
+  %t7 = zext i1 %t6 to i32
+  ret i32 %t7
 }
 
 define i32 @test20_as1(i32 addrspace(1)* %P, i32 %A, i32 %B) {
 ; CHECK-LABEL: @test20_as1(
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[A:%.*]] to i16
-; CHECK-NEXT:    [[TMP_6:%.*]] = icmp eq i16 [[TMP1]], 0
-; CHECK-NEXT:    [[TMP_7:%.*]] = zext i1 [[TMP_6]] to i32
-; CHECK-NEXT:    ret i32 [[TMP_7]]
+; CHECK-NEXT:    [[T6:%.*]] = icmp eq i16 [[TMP1]], 0
+; CHECK-NEXT:    [[T7:%.*]] = zext i1 [[T6]] to i32
+; CHECK-NEXT:    ret i32 [[T7]]
 ;
-  %tmp.4 = getelementptr inbounds i32, i32 addrspace(1)* %P, i32 %A
-  %tmp.6 = icmp eq i32 addrspace(1)* %tmp.4, %P
-  %tmp.7 = zext i1 %tmp.6 to i32
-  ret i32 %tmp.7
+  %t4 = getelementptr inbounds i32, i32 addrspace(1)* %P, i32 %A
+  %t6 = icmp eq i32 addrspace(1)* %t4, %P
+  %t7 = zext i1 %t6 to i32
+  ret i32 %t7
 }
 
 
@@ -495,19 +509,19 @@ define i1 @test23() {
 define void @test25() {
 ; CHECK-LABEL: @test25(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    store i64 undef, i64* null, align 536870912
-; CHECK-NEXT:    tail call void @foo25(i32 0, i64 0)
+; CHECK-NEXT:    store i64 poison, i64* null, align 4294967296
+; CHECK-NEXT:    tail call void @foo25(i32 0, i64 poison)
 ; CHECK-NEXT:    unreachable
 ;
 entry:
-  %tmp = getelementptr { i64, i64, i64, i64 }, { i64, i64, i64, i64 }* null, i32 0, i32 3         ; <i64*> [#uses=1]
-  %tmp.upgrd.1 = load i64, i64* %tmp           ; <i64> [#uses=1]
-  %tmp8.ui = load i64, i64* null               ; <i64> [#uses=1]
-  %tmp8 = bitcast i64 %tmp8.ui to i64             ; <i64> [#uses=1]
-  %tmp9 = and i64 %tmp8, %tmp.upgrd.1             ; <i64> [#uses=1]
-  %sext = trunc i64 %tmp9 to i32          ; <i32> [#uses=1]
-  %tmp27.i = sext i32 %sext to i64                ; <i64> [#uses=1]
-  tail call void @foo25( i32 0, i64 %tmp27.i )
+  %t = getelementptr { i64, i64, i64, i64 }, { i64, i64, i64, i64 }* null, i32 0, i32 3
+  %t.upgrd.1 = load i64, i64* %t
+  %t8.ui = load i64, i64* null
+  %t8 = bitcast i64 %t8.ui to i64
+  %t9 = and i64 %t8, %t.upgrd.1
+  %sext = trunc i64 %t9 to i32
+  %t27.i = sext i32 %sext to i64
+  tail call void @foo25( i32 0, i64 %t27.i )
   unreachable
 }
 
@@ -525,40 +539,39 @@ define i1 @test26(i8* %arr) {
   ret i1 %test
 }
 
-	%struct.__large_struct = type { [100 x i64] }
-	%struct.compat_siginfo = type { i32, i32, i32, { [29 x i32] } }
-	%struct.siginfo_t = type { i32, i32, i32, { { i32, i32, [0 x i8], %struct.sigval_t, i32 }, [88 x i8] } }
-	%struct.sigval_t = type { i8* }
+  %struct.__large_struct = type { [100 x i64] }
+  %struct.compat_siginfo = type { i32, i32, i32, { [29 x i32] } }
+  %struct.siginfo_t = type { i32, i32, i32, { { i32, i32, [0 x i8], %struct.sigval_t, i32 }, [88 x i8] } }
+  %struct.sigval_t = type { i8* }
 
 define i32 @test27(%struct.compat_siginfo* %to, %struct.siginfo_t* %from) {
 ; CHECK-LABEL: @test27(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[FROM_ADDR:%.*]] = alloca %struct.siginfo_t*, align 8
-; CHECK-NEXT:    [[TMP344:%.*]] = load %struct.siginfo_t*, %struct.siginfo_t** [[FROM_ADDR]], align 8
-; CHECK-NEXT:    [[TMP349:%.*]] = getelementptr [[STRUCT_SIGINFO_T:%.*]], %struct.siginfo_t* [[TMP344]], i64 0, i32 3, i32 0, i32 3, i32 0
-; CHECK-NEXT:    [[TMP349350:%.*]] = bitcast i8** [[TMP349]] to i32*
-; CHECK-NEXT:    [[TMP351:%.*]] = load i32, i32* [[TMP349350]], align 8
-; CHECK-NEXT:    [[TMP360:%.*]] = call i32 asm sideeffect "...", "=r,ir,*m,i,0,~{dirflag},~{fpsr},~{flags}"(i32 [[TMP351]], %struct.__large_struct* null, i32 -14, i32 0) [[ATTR0:#.*]]
+; CHECK-NEXT:    [[T344:%.*]] = load %struct.siginfo_t*, %struct.siginfo_t** [[FROM_ADDR]], align 8
+; CHECK-NEXT:    [[T349:%.*]] = getelementptr [[STRUCT_SIGINFO_T:%.*]], %struct.siginfo_t* [[T344]], i64 0, i32 3, i32 0, i32 3, i32 0
+; CHECK-NEXT:    [[T349350:%.*]] = bitcast i8** [[T349]] to i32*
+; CHECK-NEXT:    [[T351:%.*]] = load i32, i32* [[T349350]], align 8
+; CHECK-NEXT:    [[T360:%.*]] = call i32 asm sideeffect "...", "=r,ir,*m,i,0,~{dirflag},~{fpsr},~{flags}"(i32 [[T351]], %struct.__large_struct* elementtype(%struct.__large_struct) null, i32 -14, i32 0) #[[ATTR0:[0-9]+]]
 ; CHECK-NEXT:    unreachable
 ;
 entry:
   %from_addr = alloca %struct.siginfo_t*
-  %tmp344 = load %struct.siginfo_t*, %struct.siginfo_t** %from_addr, align 8
-  %tmp345 = getelementptr %struct.siginfo_t, %struct.siginfo_t* %tmp344, i32 0, i32 3
-  %tmp346 = getelementptr { { i32, i32, [0 x i8], %struct.sigval_t, i32 }, [88 x i8] }, { { i32, i32, [0 x i8], %struct.sigval_t, i32 }, [88 x i8] }* %tmp345, i32 0, i32 0
-  %tmp346347 = bitcast { i32, i32, [0 x i8], %struct.sigval_t, i32 }* %tmp346 to { i32, i32, %struct.sigval_t }*
-  %tmp348 = getelementptr { i32, i32, %struct.sigval_t }, { i32, i32, %struct.sigval_t }* %tmp346347, i32 0, i32 2
-  %tmp349 = getelementptr %struct.sigval_t, %struct.sigval_t* %tmp348, i32 0, i32 0
-  %tmp349350 = bitcast i8** %tmp349 to i32*
-  %tmp351 = load i32, i32* %tmp349350, align 8
-  %tmp360 = call i32 asm sideeffect "...",
-  "=r,ir,*m,i,0,~{dirflag},~{fpsr},~{flags}"( i32 %tmp351,
-  %struct.__large_struct* null, i32 -14, i32 0 )
+  %t344 = load %struct.siginfo_t*, %struct.siginfo_t** %from_addr, align 8
+  %t345 = getelementptr %struct.siginfo_t, %struct.siginfo_t* %t344, i32 0, i32 3
+  %t346 = getelementptr { { i32, i32, [0 x i8], %struct.sigval_t, i32 }, [88 x i8] }, { { i32, i32, [0 x i8], %struct.sigval_t, i32 }, [88 x i8] }* %t345, i32 0, i32 0
+  %t346347 = bitcast { i32, i32, [0 x i8], %struct.sigval_t, i32 }* %t346 to { i32, i32, %struct.sigval_t }*
+  %t348 = getelementptr { i32, i32, %struct.sigval_t }, { i32, i32, %struct.sigval_t }* %t346347, i32 0, i32 2
+  %t349 = getelementptr %struct.sigval_t, %struct.sigval_t* %t348, i32 0, i32 0
+  %t349350 = bitcast i8** %t349 to i32*
+  %t351 = load i32, i32* %t349350, align 8
+  %t360 = call i32 asm sideeffect "...",
+  "=r,ir,*m,i,0,~{dirflag},~{fpsr},~{flags}"( i32 %t351, %struct.__large_struct* elementtype(%struct.__large_struct) null, i32 -14, i32 0 )
   unreachable
 }
 
 ; PR1978
-	%struct.x = type <{ i8 }>
+  %struct.x = type <{ i8 }>
 @.str = internal constant [6 x i8] c"Main!\00"
 @.str1 = internal constant [12 x i8] c"destroy %p\0A\00"
 
@@ -566,36 +579,36 @@ define i32 @test28() nounwind  {
 ; CHECK-LABEL: @test28(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ORIENTATIONS:%.*]] = alloca [1 x [1 x %struct.x]], align 8
-; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @puts(i8* nonnull dereferenceable(1) getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0)) [[ATTR0]]
+; CHECK-NEXT:    [[T3:%.*]] = call i32 @puts(i8* noundef nonnull dereferenceable(1) getelementptr inbounds ([6 x i8], [6 x i8]* @.str, i64 0, i64 0)) #[[ATTR0]]
 ; CHECK-NEXT:    br label [[BB10:%.*]]
 ; CHECK:       bb10:
 ; CHECK-NEXT:    [[INDVAR:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INDVAR_NEXT:%.*]], [[BB10]] ]
-; CHECK-NEXT:    [[TMP12_REC:%.*]] = xor i32 [[INDVAR]], -1
-; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[TMP12_REC]] to i64
-; CHECK-NEXT:    [[TMP12:%.*]] = getelementptr inbounds [1 x [1 x %struct.x]], [1 x [1 x %struct.x]]* [[ORIENTATIONS]], i64 1, i64 0, i64 [[TMP0]]
-; CHECK-NEXT:    [[TMP16:%.*]] = call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([12 x i8], [12 x i8]* @.str1, i64 0, i64 0), %struct.x* nonnull [[TMP12]]) [[ATTR0]]
-; CHECK-NEXT:    [[TMP84:%.*]] = icmp eq i32 [[INDVAR]], 0
+; CHECK-NEXT:    [[T12_REC:%.*]] = xor i32 [[INDVAR]], -1
+; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[T12_REC]] to i64
+; CHECK-NEXT:    [[T12:%.*]] = getelementptr inbounds [1 x [1 x %struct.x]], [1 x [1 x %struct.x]]* [[ORIENTATIONS]], i64 1, i64 0, i64 [[TMP0]]
+; CHECK-NEXT:    [[T16:%.*]] = call i32 (i8*, ...) @printf(i8* noundef nonnull dereferenceable(1) getelementptr inbounds ([12 x i8], [12 x i8]* @.str1, i64 0, i64 0), %struct.x* nonnull [[T12]]) #[[ATTR0]]
+; CHECK-NEXT:    [[T84:%.*]] = icmp eq i32 [[INDVAR]], 0
 ; CHECK-NEXT:    [[INDVAR_NEXT]] = add i32 [[INDVAR]], 1
-; CHECK-NEXT:    br i1 [[TMP84]], label [[BB17:%.*]], label [[BB10]]
+; CHECK-NEXT:    br i1 [[T84]], label [[BB17:%.*]], label [[BB10]]
 ; CHECK:       bb17:
 ; CHECK-NEXT:    ret i32 0
 ;
 entry:
   %orientations = alloca [1 x [1 x %struct.x]]
-  %tmp3 = call i32 @puts( i8* getelementptr ([6 x i8], [6 x i8]* @.str, i32 0, i32 0) ) nounwind
-  %tmp45 = getelementptr inbounds [1 x [1 x %struct.x]], [1 x [1 x %struct.x]]* %orientations, i32 1, i32 0, i32 0
+  %t3 = call i32 @puts( i8* getelementptr ([6 x i8], [6 x i8]* @.str, i32 0, i32 0) ) nounwind
+  %t45 = getelementptr inbounds [1 x [1 x %struct.x]], [1 x [1 x %struct.x]]* %orientations, i32 1, i32 0, i32 0
   %orientations62 = getelementptr [1 x [1 x %struct.x]], [1 x [1 x %struct.x]]* %orientations, i32 0, i32 0, i32 0
   br label %bb10
 
 bb10:
   %indvar = phi i32 [ 0, %entry ], [ %indvar.next, %bb10 ]
-  %tmp.0.reg2mem.0.rec = mul i32 %indvar, -1
-  %tmp12.rec = add i32 %tmp.0.reg2mem.0.rec, -1
-  %tmp12 = getelementptr inbounds %struct.x, %struct.x* %tmp45, i32 %tmp12.rec
-  %tmp16 = call i32 (i8*, ...) @printf( i8* nonnull dereferenceable(1) getelementptr ([12 x i8], [12 x i8]* @.str1, i32 0, i32 0), %struct.x* %tmp12 ) nounwind
-  %tmp84 = icmp eq %struct.x* %tmp12, %orientations62
+  %t.0.reg2mem.0.rec = mul i32 %indvar, -1
+  %t12.rec = add i32 %t.0.reg2mem.0.rec, -1
+  %t12 = getelementptr inbounds %struct.x, %struct.x* %t45, i32 %t12.rec
+  %t16 = call i32 (i8*, ...) @printf( i8* nonnull dereferenceable(1) getelementptr ([12 x i8], [12 x i8]* @.str1, i32 0, i32 0), %struct.x* %t12 ) nounwind
+  %t84 = icmp eq %struct.x* %t12, %orientations62
   %indvar.next = add i32 %indvar, 1
-  br i1 %tmp84, label %bb17, label %bb10
+  br i1 %t84, label %bb17, label %bb10
 
 bb17:
   ret i32 0
@@ -609,26 +622,22 @@ declare i32 @printf(i8*, ...)
 
 
 ; rdar://6762290
-	%T = type <{ i64, i64, i64 }>
+  %T = type <{ i64, i64, i64 }>
 define i32 @test29(i8* %start, i32 %X) nounwind {
 ; CHECK-LABEL: @test29(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    store i64 undef, i64* null, align 536870912
-; CHECK-NEXT:    [[ADD_PTR:%.*]] = getelementptr i8, i8* [[START:%.*]], i64 undef
-; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[X:%.*]] to i64
-; CHECK-NEXT:    [[ADD_PTR212:%.*]] = getelementptr i8, i8* [[START]], i64 [[TMP0]]
-; CHECK-NEXT:    [[CMP214:%.*]] = icmp ugt i8* [[ADD_PTR212]], [[ADD_PTR]]
-; CHECK-NEXT:    br i1 [[CMP214]], label [[IF_THEN216:%.*]], label [[IF_END363:%.*]]
+; CHECK-NEXT:    store i64 poison, i64* null, align 4294967296
+; CHECK-NEXT:    br i1 poison, label [[IF_THEN216:%.*]], label [[IF_END363:%.*]]
 ; CHECK:       if.then216:
 ; CHECK-NEXT:    ret i32 1
 ; CHECK:       if.end363:
 ; CHECK-NEXT:    ret i32 0
 ;
 entry:
-  %tmp3 = load i64, i64* null
-  %add.ptr = getelementptr i8, i8* %start, i64 %tmp3
-  %tmp158 = load i32, i32* null
-  %add.ptr159 = getelementptr %T, %T* null, i32 %tmp158
+  %t3 = load i64, i64* null
+  %add.ptr = getelementptr i8, i8* %start, i64 %t3
+  %t158 = load i32, i32* null
+  %add.ptr159 = getelementptr %T, %T* null, i32 %t158
   %add.ptr209 = getelementptr i8, i8* %start, i64 0
   %add.ptr212 = getelementptr i8, i8* %add.ptr209, i32 %X
   %cmp214 = icmp ugt i8* %add.ptr212, %add.ptr
@@ -648,7 +657,7 @@ define i32 @test30(i32 %m, i32 %n) nounwind {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = zext i32 [[N:%.*]] to i64
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca i32, i64 [[TMP0]], align 4
-; CHECK-NEXT:    call void @test30f(i32* nonnull [[TMP1]]) [[ATTR0]]
+; CHECK-NEXT:    call void @test30f(i32* nonnull [[TMP1]]) #[[ATTR0]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = sext i32 [[M:%.*]] to i64
 ; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr i32, i32* [[TMP1]], i64 [[TMP2]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i32, i32* [[TMP3]], align 4
@@ -758,7 +767,7 @@ define i32 addrspace(1)* @test33_addrspacecast(%struct.Key* %A) {
   ret i32 addrspace(1)* %C
 }
 
-	%T2 = type { i8*, i8 }
+  %T2 = type { i8*, i8 }
 define i8* @test34(i8* %Val, i64 %V) nounwind {
 ; CHECK-LABEL: @test34(
 ; CHECK-NEXT:  entry:
@@ -787,7 +796,7 @@ entry:
 
 define i32 @test35() nounwind {
 ; CHECK-LABEL: @test35(
-; CHECK-NEXT:    [[TMP1:%.*]] = call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([17 x i8], [17 x i8]* @"\01LC8", i64 0, i64 0), i8* getelementptr inbounds (%t0, %t0* @s, i64 0, i32 1, i64 0)) [[ATTR0]]
+; CHECK-NEXT:    [[TMP1:%.*]] = call i32 (i8*, ...) @printf(i8* noundef nonnull dereferenceable(1) getelementptr inbounds ([17 x i8], [17 x i8]* @"\01LC8", i64 0, i64 0), i8* getelementptr inbounds ([[T0:%.*]], %t0* @s, i64 0, i32 1, i64 0)) #[[ATTR0]]
 ; CHECK-NEXT:    ret i32 0
 ;
   call i32 (i8*, ...) @printf(i8* getelementptr ([17 x i8], [17 x i8]* @"\01LC8", i32 0, i32 0),
@@ -798,7 +807,7 @@ define i32 @test35() nounwind {
 ; Don't treat signed offsets as unsigned.
 define i8* @test36() nounwind {
 ; CHECK-LABEL: @test36(
-; CHECK-NEXT:    ret i8* getelementptr ([11 x i8], [11 x i8]* @array, i64 0, i64 -1)
+; CHECK-NEXT:    ret i8* getelementptr ([11 x i8], [11 x i8]* @array, i64 -1, i64 10)
 ;
   ret i8* getelementptr ([11 x i8], [11 x i8]* @array, i32 0, i64 -1)
 }
@@ -833,16 +842,16 @@ define void @pr10322_f1(%pr10322_t* %foo) {
 ; CHECK-LABEL: @pr10322_f1(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ARRAYIDX8:%.*]] = getelementptr inbounds [[PR10322_T:%.*]], %pr10322_t* [[FOO:%.*]], i64 2
-; CHECK-NEXT:    call void @pr10322_f2(%pr10322_t* nonnull [[ARRAYIDX8]]) [[ATTR0]]
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds [[PR10322_T]], %pr10322_t* [[ARRAYIDX8]], i64 0, i32 0
-; CHECK-NEXT:    call void @pr10322_f3(i8** nonnull [[TMP2]]) [[ATTR0]]
+; CHECK-NEXT:    call void @pr10322_f2(%pr10322_t* nonnull [[ARRAYIDX8]]) #[[ATTR0]]
+; CHECK-NEXT:    [[T2:%.*]] = getelementptr inbounds [[PR10322_T]], %pr10322_t* [[ARRAYIDX8]], i64 0, i32 0
+; CHECK-NEXT:    call void @pr10322_f3(i8** nonnull [[T2]]) #[[ATTR0]]
 ; CHECK-NEXT:    ret void
 ;
 entry:
   %arrayidx8 = getelementptr inbounds %pr10322_t, %pr10322_t* %foo, i64 2
   call void @pr10322_f2(%pr10322_t* %arrayidx8) nounwind
-  %tmp2 = getelementptr inbounds %pr10322_t, %pr10322_t* %arrayidx8, i64 0, i32 0
-  call void @pr10322_f3(i8** %tmp2) nounwind
+  %t2 = getelementptr inbounds %pr10322_t, %pr10322_t* %arrayidx8, i64 0, i32 0
+  call void @pr10322_f3(i8** %t2) nounwind
   ret void
 
 }
@@ -877,18 +886,18 @@ declare void @three_gep_h(%three_gep_t2*)
 
 define void @test39(%struct.ham* %arg, i8 %arg1) nounwind {
 ; CHECK-LABEL: @test39(
-; CHECK-NEXT:    [[TMP:%.*]] = getelementptr inbounds [[STRUCT_HAM:%.*]], %struct.ham* [[ARG:%.*]], i64 0, i32 2
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast %struct.zot** [[TMP]] to i8**
-; CHECK-NEXT:    [[TMP21:%.*]] = load i8*, i8** [[TMP1]], align 8
-; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i8, i8* [[TMP21]], i64 -8
-; CHECK-NEXT:    store i8 [[ARG1:%.*]], i8* [[TMP4]], align 8
+; CHECK-NEXT:    [[T:%.*]] = getelementptr inbounds [[STRUCT_HAM:%.*]], %struct.ham* [[ARG:%.*]], i64 0, i32 2
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast %struct.zot** [[T]] to i8**
+; CHECK-NEXT:    [[T21:%.*]] = load i8*, i8** [[TMP1]], align 8
+; CHECK-NEXT:    [[T4:%.*]] = getelementptr inbounds i8, i8* [[T21]], i64 -8
+; CHECK-NEXT:    store i8 [[ARG1:%.*]], i8* [[T4]], align 8
 ; CHECK-NEXT:    ret void
 ;
-  %tmp = getelementptr inbounds %struct.ham, %struct.ham* %arg, i64 0, i32 2
-  %tmp2 = load %struct.zot*, %struct.zot** %tmp, align 8
-  %tmp3 = bitcast %struct.zot* %tmp2 to i8*
-  %tmp4 = getelementptr inbounds i8, i8* %tmp3, i64 -8
-  store i8 %arg1, i8* %tmp4, align 8
+  %t = getelementptr inbounds %struct.ham, %struct.ham* %arg, i64 0, i32 2
+  %t2 = load %struct.zot*, %struct.zot** %t, align 8
+  %t3 = bitcast %struct.zot* %t2 to i8*
+  %t4 = getelementptr inbounds i8, i8* %t3, i64 -8
+  store i8 %arg1, i8* %t4, align 8
   ret void
 
 }
@@ -1025,12 +1034,11 @@ define i16 @test41([3 x i32] addrspace(1)* %array) {
 
 }
 
-define i8* @test42(i8* %c1, i8* %c2) {
-; CHECK-LABEL: @test42(
+define i8* @test42i(i8* %c1, i8* %c2) {
+; CHECK-LABEL: @test42i(
 ; CHECK-NEXT:    [[PTRTOINT:%.*]] = ptrtoint i8* [[C1:%.*]] to i64
-; CHECK-NEXT:    [[TMP1:%.*]] = ptrtoint i8* [[C2:%.*]] to i64
-; CHECK-NEXT:    [[TMP2:%.*]] = sub i64 [[TMP1]], [[PTRTOINT]]
-; CHECK-NEXT:    [[GEP:%.*]] = inttoptr i64 [[TMP2]] to i8*
+; CHECK-NEXT:    [[SUB:%.*]] = sub i64 0, [[PTRTOINT]]
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds i8, i8* [[C2:%.*]], i64 [[SUB]]
 ; CHECK-NEXT:    ret i8* [[GEP]]
 ;
   %ptrtoint = ptrtoint i8* %c1 to i64
@@ -1040,12 +1048,26 @@ define i8* @test42(i8* %c1, i8* %c2) {
 
 }
 
-define i16* @test43(i16* %c1, i16* %c2) {
-; CHECK-LABEL: @test43(
+define i8* @test42(i8* %c1, i8* %c2) {
+; CHECK-LABEL: @test42(
+; CHECK-NEXT:    [[PTRTOINT:%.*]] = ptrtoint i8* [[C1:%.*]] to i64
+; CHECK-NEXT:    [[SUB:%.*]] = sub i64 0, [[PTRTOINT]]
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr i8, i8* [[C2:%.*]], i64 [[SUB]]
+; CHECK-NEXT:    ret i8* [[GEP]]
+;
+  %ptrtoint = ptrtoint i8* %c1 to i64
+  %sub = sub i64 0, %ptrtoint
+  %gep = getelementptr i8, i8* %c2, i64 %sub
+  ret i8* %gep
+
+}
+
+define i16* @test43i(i16* %c1, i16* %c2) {
+; CHECK-LABEL: @test43i(
 ; CHECK-NEXT:    [[PTRTOINT:%.*]] = ptrtoint i16* [[C1:%.*]] to i64
-; CHECK-NEXT:    [[TMP1:%.*]] = ptrtoint i16* [[C2:%.*]] to i64
-; CHECK-NEXT:    [[TMP2:%.*]] = sub i64 [[TMP1]], [[PTRTOINT]]
-; CHECK-NEXT:    [[GEP:%.*]] = inttoptr i64 [[TMP2]] to i16*
+; CHECK-NEXT:    [[SUB:%.*]] = sub i64 0, [[PTRTOINT]]
+; CHECK-NEXT:    [[SHR:%.*]] = ashr i64 [[SUB]], 1
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds i16, i16* [[C2:%.*]], i64 [[SHR]]
 ; CHECK-NEXT:    ret i16* [[GEP]]
 ;
   %ptrtoint = ptrtoint i16* %c1 to i64
@@ -1056,12 +1078,12 @@ define i16* @test43(i16* %c1, i16* %c2) {
 
 }
 
-define %struct.C* @test44(%struct.C* %c1, %struct.C* %c2) {
-; CHECK-LABEL: @test44(
+define %struct.C* @test44i(%struct.C* %c1, %struct.C* %c2) {
+; CHECK-LABEL: @test44i(
 ; CHECK-NEXT:    [[PTRTOINT:%.*]] = ptrtoint %struct.C* [[C1:%.*]] to i64
-; CHECK-NEXT:    [[TMP1:%.*]] = ptrtoint %struct.C* [[C2:%.*]] to i64
-; CHECK-NEXT:    [[TMP2:%.*]] = sub i64 [[TMP1]], [[PTRTOINT]]
-; CHECK-NEXT:    [[GEP:%.*]] = inttoptr i64 [[TMP2]] to %struct.C*
+; CHECK-NEXT:    [[SUB:%.*]] = sub i64 0, [[PTRTOINT]]
+; CHECK-NEXT:    [[SHR:%.*]] = sdiv i64 [[SUB]], 7
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds [[STRUCT_C:%.*]], %struct.C* [[C2:%.*]], i64 [[SHR]]
 ; CHECK-NEXT:    ret %struct.C* [[GEP]]
 ;
   %ptrtoint = ptrtoint %struct.C* %c1 to i64
@@ -1074,7 +1096,11 @@ define %struct.C* @test44(%struct.C* %c1, %struct.C* %c2) {
 
 define %struct.C* @test45(%struct.C* %c1, %struct.C** %c2) {
 ; CHECK-LABEL: @test45(
-; CHECK-NEXT:    [[GEP:%.*]] = bitcast %struct.C** [[C2:%.*]] to %struct.C*
+; CHECK-NEXT:    [[PTRTOINT1:%.*]] = ptrtoint %struct.C* [[C1:%.*]] to i64
+; CHECK-NEXT:    [[PTRTOINT2:%.*]] = ptrtoint %struct.C** [[C2:%.*]] to i64
+; CHECK-NEXT:    [[SUB:%.*]] = sub i64 [[PTRTOINT2]], [[PTRTOINT1]]
+; CHECK-NEXT:    [[SHR:%.*]] = sdiv i64 [[SUB]], 7
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds [[STRUCT_C:%.*]], %struct.C* [[C1]], i64 [[SHR]]
 ; CHECK-NEXT:    ret %struct.C* [[GEP]]
 ;
   %ptrtoint1 = ptrtoint %struct.C* %c1 to i64
@@ -1083,7 +1109,6 @@ define %struct.C* @test45(%struct.C* %c1, %struct.C** %c2) {
   %shr = sdiv i64 %sub, 7
   %gep = getelementptr inbounds %struct.C, %struct.C* %c1, i64 %shr ; C1 + (C2 - C1)
   ret %struct.C* %gep
-
 }
 
 define %struct.C* @test46(%struct.C* %c1, %struct.C* %c2, i64 %N) {
@@ -1160,13 +1185,13 @@ define i32 addrspace(1)* @ascast_0_0_gep([128 x i32]* %p) nounwind {
 
 define <2 x i32*> @PR32414(i32** %ptr) {
 ; CHECK-LABEL: @PR32414(
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32** [[PTR:%.*]] to i32*
-; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i32, i32* [[TMP0]], <2 x i64> <i64 0, i64 1>
-; CHECK-NEXT:    ret <2 x i32*> [[TMP1]]
+; CHECK-NEXT:    [[T0:%.*]] = bitcast i32** [[PTR:%.*]] to i32*
+; CHECK-NEXT:    [[T1:%.*]] = getelementptr inbounds i32, i32* [[T0]], <2 x i64> <i64 0, i64 1>
+; CHECK-NEXT:    ret <2 x i32*> [[T1]]
 ;
-  %tmp0 = bitcast i32** %ptr to i32*
-  %tmp1 = getelementptr inbounds i32, i32* %tmp0, <2 x i64> <i64 0, i64 1>
-  ret <2 x i32*> %tmp1
+  %t0 = bitcast i32** %ptr to i32*
+  %t1 = getelementptr inbounds i32, i32* %t0, <2 x i64> <i64 0, i64 1>
+  ret <2 x i32*> %t1
 }
 
 define i32* @test_bitcast_nzgep([1 x i32]* %base, i64 %idx) {
@@ -1216,7 +1241,7 @@ define i32* @test_gep_inbounds_of_gep(i32* %base) {
 
 define i32* @PR45084(i1 %cond) {
 ; CHECK-LABEL: @PR45084(
-; CHECK-NEXT:    [[GEP:%.*]] = select i1 [[COND:%.*]], i32* getelementptr inbounds (%struct.f, %struct.f* @g0, i64 0, i32 0), i32* getelementptr inbounds (%struct.f, %struct.f* @g1, i64 0, i32 0), !prof !0
+; CHECK-NEXT:    [[GEP:%.*]] = select i1 [[COND:%.*]], i32* getelementptr inbounds ([[STRUCT_F:%.*]], %struct.f* @g0, i64 0, i32 0), i32* getelementptr inbounds ([[STRUCT_F]], %struct.f* @g1, i64 0, i32 0), !prof [[PROF0:![0-9]+]]
 ; CHECK-NEXT:    ret i32* [[GEP]]
 ;
   %sel = select i1 %cond, %struct.f* @g0, %struct.f* @g1, !prof !0
@@ -1228,7 +1253,7 @@ define i32* @PR45084_extra_use(i1 %cond, %struct.f** %p) {
 ; CHECK-LABEL: @PR45084_extra_use(
 ; CHECK-NEXT:    [[SEL:%.*]] = select i1 [[COND:%.*]], %struct.f* @g0, %struct.f* @g1
 ; CHECK-NEXT:    store %struct.f* [[SEL]], %struct.f** [[P:%.*]], align 8
-; CHECK-NEXT:    [[GEP:%.*]] = select i1 [[COND]], i32* getelementptr inbounds (%struct.f, %struct.f* @g0, i64 0, i32 0), i32* getelementptr inbounds (%struct.f, %struct.f* @g1, i64 0, i32 0)
+; CHECK-NEXT:    [[GEP:%.*]] = select i1 [[COND]], i32* getelementptr inbounds ([[STRUCT_F:%.*]], %struct.f* @g0, i64 0, i32 0), i32* getelementptr inbounds ([[STRUCT_F]], %struct.f* @g1, i64 0, i32 0)
 ; CHECK-NEXT:    ret i32* [[GEP]]
 ;
   %sel = select i1 %cond, %struct.f* @g0, %struct.f* @g1
@@ -1271,6 +1296,41 @@ define i8* @gep_null_inbounds_different_type(i64 %idx1, i64 %idx2) {
 ;
   %gep = getelementptr inbounds [0 x i8], [0 x i8]* null, i64 %idx1, i64 %idx2
   ret i8* %gep
+}
+
+define i8* @D98588(i8* %c1, i64 %offset) {
+; CHECK-LABEL: @D98588(
+; CHECK-NEXT:    [[C2:%.*]] = bitcast i8* [[C1:%.*]] to i64*
+; CHECK-NEXT:    [[C2_NEXT:%.*]] = getelementptr inbounds i64, i64* [[C2]], i64 [[OFFSET:%.*]]
+; CHECK-NEXT:    [[GEP:%.*]] = bitcast i64* [[C2_NEXT]] to i8*
+; CHECK-NEXT:    ret i8* [[GEP]]
+;
+  %c2 = bitcast i8* %c1 to i64*
+  %c2_next = getelementptr inbounds i64, i64* %c2, i64 %offset
+  %ptrtoint1 = ptrtoint i8* %c1 to i64
+  %ptrtoint2 = ptrtoint i64* %c2_next to i64
+  %sub = sub i64 %ptrtoint2, %ptrtoint1 ; C2 - C1
+  %gep = getelementptr inbounds i8, i8* %c1, i64 %sub ; C1 + (C2 - C1)
+  ret i8* %gep
+}
+
+declare noalias i8* @malloc(i64) nounwind
+
+define i32 @test_gep_bitcast_malloc(%struct.A* %a) {
+; CHECK-LABEL: @test_gep_bitcast_malloc(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[CALL:%.*]] = call noalias dereferenceable_or_null(16) i8* @malloc(i64 16)
+; CHECK-NEXT:    [[B:%.*]] = bitcast i8* [[CALL]] to %struct.A*
+; CHECK-NEXT:    [[G3:%.*]] = getelementptr [[STRUCT_A:%.*]], %struct.A* [[B]], i64 0, i32 2
+; CHECK-NEXT:    [[A_C:%.*]] = load i32, i32* [[G3]], align 4
+; CHECK-NEXT:    ret i32 [[A_C]]
+;
+entry:
+  %call = call noalias i8* @malloc(i64 16) #2
+  %B = bitcast i8* %call to %struct.A*
+  %g3 = getelementptr %struct.A, %struct.A* %B, i32 0, i32 2
+  %a_c = load i32, i32* %g3, align 4
+  ret i32 %a_c
 }
 
 !0 = !{!"branch_weights", i32 2, i32 10}

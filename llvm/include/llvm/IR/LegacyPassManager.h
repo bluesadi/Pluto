@@ -16,15 +16,19 @@
 #ifndef LLVM_IR_LEGACYPASSMANAGER_H
 #define LLVM_IR_LEGACYPASSMANAGER_H
 
-#include "llvm/Pass.h"
 #include "llvm/Support/CBindingWrapping.h"
 
 namespace llvm {
 
+class Function;
 class Pass;
 class Module;
 
 namespace legacy {
+
+// Whether or not -debug-pass has been specified. For use to check if it's
+// specified alongside the new PM.
+bool debugPassSpecified();
 
 class PassManagerImpl;
 class FunctionPassManagerImpl;

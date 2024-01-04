@@ -6,9 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Run a sanity check on the IR to ensure that Safepoints - if they've been
-// inserted - were inserted correctly.  In particular, look for use of
-// non-relocated values after a safepoint.  It's primary use is to check the
+// Run a basic correctness check on the IR to ensure that Safepoints - if
+// they've been inserted - were inserted correctly.  In particular, look for use
+// of non-relocated values after a safepoint.  It's primary use is to check the
 // correctness of safepoint insertion immediately after insertion, but it can
 // also be used to verify that later transforms have not found a way to break
 // safepoint semenatics.
@@ -38,10 +38,8 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Statepoint.h"
 #include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
@@ -350,8 +348,7 @@ static enum BaseType getBaseType(const Value *Val) {
     // Push all the incoming values of phi node into the worklist for
     // processing.
     if (const auto *PN = dyn_cast<PHINode>(V)) {
-      for (Value *InV: PN->incoming_values())
-        Worklist.push_back(InV);
+      append_range(Worklist, PN->incoming_values());
       continue;
     }
     if (const auto *SI = dyn_cast<SelectInst>(V)) {

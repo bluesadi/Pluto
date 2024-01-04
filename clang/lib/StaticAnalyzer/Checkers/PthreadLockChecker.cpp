@@ -21,6 +21,7 @@
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
 #include "clang/StaticAnalyzer/Core/Checker.h"
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/CallDescription.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
 
@@ -339,7 +340,16 @@ void PthreadLockChecker::printState(raw_ostream &Out, ProgramStateRef State,
     }
   }
 
-  // TODO: Dump destroyed mutex symbols?
+  DestroyRetValTy DRV = State->get<DestroyRetVal>();
+  if (!DRV.isEmpty()) {
+    Out << Sep << "Mutexes in unresolved possibly destroyed state:" << NL;
+    for (auto I : DRV) {
+      I.first->dumpToStream(Out);
+      Out << ": ";
+      I.second->dumpToStream(Out);
+      Out << NL;
+    }
+  }
 }
 
 void PthreadLockChecker::AcquirePthreadLock(const CallEvent &Call,
@@ -638,8 +648,10 @@ void PthreadLockChecker::checkDeadSymbols(SymbolReaper &SymReaper,
 
   for (auto I : State->get<LockMap>()) {
     // Stop tracking dead mutex regions as well.
-    if (!SymReaper.isLiveRegion(I.first))
+    if (!SymReaper.isLiveRegion(I.first)) {
       State = State->remove<LockMap>(I.first);
+      State = State->remove<DestroyRetVal>(I.first);
+    }
   }
 
   // TODO: We probably need to clean up the lock stack as well.
@@ -670,9 +682,7 @@ ProgramStateRef PthreadLockChecker::checkRegionChanges(
     // We assume that system library function wouldn't touch the mutex unless
     // it takes the mutex explicitly as an argument.
     // FIXME: This is a bit quadratic.
-    if (IsLibraryFunction &&
-        std::find(ExplicitRegions.begin(), ExplicitRegions.end(), R) ==
-            ExplicitRegions.end())
+    if (IsLibraryFunction && !llvm::is_contained(ExplicitRegions, R))
       continue;
 
     State = State->remove<LockMap>(R);

@@ -1,7 +1,3 @@
-build/
-debug/
-install/
+build
+install
 .vscode
-debug.sh
-test/aes/TestProgram.out
-*.o.tmp

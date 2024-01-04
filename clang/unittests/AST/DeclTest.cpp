@@ -10,14 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/AST/Decl.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Mangle.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/TargetInfo.h"
+#include "clang/Lex/Lexer.h"
 #include "clang/Tooling/Tooling.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/Testing/Support/Annotations.h"
 #include "gtest/gtest.h"
 
 using namespace clang::ast_matchers;
@@ -75,7 +78,7 @@ TEST(Decl, AsmLabelAttr) {
   auto AST =
       tooling::buildASTFromCodeWithArgs(Code, {"-target", "i386-apple-darwin"});
   ASTContext &Ctx = AST->getASTContext();
-  assert(Ctx.getTargetInfo().getDataLayout().getGlobalPrefix() &&
+  assert(Ctx.getTargetInfo().getUserLabelPrefix() == StringRef("_") &&
          "Expected target to have a global prefix");
   DiagnosticsEngine &Diags = AST->getDiagnostics();
 
@@ -103,4 +106,54 @@ TEST(Decl, AsmLabelAttr) {
 
   ASSERT_TRUE(0 == MangleF.compare("\x01" "foo"));
   ASSERT_TRUE(0 == MangleG.compare("goo"));
+}
+
+TEST(Decl, MangleDependentSizedArray) {
+  StringRef Code = R"(
+    template <int ...N>
+    int A[] = {N...};
+
+    template <typename T, int N>
+    struct S {
+      T B[N];
+    };
+  )";
+  auto AST =
+      tooling::buildASTFromCodeWithArgs(Code, {"-target", "i386-apple-darwin"});
+  ASTContext &Ctx = AST->getASTContext();
+  assert(Ctx.getTargetInfo().getUserLabelPrefix() == StringRef("_") &&
+         "Expected target to have a global prefix");
+  DiagnosticsEngine &Diags = AST->getDiagnostics();
+
+  const auto *DeclA =
+      selectFirst<VarDecl>("A", match(varDecl().bind("A"), Ctx));
+  const auto *DeclB =
+      selectFirst<FieldDecl>("B", match(fieldDecl().bind("B"), Ctx));
+
+  std::string MangleA, MangleB;
+  llvm::raw_string_ostream OS_A(MangleA), OS_B(MangleB);
+  std::unique_ptr<ItaniumMangleContext> MC(
+      ItaniumMangleContext::create(Ctx, Diags));
+
+  MC->mangleTypeName(DeclA->getType(), OS_A);
+  MC->mangleTypeName(DeclB->getType(), OS_B);
+
+  ASSERT_TRUE(0 == MangleA.compare("_ZTSA_i"));
+  ASSERT_TRUE(0 == MangleB.compare("_ZTSAT0__T_"));
+}
+
+TEST(Decl, EnumDeclRange) {
+  llvm::Annotations Code(R"(
+    typedef int Foo;
+    [[enum Bar : Foo]];)");
+  auto AST = tooling::buildASTFromCodeWithArgs(Code.code(), /*Args=*/{});
+  ASTContext &Ctx = AST->getASTContext();
+  const auto &SM = Ctx.getSourceManager();
+
+  const auto *Bar =
+      selectFirst<TagDecl>("Bar", match(enumDecl().bind("Bar"), Ctx));
+  auto BarRange =
+      Lexer::getAsCharRange(Bar->getSourceRange(), SM, Ctx.getLangOpts());
+  EXPECT_EQ(SM.getFileOffset(BarRange.getBegin()), Code.range().Begin);
+  EXPECT_EQ(SM.getFileOffset(BarRange.getEnd()), Code.range().End);
 }

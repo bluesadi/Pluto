@@ -1,4 +1,3 @@
-; RUN: opt < %s -enable-coroutines -O2 -S | FileCheck --check-prefixes=CHECK %s
 ; RUN: opt < %s -enable-coroutines -passes='default<O2>' -S | FileCheck --check-prefixes=CHECK %s
 
 target datalayout = "p:64:64:64"
@@ -71,7 +70,7 @@ entry:
   store i8* %async.ctxt, i8** %callee_context.caller_context.addr
   %resume_proj_fun = bitcast i8*(i8*)* @resume_context_projection to i8*
   %callee = bitcast void(i8*, %async.task*, %async.actor*)* @asyncSuspend to i8*
-  %res = call {i8*, i8*, i8*} (i8*, i8*, ...) @llvm.coro.suspend.async(
+  %res = call {i8*, i8*, i8*} (i32, i8*, i8*, ...) @llvm.coro.suspend.async(i32 0,
                                                   i8* %resume.func_ptr,
                                                   i8* %resume_proj_fun,
                                                   void (i8*, i8*, %async.task*, %async.actor*)* @my_async_function.my_other_async_function_fp.apply,
@@ -97,7 +96,7 @@ entry:
 declare i8* @llvm.coro.prepare.async(i8*)
 declare token @llvm.coro.id.async(i32, i32, i32, i8*)
 declare i8* @llvm.coro.begin(token, i8*)
-declare {i8*, i8*, i8*} @llvm.coro.suspend.async(i8*, i8*, ...)
+declare {i8*, i8*, i8*} @llvm.coro.suspend.async(i32, i8*, i8*, ...)
 declare i8* @llvm.coro.async.context.alloc(i8*, i8*)
 declare void @llvm.coro.async.context.dealloc(i8*)
 declare swiftcc void @asyncReturn(i8*, %async.task*, %async.actor*)

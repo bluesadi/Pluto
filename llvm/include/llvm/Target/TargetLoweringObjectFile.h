@@ -11,10 +11,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CODEGEN_TARGETLOWERINGOBJECTFILE_H
-#define LLVM_CODEGEN_TARGETLOWERINGOBJECTFILE_H
+#ifndef LLVM_TARGET_TARGETLOWERINGOBJECTFILE_H
+#define LLVM_TARGET_TARGETLOWERINGOBJECTFILE_H
 
 #include "llvm/MC/MCObjectFileInfo.h"
+#include "llvm/MC/MCRegister.h"
 #include <cstdint>
 
 namespace llvm {
@@ -102,6 +103,10 @@ public:
                                  const MachineBasicBlock &MBB,
                                  const TargetMachine &TM) const;
 
+  virtual MCSection *
+  getUniqueSectionForFunction(const Function &F,
+                              const TargetMachine &TM) const;
+
   /// Classify the specified global variable into a set of target independent
   /// categories embodied in SectionKind.
   static SectionKind getKindForGlobal(const GlobalObject *GO,
@@ -125,8 +130,8 @@ public:
 
   virtual MCSection *getSectionForJumpTable(const Function &F,
                                             const TargetMachine &TM) const;
-  virtual MCSection *getSectionForLSDA(const Function &F,
-                                       const TargetMachine &TM) const {
+  virtual MCSection *getSectionForLSDA(const Function &, const MCSymbol &,
+                                       const TargetMachine &) const {
     return LSDASection;
   }
 
@@ -215,6 +220,14 @@ public:
     return SupportDebugThreadLocalLocation;
   }
 
+  /// Returns the register used as static base in RWPI variants.
+  virtual MCRegister getStaticBase() const { return MCRegister::NoRegister; }
+
+  /// Get the target specific RWPI relocation.
+  virtual const MCExpr *getIndirectSymViaRWPI(const MCSymbol *Sym) const {
+    return nullptr;
+  }
+
   /// Get the target specific PC relative GOT entry relocation
   virtual const MCExpr *getIndirectSymViaGOTPCRel(const GlobalValue *GV,
                                                   const MCSymbol *Sym,
@@ -278,4 +291,4 @@ protected:
 
 } // end namespace llvm
 
-#endif // LLVM_CODEGEN_TARGETLOWERINGOBJECTFILE_H
+#endif // LLVM_TARGET_TARGETLOWERINGOBJECTFILE_H

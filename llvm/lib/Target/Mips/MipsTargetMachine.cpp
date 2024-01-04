@@ -34,9 +34,9 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetOptions.h"
 #include <string>
@@ -44,6 +44,10 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "mips"
+
+static cl::opt<bool>
+    EnableMulMulFix("mfix4300", cl::init(false),
+                    cl::desc("Enable the VR4300 mulmul bug fix."), cl::Hidden);
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMipsTarget() {
   // Register the target.
@@ -58,6 +62,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeMipsTarget() {
   initializeMipsBranchExpansionPass(*PR);
   initializeMicroMipsSizeReducePass(*PR);
   initializeMipsPreLegalizerCombinerPass(*PR);
+  initializeMipsMulMulBugFixPass(*PR);
 }
 
 static std::string computeDataLayout(const Triple &TT, StringRef CPU,
@@ -120,15 +125,11 @@ MipsTargetMachine::MipsTargetMachine(const Target &T, const Triple &TT,
                         getEffectiveCodeModel(CM, CodeModel::Small), OL),
       isLittle(isLittle), TLOF(std::make_unique<MipsTargetObjectFile>()),
       ABI(MipsABIInfo::computeTargetABI(TT, CPU, Options.MCOptions)),
-      Subtarget(nullptr),
-      DefaultSubtarget(TT, CPU, FS, isLittle, *this,
-                       MaybeAlign(Options.StackAlignmentOverride)),
+      Subtarget(nullptr), DefaultSubtarget(TT, CPU, FS, isLittle, *this, None),
       NoMips16Subtarget(TT, CPU, FS.empty() ? "-mips16" : FS.str() + ",-mips16",
-                        isLittle, *this,
-                        MaybeAlign(Options.StackAlignmentOverride)),
+                        isLittle, *this, None),
       Mips16Subtarget(TT, CPU, FS.empty() ? "+mips16" : FS.str() + ",+mips16",
-                      isLittle, *this,
-                      MaybeAlign(Options.StackAlignmentOverride)) {
+                      isLittle, *this, None) {
   Subtarget = &DefaultSubtarget;
   initAsmInfo();
 
@@ -176,9 +177,7 @@ MipsTargetMachine::getSubtargetImpl(const Function &F) const {
   // FIXME: This is related to the code below to reset the target options,
   // we need to know whether or not the soft float flag is set on the
   // function, so we can enable it as a subtarget feature.
-  bool softFloat =
-      F.hasFnAttribute("use-soft-float") &&
-      F.getFnAttribute("use-soft-float").getValueAsString() == "true";
+  bool softFloat = F.getFnAttribute("use-soft-float").getValueAsBool();
 
   if (hasMips16Attr)
     FS += FS.empty() ? "+mips16" : ",+mips16";
@@ -199,7 +198,7 @@ MipsTargetMachine::getSubtargetImpl(const Function &F) const {
     resetTargetOptions(F);
     I = std::make_unique<MipsSubtarget>(
         TargetTriple, CPU, FS, isLittle, *this,
-        MaybeAlign(Options.StackAlignmentOverride));
+        MaybeAlign(F.getParent()->getOverrideStackAlignment()));
   }
   return I.get();
 }
@@ -298,6 +297,11 @@ void MipsPassConfig::addPreEmitPass() {
   // instructions which can be remapped to a 16 bit instruction.
   addPass(createMicroMipsSizeReducePass());
 
+  // This pass inserts a nop instruction between two back-to-back multiplication
+  // instructions when the "mfix4300" flag is passed.
+  if (EnableMulMulFix)
+    addPass(createMipsMulMulBugPass());
+
   // The delay slot filler pass can potientially create forbidden slot hazards
   // for MIPSR6 and therefore it should go before MipsBranchExpansion pass.
   addPass(createMipsDelaySlotFillerPass());
@@ -335,6 +339,6 @@ bool MipsPassConfig::addRegBankSelect() {
 }
 
 bool MipsPassConfig::addGlobalInstructionSelect() {
-  addPass(new InstructionSelect());
+  addPass(new InstructionSelect(getOptLevel()));
   return false;
 }

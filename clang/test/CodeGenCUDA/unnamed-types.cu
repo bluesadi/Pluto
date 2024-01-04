@@ -19,16 +19,16 @@ __device__ float d1(float x) {
 }
 
 // DEVICE: amdgpu_kernel void @_Z2k0IZZ2f1PfENKUlS0_E_clES0_EUlfE_EvS0_T_(
-// DEVICE: define internal float @_ZZZ2f1PfENKUlS_E_clES_ENKUlfE_clEf(
+// DEVICE: define internal noundef float @_ZZZ2f1PfENKUlS_E_clES_ENKUlfE_clEf(
 template <typename F>
 __global__ void k0(float *p, F f) {
   p[0] = f(p[0]) + d0(p[1]) + d1(p[2]);
 }
 
 // DEVICE: amdgpu_kernel void @_Z2k1IZ2f1PfEUlfE_Z2f1S0_EUlffE_Z2f1S0_EUlfE0_EvS0_T_T0_T1_(
-// DEVICE: define internal float @_ZZ2f1PfENKUlfE_clEf(
-// DEVICE: define internal float @_ZZ2f1PfENKUlffE_clEff(
-// DEVICE: define internal float @_ZZ2f1PfENKUlfE0_clEf(
+// DEVICE: define internal noundef float @_ZZ2f1PfENKUlfE_clEf(
+// DEVICE: define internal noundef float @_ZZ2f1PfENKUlffE_clEff(
+// DEVICE: define internal noundef float @_ZZ2f1PfENKUlfE0_clEf(
 template <typename F0, typename F1, typename F2>
 __global__ void k1(float *p, F0 f0, F1 f1, F2 f2) {
   p[0] = f0(p[0]) + f1(p[1], p[2]) + f2(p[3]);
@@ -54,7 +54,7 @@ void f1(float *p) {
               [] __device__ (float x) { return x + 5.f; });
 }
 // HOST: @__hip_register_globals
-// HOST: __hipRegisterFunction{{.*}}@_Z17__device_stub__k0IZZ2f1PfENKUlS0_E_clES0_EUlfE_EvS0_T_{{.*}}@0
-// HOST: __hipRegisterFunction{{.*}}@_Z17__device_stub__k1IZ2f1PfEUlfE_Z2f1S0_EUlffE_Z2f1S0_EUlfE0_EvS0_T_T0_T1_{{.*}}@1
+// HOST: __hipRegisterFunction{{.*}}@_Z2k0IZZ2f1PfENKUlS0_E_clES0_EUlfE_EvS0_T_{{.*}}@0
+// HOST: __hipRegisterFunction{{.*}}@_Z2k1IZ2f1PfEUlfE_Z2f1S0_EUlffE_Z2f1S0_EUlfE0_EvS0_T_T0_T1_{{.*}}@1
 // MSVC: __hipRegisterFunction{{.*}}@"??$k0@V<lambda_1>@?0???R1?0??f1@@YAXPEAM@Z@QEBA@0@Z@@@YAXPEAMV<lambda_1>@?0???R0?0??f1@@YAX0@Z@QEBA@0@Z@@Z{{.*}}@0
 // MSVC: __hipRegisterFunction{{.*}}@"??$k1@V<lambda_2>@?0??f1@@YAXPEAM@Z@V<lambda_3>@?0??2@YAX0@Z@V<lambda_4>@?0??2@YAX0@Z@@@YAXPEAMV<lambda_2>@?0??f1@@YAX0@Z@V<lambda_3>@?0??1@YAX0@Z@V<lambda_4>@?0??1@YAX0@Z@@Z{{.*}}@1

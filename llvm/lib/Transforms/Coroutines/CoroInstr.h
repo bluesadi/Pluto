@@ -376,6 +376,18 @@ public:
   }
 };
 
+/// This represents the llvm.coro.async.size.replace instruction.
+class LLVM_LIBRARY_VISIBILITY CoroAsyncSizeReplace : public IntrinsicInst {
+public:
+  // Methods to support type inquiry through isa, cast, and dyn_cast:
+  static bool classof(const IntrinsicInst *I) {
+    return I->getIntrinsicID() == Intrinsic::coro_async_size_replace;
+  }
+  static bool classof(const Value *V) {
+    return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+  }
+};
+
 /// This represents the llvm.coro.frame instruction.
 class LLVM_LIBRARY_VISIBILITY CoroFrameInst : public IntrinsicInst {
 public:
@@ -511,10 +523,20 @@ inline CoroSaveInst *AnyCoroSuspendInst::getCoroSave() const {
 
 /// This represents the llvm.coro.suspend.async instruction.
 class LLVM_LIBRARY_VISIBILITY CoroSuspendAsyncInst : public AnyCoroSuspendInst {
-  enum { ResumeFunctionArg, AsyncContextProjectionArg, MustTailCallFuncArg };
-
 public:
+  enum {
+    StorageArgNoArg,
+    ResumeFunctionArg,
+    AsyncContextProjectionArg,
+    MustTailCallFuncArg
+  };
+
   void checkWellFormed() const;
+
+  unsigned getStorageArgumentIndex() const {
+    auto *Arg = cast<ConstantInt>(getArgOperand(StorageArgNoArg));
+    return Arg->getZExtValue();
+  }
 
   Function *getAsyncContextProjectionFunction() const {
     return cast<Function>(
@@ -577,6 +599,18 @@ public:
   }
 };
 
+/// This represents the llvm.coro.align instruction.
+class LLVM_LIBRARY_VISIBILITY CoroAlignInst : public IntrinsicInst {
+public:
+  // Methods to support type inquiry through isa, cast, and dyn_cast:
+  static bool classof(const IntrinsicInst *I) {
+    return I->getIntrinsicID() == Intrinsic::coro_align;
+  }
+  static bool classof(const Value *V) {
+    return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+  }
+};
+
 class LLVM_LIBRARY_VISIBILITY AnyCoroEndInst : public IntrinsicInst {
   enum { FrameArg, UnwindArg };
 
@@ -616,7 +650,7 @@ public:
   void checkWellFormed() const;
 
   Function *getMustTailCallFunction() const {
-    if (getNumArgOperands() < 3)
+    if (arg_size() < 3)
       return nullptr;
 
     return cast<Function>(

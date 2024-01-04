@@ -14,6 +14,7 @@
 #ifndef LLVM_LIB_TARGET_X86_X86ISELLOWERING_H
 #define LLVM_LIB_TARGET_X86_X86ISELLOWERING_H
 
+#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/TargetLowering.h"
 
 namespace llvm {
@@ -75,6 +76,10 @@ namespace llvm {
 
     /// Same as call except it adds the NoTrack prefix.
     NT_CALL,
+
+    // Pseudo for a OBJC call that gets emitted together with a special
+    // marker instruction.
+    CALL_RVMARKER,
 
     /// X86 compare and logical compare instructions.
     CMP,
@@ -456,6 +461,7 @@ namespace llvm {
     MOVHLPS,
     MOVSD,
     MOVSS,
+    MOVSH,
     UNPCKL,
     UNPCKH,
     VPERMILPV,
@@ -560,6 +566,27 @@ namespace llvm {
     FMADDSUB_RND,
     FMSUBADD_RND,
 
+    // AVX512-FP16 complex addition and multiplication.
+    VFMADDC,
+    VFMADDC_RND,
+    VFCMADDC,
+    VFCMADDC_RND,
+
+    VFMULC,
+    VFMULC_RND,
+    VFCMULC,
+    VFCMULC_RND,
+
+    VFMADDCSH,
+    VFMADDCSH_RND,
+    VFCMADDCSH,
+    VFCMADDCSH_RND,
+
+    VFMULCSH,
+    VFMULCSH_RND,
+    VFCMULCSH,
+    VFCMULCSH_RND,
+
     // Compress and expand.
     COMPRESS,
     EXPAND,
@@ -623,12 +650,8 @@ namespace llvm {
     // packed single precision.
     DPBF16PS,
 
-    // Save xmm argument registers to the stack, according to %al. An operator
-    // is needed so that this can be expanded with control flow.
-    VASTART_SAVE_XMM_REGS,
-
-    // Windows's _chkstk call to do stack probing.
-    WIN_ALLOCA,
+    // A stack checking function call. On Windows it's _chkstk call.
+    DYN_ALLOCA,
 
     // For allocating variable amounts of stack space when using
     // segmented stacks. Check if the current stacklet has enough space, and
@@ -780,8 +803,11 @@ namespace llvm {
     // subvector broadcast from memory.
     SUBV_BROADCAST_LOAD,
 
-    // Store FP control world into i16 memory.
+    // Store FP control word into i16 memory.
     FNSTCW16m,
+
+    // Load FP control word from i16 memory.
+    FLDCW16m,
 
     /// This instruction implements FP_TO_SINT with the
     /// integer destination in memory and a FP reg source.  This corresponds
@@ -841,11 +867,28 @@ namespace llvm {
     AESENCWIDE256KL,
     AESDECWIDE256KL,
 
+    // Save xmm argument registers to the stack, according to %al. An operator
+    // is needed so that this can be expanded with control flow.
+    VASTART_SAVE_XMM_REGS,
+
     // WARNING: Do not add anything in the end unless you want the node to
     // have memop! In fact, starting from FIRST_TARGET_MEMORY_OPCODE all
     // opcodes will be thought as target memory ops!
   };
   } // end namespace X86ISD
+
+  namespace X86 {
+    /// Current rounding mode is represented in bits 11:10 of FPSR. These
+    /// values are same as corresponding constants for rounding mode used
+    /// in glibc.
+    enum RoundingMode {
+      rmToNearest   = 0,        // FE_TONEAREST
+      rmDownward    = 1 << 10,  // FE_DOWNWARD
+      rmUpward      = 2 << 10,  // FE_UPWARD
+      rmTowardZero  = 3 << 10,  // FE_TOWARDZERO
+      rmMask        = 3 << 10   // Bit mask selecting rounding mode
+    };
+  }
 
   /// Define some predicates that are used for node matching.
   namespace X86 {
@@ -868,6 +911,25 @@ namespace llvm {
     /// as zero if AllowPartialUndefs is set, else we fail and return false.
     bool isConstantSplat(SDValue Op, APInt &SplatVal,
                          bool AllowPartialUndefs = true);
+
+    /// Check if Op is a load operation that could be folded into some other x86
+    /// instruction as a memory operand. Example: vpaddd (%rdi), %xmm0, %xmm0.
+    bool mayFoldLoad(SDValue Op, const X86Subtarget &Subtarget,
+                     bool AssumeSingleUse = false);
+
+    /// Check if Op is a load operation that could be folded into a vector splat
+    /// instruction as a memory operand. Example: vbroadcastss 16(%rdi), %xmm2.
+    bool mayFoldLoadIntoBroadcastFromMem(SDValue Op, MVT EltVT,
+                                         const X86Subtarget &Subtarget,
+                                         bool AssumeSingleUse = false);
+
+    /// Check if Op is a value that could be used to fold a store into some
+    /// other x86 instruction as a memory operand. Ex: pextrb $0, %xmm0, (%rdi).
+    bool mayFoldIntoStore(SDValue Op);
+
+    /// Check if Op is an operation that could be folded into a zero extend x86
+    /// instruction.
+    bool mayFoldIntoZeroExtend(SDValue Op);
   } // end namespace X86
 
   //===--------------------------------------------------------------------===//
@@ -903,7 +965,7 @@ namespace llvm {
     /// function arguments in the caller parameter area. For X86, aggregates
     /// that contains are placed at 16-byte boundaries while the rest are at
     /// 4-byte boundaries.
-    unsigned getByValTypeAlignment(Type *Ty,
+    uint64_t getByValTypeAlignment(Type *Ty,
                                    const DataLayout &DL) const override;
 
     EVT getOptimalMemOpType(const MemOp &Op,
@@ -919,7 +981,7 @@ namespace llvm {
 
     /// Returns true if the target allows unaligned memory accesses of the
     /// specified type. Returns whether it is "fast" in the last argument.
-    bool allowsMisalignedMemoryAccesses(EVT VT, unsigned AS, unsigned Align,
+    bool allowsMisalignedMemoryAccesses(EVT VT, unsigned AS, Align Alignment,
                                         MachineMemOperand::Flags Flags,
                                         bool *Fast) const override;
 
@@ -969,7 +1031,7 @@ namespace llvm {
     }
 
     bool canMergeStoresTo(unsigned AddressSpace, EVT MemVT,
-                          const SelectionDAG &DAG) const override;
+                          const MachineFunction &MF) const override;
 
     bool isCheapToSpeculateCttz() const override;
 
@@ -978,7 +1040,8 @@ namespace llvm {
     bool isCtlzFast() const override;
 
     bool hasBitPreservingFPLogic(EVT VT) const override {
-      return VT == MVT::f32 || VT == MVT::f64 || VT.isVector();
+      return VT == MVT::f32 || VT == MVT::f64 || VT.isVector() ||
+             (VT == MVT::f16 && X86ScalarSSEf16);
     }
 
     bool isMultiStoresCheaperThanBitsMerge(EVT LTy, EVT HTy) const override {
@@ -1037,6 +1100,12 @@ namespace llvm {
 
     bool shouldSplatInsEltVarIndex(EVT VT) const override;
 
+    bool shouldConvertFpToSat(unsigned Op, EVT FPVT, EVT VT) const override {
+      // Converting to sat variants holds little benefit on X86 as we will just
+      // need to saturate the value back using fp arithmatic.
+      return Op != ISD::FP_TO_UINT_SAT && isOperationLegalOrCustom(Op, VT);
+    }
+
     bool convertSetCCLogicToBitwiseLogic(EVT VT) const override {
       return VT.isScalarInteger();
     }
@@ -1090,6 +1159,10 @@ namespace llvm {
         SDValue Op, const APInt &DemandedBits, const APInt &DemandedElts,
         SelectionDAG &DAG, unsigned Depth) const override;
 
+    bool isSplatValueForTargetNode(SDValue Op, const APInt &DemandedElts,
+                                   APInt &UndefElts,
+                                   unsigned Depth) const override;
+
     const Constant *getTargetConstantFromLoad(LoadSDNode *LD) const override;
 
     SDValue unwrapAddress(SDValue N) const override;
@@ -1118,12 +1191,8 @@ namespace llvm {
 
     unsigned
     getInlineAsmMemConstraint(StringRef ConstraintCode) const override {
-      if (ConstraintCode == "o")
-        return InlineAsm::Constraint_o;
-      else if (ConstraintCode == "v")
+      if (ConstraintCode == "v")
         return InlineAsm::Constraint_v;
-      else if (ConstraintCode == "X")
-        return InlineAsm::Constraint_X;
       return TargetLowering::getInlineAsmMemConstraint(ConstraintCode);
     }
 
@@ -1166,8 +1235,9 @@ namespace llvm {
     /// of the specified type.
     /// If the AM is supported, the return value must be >= 0.
     /// If the AM is not supported, it returns a negative value.
-    int getScalingFactorCost(const DataLayout &DL, const AddrMode &AM, Type *Ty,
-                             unsigned AS) const override;
+    InstructionCost getScalingFactorCost(const DataLayout &DL,
+                                         const AddrMode &AM, Type *Ty,
+                                         unsigned AS) const override;
 
     /// This is used to enable splatted operand transforms for vector shifts
     /// and vector funnel shifts.
@@ -1218,6 +1288,9 @@ namespace llvm {
     /// from i32 to i8 but not from i32 to i16.
     bool isNarrowingProfitable(EVT VT1, EVT VT2) const override;
 
+    bool shouldFoldSelectWithIdentityConstant(unsigned BinOpcode,
+                                              EVT VT) const override;
+
     /// Given an intrinsic, checks if on the target the intrinsic will need to map
     /// to a MemIntrinsicNode (touches memory). If this is the case, it returns
     /// true and stores the intrinsic information into the IntrinsicInfo that was
@@ -1265,7 +1338,8 @@ namespace llvm {
     /// register, not on the X87 floating point stack.
     bool isScalarFPTypeInSSEReg(EVT VT) const {
       return (VT == MVT::f64 && X86ScalarSSEf64) || // f64 is when SSE2
-             (VT == MVT::f32 && X86ScalarSSEf32);   // f32 is when SSE1
+             (VT == MVT::f32 && X86ScalarSSEf32) || // f32 is when SSE1
+             (VT == MVT::f16 && X86ScalarSSEf16);   // f16 is when AVX512FP16
     }
 
     /// Returns true if it is beneficial to convert a load of a constant
@@ -1340,7 +1414,7 @@ namespace llvm {
 
     /// If the target has a standard location for the stack protector cookie,
     /// returns the address of that location. Otherwise, returns nullptr.
-    Value *getIRStackGuard(IRBuilder<> &IRB) const override;
+    Value *getIRStackGuard(IRBuilderBase &IRB) const override;
 
     bool useLoadStackGuardNode() const override;
     bool useStackGuardXorFP() const override;
@@ -1354,7 +1428,7 @@ namespace llvm {
     /// Return true if the target stores SafeStack pointer at a fixed offset in
     /// some non-standard address space, and populates the address space and
     /// offset as appropriate.
-    Value *getSafeStackPointerLocation(IRBuilder<> &IRB) const override;
+    Value *getSafeStackPointerLocation(IRBuilderBase &IRB) const override;
 
     std::pair<SDValue, SDValue> BuildFILD(EVT DstVT, EVT SrcVT, const SDLoc &DL,
                                           SDValue Chain, SDValue Pointer,
@@ -1425,6 +1499,7 @@ namespace llvm {
     /// When SSE2 is available, use it for f64 operations.
     bool X86ScalarSSEf32;
     bool X86ScalarSSEf64;
+    bool X86ScalarSSEf16;
 
     /// A list of legal FP immediates.
     std::vector<APFloat> LegalFPImmediates;
@@ -1455,16 +1530,11 @@ namespace llvm {
 
     /// Check whether the call is eligible for tail call optimization. Targets
     /// that want to do tail call optimization should implement this function.
-    bool IsEligibleForTailCallOptimization(SDValue Callee,
-                                           CallingConv::ID CalleeCC,
-                                           bool isVarArg,
-                                           bool isCalleeStructRet,
-                                           bool isCallerStructRet,
-                                           Type *RetTy,
-                                    const SmallVectorImpl<ISD::OutputArg> &Outs,
-                                    const SmallVectorImpl<SDValue> &OutVals,
-                                    const SmallVectorImpl<ISD::InputArg> &Ins,
-                                           SelectionDAG& DAG) const;
+    bool IsEligibleForTailCallOptimization(
+        SDValue Callee, CallingConv::ID CalleeCC, bool IsCalleeStackStructRet,
+        bool isVarArg, Type *RetTy, const SmallVectorImpl<ISD::OutputArg> &Outs,
+        const SmallVectorImpl<SDValue> &OutVals,
+        const SmallVectorImpl<ISD::InputArg> &Ins, SelectionDAG &DAG) const;
     SDValue EmitTailCallLoadRetAddr(SelectionDAG &DAG, SDValue &OutRetAddr,
                                     SDValue Chain, bool IsTailCall,
                                     bool Is64Bit, int FPDiff,
@@ -1473,7 +1543,7 @@ namespace llvm {
     unsigned GetAlignedArgumentStackSize(unsigned StackSize,
                                          SelectionDAG &DAG) const;
 
-    unsigned getAddressSpace(void) const;
+    unsigned getAddressSpace() const;
 
     SDValue FP_TO_INTHelper(SDValue Op, SelectionDAG &DAG, bool IsSigned,
                             SDValue &Chain) const;
@@ -1521,7 +1591,11 @@ namespace llvm {
     SDValue lowerEH_SJLJ_SETUP_DISPATCH(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerINIT_TRAMPOLINE(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerFLT_ROUNDS_(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerSET_ROUNDING(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerWin64_i128OP(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerWin64_FP_TO_INT128(SDValue Op, SelectionDAG &DAG,
+                                    SDValue &Chain) const;
+    SDValue LowerWin64_INT128_TO_FP(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerGC_TRANSITION(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerINTRINSIC_WO_CHAIN(SDValue Op, SelectionDAG &DAG) const;
     SDValue lowerFaddFsub(SDValue Op, SelectionDAG &DAG) const;
@@ -1586,10 +1660,6 @@ namespace llvm {
     EmitVAARGWithCustomInserter(MachineInstr &MI, MachineBasicBlock *MBB) const;
 
     /// Utility function to emit the xmm reg save portion of va_start.
-    MachineBasicBlock *
-    EmitVAStartSaveXMMRegsWithCustomInserter(MachineInstr &BInstr,
-                                             MachineBasicBlock *BB) const;
-
     MachineBasicBlock *EmitLoweredCascadedSelect(MachineInstr &MI1,
                                                  MachineInstr &MI2,
                                                  MachineBasicBlock *BB) const;

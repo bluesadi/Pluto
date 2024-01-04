@@ -215,6 +215,20 @@ LLVM_NODISCARD Value *Negator::visitImpl(Value *V, unsigned Depth) {
                  : Builder.CreateSExt(I->getOperand(0), I->getType(),
                                       I->getName() + ".neg");
     break;
+  case Instruction::Select: {
+    // If both arms of the select are constants, we don't need to recurse.
+    // Therefore, this transform is not limited by uses.
+    auto *Sel = cast<SelectInst>(I);
+    Constant *TrueC, *FalseC;
+    if (match(Sel->getTrueValue(), m_ImmConstant(TrueC)) &&
+        match(Sel->getFalseValue(), m_ImmConstant(FalseC))) {
+      Constant *NegTrueC = ConstantExpr::getNeg(TrueC);
+      Constant *NegFalseC = ConstantExpr::getNeg(FalseC);
+      return Builder.CreateSelect(Sel->getCondition(), NegTrueC, NegFalseC,
+                                  I->getName() + ".neg", /*MDFrom=*/I);
+    }
+    break;
+  }
   default:
     break; // Other instructions require recursive reasoning.
   }
@@ -389,7 +403,7 @@ LLVM_NODISCARD Value *Negator::visitImpl(Value *V, unsigned Depth) {
       NonNegatedOps.emplace_back(Op); // Just record which operand that was.
     }
     assert((NegatedOps.size() + NonNegatedOps.size()) == 2 &&
-           "Internal consistency sanity check.");
+           "Internal consistency check failed.");
     // Did we manage to sink negation into both of the operands?
     if (NegatedOps.size() == 2) // Then we get to keep the `add`!
       return Builder.CreateAdd(NegatedOps[0], NegatedOps[1],
@@ -479,8 +493,8 @@ LLVM_NODISCARD Optional<Negator::Result> Negator::run(Value *Root) {
   if (!Negated) {
     // We must cleanup newly-inserted instructions, to avoid any potential
     // endless combine looping.
-    llvm::for_each(llvm::reverse(NewInstructions),
-                   [&](Instruction *I) { I->eraseFromParent(); });
+    for (Instruction *I : llvm::reverse(NewInstructions))
+      I->eraseFromParent();
     return llvm::None;
   }
   return std::make_pair(ArrayRef<Instruction *>(NewInstructions), Negated);
@@ -523,8 +537,8 @@ LLVM_NODISCARD Value *Negator::Negate(bool LHSIsZero, Value *Root,
   NegatorNumInstructionsNegatedSuccess += Res->first.size();
 
   // They are in def-use order, so nothing fancy, just insert them in order.
-  llvm::for_each(Res->first,
-                 [&](Instruction *I) { IC.Builder.Insert(I, I->getName()); });
+  for (Instruction *I : Res->first)
+    IC.Builder.Insert(I, I->getName());
 
   // And return the new root.
   return Res->second;

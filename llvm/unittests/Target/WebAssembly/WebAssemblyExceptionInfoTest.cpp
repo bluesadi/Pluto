@@ -11,8 +11,8 @@
 #include "llvm/CodeGen/MachineDominanceFrontier.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "gtest/gtest.h"
@@ -169,7 +169,7 @@ body: |
   MachineDominanceFrontier MDF;
   MDT.runOnMachineFunction(*MF);
   MDF.getBase().analyze(MDT.getBase());
-  WEI.recalculate(MDT, MDF);
+  WEI.recalculate(*MF, MDT, MDF);
 
   // Exception info structure:
   // |- bb2 (ehpad), bb3, bb4, bb5, bb6, bb8, bb9, bb10
@@ -344,7 +344,7 @@ body: |
   MachineDominanceFrontier MDF;
   MDT.runOnMachineFunction(*MF);
   MDF.getBase().analyze(MDT.getBase());
-  WEI.recalculate(MDT, MDF);
+  WEI.recalculate(*MF, MDT, MDF);
 
   // Exception info structure:
   // |- bb1 (ehpad), bb2, bb3, bb4, bb5, bb6, bb7, bb8, bb10, bb11, bb12

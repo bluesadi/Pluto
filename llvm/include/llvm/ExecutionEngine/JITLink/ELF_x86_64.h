@@ -21,25 +21,17 @@ namespace jitlink {
 namespace ELF_x86_64_Edges {
 enum ELFX86RelocationKind : Edge::Kind {
   Branch32 = Edge::FirstRelocation,
-  Branch32ToStub,
-  Pointer32,
+  Pointer32Signed,
   Pointer64,
-  Pointer64Anon,
   PCRel32,
-  PCRel32Minus1,
-  PCRel32Minus2,
-  PCRel32Minus4,
-  PCRel32Anon,
-  PCRel32Minus1Anon,
-  PCRel32Minus2Anon,
-  PCRel32Minus4Anon,
   PCRel32GOTLoad,
-  PCRel32GOT,
+  PCRel32GOTLoadRelaxable,
+  PCRel32REXGOTLoadRelaxable,
   PCRel32TLV,
-  Delta32,
+  PCRel64GOT,
+  GOTOFF64,
+  GOT64,
   Delta64,
-  NegDelta32,
-  NegDelta64,
 };
 
 } // end namespace ELF_x86_64_Edges
@@ -57,7 +49,7 @@ void link_ELF_x86_64(std::unique_ptr<LinkGraph> G,
                      std::unique_ptr<JITLinkContext> Ctx);
 
 /// Return the string name of the given ELF x86-64 edge kind.
-StringRef getELFX86RelocationKindName(Edge::Kind R);
+const char *getELFX86RelocationKindName(Edge::Kind R);
 } // end namespace jitlink
 } // end namespace llvm
 

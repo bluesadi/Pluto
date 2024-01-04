@@ -5,13 +5,14 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-// Utilities for dealing with flags related to floating point mode controls.
-//
+///
+/// \file
+/// Utilities for dealing with flags related to floating point mode controls.
+///
 //===----------------------------------------------------------------------===/
 
-#ifndef LLVM_FLOATINGPOINTMODE_H
-#define LLVM_FLOATINGPOINTMODE_H
+#ifndef LLVM_ADT_FLOATINGPOINTMODE_H
+#define LLVM_ADT_FLOATINGPOINTMODE_H
 
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/raw_ostream.h"
@@ -192,4 +193,4 @@ void DenormalMode::print(raw_ostream &OS) const {
 
 }
 
-#endif // LLVM_FLOATINGPOINTMODE_H
+#endif // LLVM_ADT_FLOATINGPOINTMODE_H

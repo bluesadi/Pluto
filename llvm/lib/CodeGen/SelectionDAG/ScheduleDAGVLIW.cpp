@@ -136,12 +136,11 @@ void ScheduleDAGVLIW::releaseSucc(SUnit *SU, const SDep &D) {
 
 void ScheduleDAGVLIW::releaseSuccessors(SUnit *SU) {
   // Top down: release successors.
-  for (SUnit::succ_iterator I = SU->Succs.begin(), E = SU->Succs.end();
-       I != E; ++I) {
-    assert(!I->isAssignedRegDep() &&
+  for (SDep &Succ : SU->Succs) {
+    assert(!Succ.isAssignedRegDep() &&
            "The list-td scheduler doesn't yet support physreg dependencies!");
 
-    releaseSucc(SU, *I);
+    releaseSucc(SU, Succ);
   }
 }
 
@@ -170,11 +169,11 @@ void ScheduleDAGVLIW::listScheduleTopDown() {
   releaseSuccessors(&EntrySU);
 
   // All leaves to AvailableQueue.
-  for (unsigned i = 0, e = SUnits.size(); i != e; ++i) {
+  for (SUnit &SU : SUnits) {
     // It is available if it has no predecessors.
-    if (SUnits[i].Preds.empty()) {
-      AvailableQueue->push(&SUnits[i]);
-      SUnits[i].isAvailable = true;
+    if (SU.Preds.empty()) {
+      AvailableQueue->push(&SU);
+      SU.isAvailable = true;
     }
   }
 

@@ -163,7 +163,7 @@ MatcherGen::MatcherGen(const PatternToMatch &pattern,
   PatWithNoTypes->RemoveAllTypes();
 
   // If there are types that are manifestly known, infer them.
-  InferPossibleTypes(Pattern.ForceMode);
+  InferPossibleTypes(Pattern.getForceMode());
 }
 
 /// InferPossibleTypes - As we emit the pattern, we end up generating type
@@ -267,7 +267,7 @@ void MatcherGen::EmitLeafMatchCode(const TreePatternNode *N) {
       std::string S;
       raw_string_ostream OS(S);
       OS << "We expect complex pattern uses to have names: " << *N;
-      PrintFatalError(OS.str());
+      PrintFatalError(S);
     }
 
     // Remember this ComplexPattern so that we can emit it after all the other
@@ -576,7 +576,7 @@ bool MatcherGen::EmitMatcherCode(unsigned Variant) {
 
   // Emit the matcher for the pattern structure and types.
   EmitMatchCode(Pattern.getSrcPattern(), PatWithNoTypes.get(),
-                Pattern.ForceMode);
+                Pattern.getForceMode());
 
   // If the pattern has a predicate on it (e.g. only enabled when a subtarget
   // feature is around, do the check).

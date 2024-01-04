@@ -1,14 +1,16 @@
-// RUN: %clang_cc1 -triple x86_64-apple-darwin10 -target-cpu core2 -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-apple-darwin10 -target-cpu core2 -emit-llvm -o - %s | FileCheck %s --check-prefix=X86-64
-// RUN: %clang_cc1 -triple arm64-apple-ios9 -target-cpu cyclone -emit-llvm -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple arm64-apple-ios9 -target-cpu cyclone -emit-llvm -o - %s | FileCheck %s --check-prefix=ARM64
+// RUN: %clang_cc1 -disable-noundef-analysis -triple x86_64-apple-darwin10 -target-cpu core2 -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -disable-noundef-analysis -triple x86_64-apple-darwin10 -target-cpu core2 -emit-llvm -o - %s | FileCheck %s --check-prefix=X86-64
+// RUN: %clang_cc1 -disable-noundef-analysis -triple arm64-apple-ios9 -target-cpu cyclone -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -disable-noundef-analysis -triple arm64-apple-ios9 -target-cpu cyclone -emit-llvm -o - %s | FileCheck %s --check-prefix=ARM64
 
 // REQUIRES: aarch64-registered-target,x86-registered-target
 
 #define SWIFTCALL __attribute__((swiftcall))
+#define SWIFTASYNCCALL __attribute__((swiftasynccall))
 #define OUT __attribute__((swift_indirect_result))
 #define ERROR __attribute__((swift_error_result))
 #define CONTEXT __attribute__((swift_context))
+#define ASYNC_CONTEXT __attribute__((swift_async_context))
 
 // CHECK-DAG: %struct.atomic_padded = type { { %struct.packed, [7 x i8] } }
 // CHECK-DAG: %struct.packed = type <{ i64, i8 }>
@@ -33,8 +35,14 @@ SWIFTCALL struct_reallybig indirect_result_3(OUT int *arg0, OUT float *arg1) { _
 SWIFTCALL void context_1(CONTEXT void *self) {}
 // CHECK-LABEL: define {{.*}} void @context_1(i8* swiftself
 
+SWIFTASYNCCALL void async_context_1(ASYNC_CONTEXT void *ctx) {}
+// CHECK-LABEL: define {{.*}} void @async_context_1(i8* swiftasync
+
 SWIFTCALL void context_2(void *arg0, CONTEXT void *self) {}
 // CHECK-LABEL: define {{.*}} void @context_2(i8*{{.*}}, i8* swiftself
+
+SWIFTASYNCCALL void async_context_2(void *arg0, ASYNC_CONTEXT void *ctx) {}
+// CHECK-LABEL: define {{.*}} void @async_context_2(i8*{{.*}}, i8* swiftasync
 
 SWIFTCALL void context_error_1(CONTEXT int *self, ERROR float **error) {}
 // CHECK-LABEL: define {{.*}} void @context_error_1(i32* swiftself{{.*}}, float** swifterror %0)

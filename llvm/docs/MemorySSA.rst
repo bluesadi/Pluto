@@ -176,7 +176,7 @@ Going from the top down:
   this block could either be ``2`` or ``3``.
 - ``MemoryUse(5)`` notes that ``load i8, i8* %p1`` is a use of memory, and that
   it's clobbered by ``5``.
-- ``4 = MemoryDef(5)`` notes that ``store i8 2, i8* %p2`` is a definition; it's
+- ``4 = MemoryDef(5)`` notes that ``store i8 2, i8* %p2`` is a definition; its
   reaching definition is ``5``.
 - ``MemoryUse(1)`` notes that ``load i8, i8* %p3`` is just a user of memory,
   and the last thing that could clobber this use is above ``while.cond`` (e.g.
@@ -233,7 +233,7 @@ queries ``GlobalsAA``, one that always stops at ``MemoryPhi`` nodes, etc).
 Default walker APIs
 ^^^^^^^^^^^^^^^^^^^
 
-There are two main APIs used to retrive the clobbering access using the walker:
+There are two main APIs used to retrieve the clobbering access using the walker:
 
 -  ``MemoryAccess *getClobberingMemoryAccess(MemoryAccess *MA);`` return the
    clobbering memory access for ``MA``, caching all intermediate results
@@ -398,6 +398,29 @@ one variable.  It simply generates more IR, and optimizations still
 have to query something to disambiguate further anyway.
 
 As a result, LLVM partitions to one variable.
+
+Precision in practice
+^^^^^^^^^^^^^^^^^^^^^
+
+In practice, there are implementation details in LLVM that also affect the
+results' precision provided by MemorySSA. For example, AliasAnalysis has various
+caps, or restrictions on looking through phis which can affect what MemorySSA
+can infer. Changes made by different passes may make MemorySSA either "overly
+optimized" (it can provide a more acccurate result than if it were recomputed
+from scratch), or "under optimized" (it could infer more if it were recomputed).
+This can lead to challenges to reproduced results in isolation with a single pass
+when the result relies on the state aquired by MemorySSA due to being updated by
+multiple subsequent passes.
+Passes that use and update MemorySSA should do so through the APIs provided by the
+MemorySSAUpdater, or through calls on the Walker.
+Direct optimizations to MemorySSA are not permitted.
+There is currently a single, narrowly scoped exception where DSE (DeadStoreElimination)
+updates an optimized access of a store, after a traversal that guarantees the
+optimization is correct. This is solely allowed due to the traversals and inferences
+being beyond what MemorySSA does and them being "free" (i.e. DSE does them anyway).
+This exception is set under a flag ("-dse-optimize-memoryssa") and can be disabled to
+help reproduce optimizations in isolation.
+
 
 Use Optimization
 ^^^^^^^^^^^^^^^^

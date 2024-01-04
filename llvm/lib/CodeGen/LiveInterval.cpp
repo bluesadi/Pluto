@@ -487,7 +487,7 @@ bool LiveRange::overlaps(const LiveRange &Other, const CoalescerPair &CP,
 /// by [Start, End).
 bool LiveRange::overlaps(SlotIndex Start, SlotIndex End) const {
   assert(Start < End && "Invalid range");
-  const_iterator I = std::lower_bound(begin(), end(), End);
+  const_iterator I = lower_bound(*this, End);
   return I != begin() && (--I)->end > Start;
 }
 
@@ -592,21 +592,10 @@ void LiveRange::removeSegment(SlotIndex Start, SlotIndex End,
   VNInfo *ValNo = I->valno;
   if (I->start == Start) {
     if (I->end == End) {
-      if (RemoveDeadValNo) {
-        // Check if val# is dead.
-        bool isDead = true;
-        for (const_iterator II = begin(), EE = end(); II != EE; ++II)
-          if (II != I && II->valno == ValNo) {
-            isDead = false;
-            break;
-          }
-        if (isDead) {
-          // Now that ValNo is dead, remove it.
-          markValNoForDeletion(ValNo);
-        }
-      }
-
       segments.erase(I);  // Removed the whole Segment.
+
+      if (RemoveDeadValNo)
+        removeValNoIfDead(ValNo);
     } else
       I->start = End;
     return;
@@ -627,13 +616,25 @@ void LiveRange::removeSegment(SlotIndex Start, SlotIndex End,
   segments.insert(std::next(I), Segment(End, OldEnd, ValNo));
 }
 
+LiveRange::iterator LiveRange::removeSegment(iterator I, bool RemoveDeadValNo) {
+  VNInfo *ValNo = I->valno;
+  I = segments.erase(I);
+  if (RemoveDeadValNo)
+    removeValNoIfDead(ValNo);
+  return I;
+}
+
+void LiveRange::removeValNoIfDead(VNInfo *ValNo) {
+  if (none_of(*this, [=](const Segment &S) { return S.valno == ValNo; }))
+    markValNoForDeletion(ValNo);
+}
+
 /// removeValNo - Remove all the segments defined by the specified value#.
 /// Also remove the value# from value# list.
 void LiveRange::removeValNo(VNInfo *ValNo) {
   if (empty()) return;
-  segments.erase(remove_if(*this, [ValNo](const Segment &S) {
-    return S.valno == ValNo;
-  }), end());
+  llvm::erase_if(segments,
+                 [ValNo](const Segment &S) { return S.valno == ValNo; });
   // Now that ValNo is dead, remove it.
   markValNoForDeletion(ValNo);
 }
@@ -1019,7 +1020,7 @@ void LiveRange::print(raw_ostream &OS) const {
 
   // Print value number info.
   if (getNumValNums()) {
-    OS << "  ";
+    OS << ' ';
     unsigned vnum = 0;
     for (const_vni_iterator i = vni_begin(), e = vni_end(); i != e;
          ++i, ++vnum) {
@@ -1038,8 +1039,8 @@ void LiveRange::print(raw_ostream &OS) const {
 }
 
 void LiveInterval::SubRange::print(raw_ostream &OS) const {
-  OS << " L" << PrintLaneMask(LaneMask) << ' '
-     << static_cast<const LiveRange&>(*this);
+  OS << "  L" << PrintLaneMask(LaneMask) << ' '
+     << static_cast<const LiveRange &>(*this);
 }
 
 void LiveInterval::print(raw_ostream &OS) const {
@@ -1048,7 +1049,7 @@ void LiveInterval::print(raw_ostream &OS) const {
   // Print subranges
   for (const SubRange &SR : subranges())
     OS << SR;
-  OS << " weight:" << Weight;
+  OS << "  weight:" << Weight;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1336,9 +1337,8 @@ unsigned ConnectedVNInfoEqClasses::Classify(const LiveRange &LR) {
       const MachineBasicBlock *MBB = LIS.getMBBFromIndex(VNI->def);
       assert(MBB && "Phi-def has no defining MBB");
       // Connect to values live out of predecessors.
-      for (MachineBasicBlock::const_pred_iterator PI = MBB->pred_begin(),
-           PE = MBB->pred_end(); PI != PE; ++PI)
-        if (const VNInfo *PVNI = LR.getVNInfoBefore(LIS.getMBBEndIdx(*PI)))
+      for (MachineBasicBlock *Pred : MBB->predecessors())
+        if (const VNInfo *PVNI = LR.getVNInfoBefore(LIS.getMBBEndIdx(Pred)))
           EqClass.join(VNI->id, PVNI->id);
     } else {
       // Normal value defined by an instruction. Check for two-addr redef.
@@ -1361,12 +1361,9 @@ unsigned ConnectedVNInfoEqClasses::Classify(const LiveRange &LR) {
 void ConnectedVNInfoEqClasses::Distribute(LiveInterval &LI, LiveInterval *LIV[],
                                           MachineRegisterInfo &MRI) {
   // Rewrite instructions.
-  for (MachineRegisterInfo::reg_iterator RI = MRI.reg_begin(LI.reg()),
-                                         RE = MRI.reg_end();
-       RI != RE;) {
-    MachineOperand &MO = *RI;
-    MachineInstr *MI = RI->getParent();
-    ++RI;
+  for (MachineOperand &MO :
+       llvm::make_early_inc_range(MRI.reg_operands(LI.reg()))) {
+    MachineInstr *MI = MO.getParent();
     const VNInfo *VNI;
     if (MI->isDebugValue()) {
       // DBG_VALUE instructions don't have slot indexes, so get the index of

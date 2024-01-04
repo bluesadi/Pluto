@@ -73,12 +73,6 @@ namespace llvm {
     None    // Do not use Basic Block Sections.
   };
 
-  enum class StackProtectorGuards {
-    None,
-    TLS,
-    Global
-  };
-
   enum class EABI {
     Unknown,
     Default, // Default means not specified
@@ -100,15 +94,12 @@ namespace llvm {
   /// o if the feature is useful (or not) on a particular platform, regardless
   ///   of the debugger, that's a target decision.
   /// It's not impossible to see both factors in some specific case.
-  ///
-  /// The "tuning" should be used to set defaults for individual feature flags
-  /// in DwarfDebug; if a given feature has a more specific command-line option,
-  /// that option should take precedence over the tuning.
   enum class DebuggerKind {
-    Default,  // No specific tuning requested.
-    GDB,      // Tune debug info for gdb.
-    LLDB,     // Tune debug info for lldb.
-    SCE       // Tune debug info for SCE targets (e.g. PS4).
+    Default, ///< No specific tuning requested.
+    GDB,     ///< Tune debug info for gdb.
+    LLDB,    ///< Tune debug info for lldb.
+    SCE,     ///< Tune debug info for SCE targets (e.g. PS4).
+    DBX      ///< Tune debug info for dbx.
   };
 
   /// Enable abort calls when global instruction selection fails to lower/select
@@ -119,12 +110,23 @@ namespace llvm {
     DisableWithDiag // Disable the abort but emit a diagnostic on failure.
   };
 
+  /// Indicates when and how the Swift async frame pointer bit should be set.
+  enum class SwiftAsyncFramePointerMode {
+    /// Determine whether to set the bit statically or dynamically based
+    /// on the deployment target.
+    DeploymentBased,
+    /// Always set the bit.
+    Always,
+    /// Never set the bit.
+    Never,
+  };
+
   class TargetOptions {
   public:
     TargetOptions()
         : UnsafeFPMath(false), NoInfsFPMath(false), NoNaNsFPMath(false),
           NoTrappingFPMath(true), NoSignedZerosFPMath(false),
-          EnableAIXExtendedAltivecABI(false),
+          ApproxFuncFPMath(false), EnableAIXExtendedAltivecABI(false),
           HonorSignDependentRoundingFPMathOption(false), NoZerosInBSS(false),
           GuaranteedTailCallOpt(false), StackSymbolOrdering(true),
           EnableFastISel(false), EnableGlobalISel(false), UseInitArray(false),
@@ -138,8 +140,9 @@ namespace llvm {
           EnableMachineFunctionSplitter(false), SupportsDefaultOutlining(false),
           EmitAddrsig(false), EmitCallSiteInfo(false),
           SupportsDebugEntryValues(false), EnableDebugEntryValues(false),
-          PseudoProbeForProfiling(false), ValueTrackingVariableLocations(false),
-          ForceDwarfFrameSection(false), XRayOmitFunctionIndex(false),
+          ValueTrackingVariableLocations(false), ForceDwarfFrameSection(false),
+          XRayOmitFunctionIndex(false), DebugStrictDwarf(false),
+          Hotpatch(false),
           FPDenormalMode(DenormalMode::IEEE, DenormalMode::IEEE) {}
 
     /// DisableFramePointerElim - This returns true if frame pointer elimination
@@ -180,9 +183,15 @@ namespace llvm {
     /// argument or result as insignificant.
     unsigned NoSignedZerosFPMath : 1;
 
+    /// ApproxFuncFPMath - This flag is enabled when the
+    /// -enable-approx-func-fp-math is specified on the command line. This
+    /// specifies that optimizations are allowed to substitute math functions
+    /// with approximate calculations
+    unsigned ApproxFuncFPMath : 1;
+
     /// EnableAIXExtendedAltivecABI - This flag returns true when -vec-extabi is
     /// specified. The code generator is then able to use both volatile and
-    /// nonvolitle vector regisers. When false, the code generator only uses
+    /// nonvolitle vector registers. When false, the code generator only uses
     /// volatile vector registers which is the default setting on AIX.
     unsigned EnableAIXExtendedAltivecABI : 1;
 
@@ -209,9 +218,6 @@ namespace llvm {
     /// as their parent function, etc.), using an alternate ABI if necessary.
     unsigned GuaranteedTailCallOpt : 1;
 
-    /// StackAlignmentOverride - Override default stack alignment for target.
-    unsigned StackAlignmentOverride = 0;
-
     /// StackSymbolOrdering - When true, this will allow CodeGen to order
     /// the local stack symbols (for code size, code locality, or any other
     /// heuristics). When false, the local symbols are left in whatever order
@@ -229,6 +235,11 @@ namespace llvm {
     /// EnableGlobalISelAbort - Control abort behaviour when global instruction
     /// selection fails to lower/select an instruction.
     GlobalISelAbortMode GlobalISelAbort = GlobalISelAbortMode::Enable;
+
+    /// Control when and how the Swift async frame pointer bit should
+    /// be set.
+    SwiftAsyncFramePointerMode SwiftAsyncFramePointer =
+        SwiftAsyncFramePointerMode::Always;
 
     /// UseInitArray - Use .init_array instead of .ctors for static
     /// constructors.
@@ -316,9 +327,6 @@ namespace llvm {
     /// production.
     bool ShouldEmitDebugEntryValues() const;
 
-    /// Emit pseudo probes into the binary for sample profiling
-    unsigned PseudoProbeForProfiling : 1;
-
     // When set to true, use experimental new debug variable location tracking,
     // which seeks to follow the values of variables rather than their location,
     // post isel.
@@ -330,15 +338,20 @@ namespace llvm {
     /// Emit XRay Function Index section
     unsigned XRayOmitFunctionIndex : 1;
 
-    /// Stack protector guard offset to use.
-    unsigned StackProtectorGuardOffset : 32;
+    /// When set to true, don't use DWARF extensions in later DWARF versions.
+    /// By default, it is set to false.
+    unsigned DebugStrictDwarf : 1;
 
-    /// Stack protector guard mode to use, e.g. tls, global.
-    StackProtectorGuards StackProtectorGuard =
-                                         StackProtectorGuards::None;
+    /// Emit the hotpatch flag in CodeView debug.
+    unsigned Hotpatch : 1;
 
-    /// Stack protector guard reg to use, e.g. usually fs or gs in X86.
-    std::string StackProtectorGuardReg = "None";
+    /// Name of the stack usage file (i.e., .su file) if user passes
+    /// -fstack-usage. If empty, it can be implied that -fstack-usage is not
+    /// passed on the command line.
+    std::string StackUsageOutput;
+
+    /// If greater than 0, override TargetLoweringBase::PrefLoopAlignment.
+    unsigned LoopAlignment = 0;
 
     /// FloatABIType - This setting is set by -float-abi=xxx option is specfied
     /// on the command line. This setting may either be Default, Soft, or Hard.
@@ -348,7 +361,7 @@ namespace llvm {
     /// arm-apple-darwin). Hard presumes that the normal FP ABI is used.
     FloatABI::ABIType FloatABIType = FloatABI::Default;
 
-    /// AllowFPOpFusion - This flag is set by the -fuse-fp-ops=xxx option.
+    /// AllowFPOpFusion - This flag is set by the -fp-contract=xxx option.
     /// This controls the creation of fused FP ops that store intermediate
     /// results in higher precision than IEEE allows (E.g. FMAs).
     ///
@@ -408,6 +421,11 @@ namespace llvm {
 
     /// Machine level options.
     MCTargetOptions MCOptions;
+
+    /// Stores the filename/path of the final .o/.obj file, to be written in the
+    /// debug information. This is used for emitting the CodeView S_OBJNAME
+    /// record.
+    std::string ObjectFilenameForDebug;
   };
 
 } // End llvm namespace

@@ -18,8 +18,6 @@ include "llvm/IR/Intrinsics.td"
 // Register file description - These classes are used to fill in the target
 // description classes.
 
-class RegisterClass; // Forward def
-
 class HwMode<string FS> {
   // A string representing subtarget features that turn on this HW mode.
   // For example, "+feat1,-feat2" will indicate that the mode is active
@@ -168,8 +166,15 @@ class Register<string n, list<string> altNames = []> {
   // minimize the number of instructions using a register with a CostPerUse.
   // This is used by the ARC target, by the ARM Thumb and x86-64 targets, where
   // some registers require larger instruction encodings, by the RISC-V target,
-  // where some registers preclude using some C instructions.
-  int CostPerUse = 0;
+  // where some registers preclude using some C instructions. By making it a
+  // list, targets can have multiple cost models associated with each register
+  // and can choose one specific cost model per Machine Function by overriding
+  // TargetRegisterInfo::getRegisterCostTableIndex. Every target register will
+  // finally have an equal number of cost values which is the max of costPerUse
+  // values specified. Any mismatch in the cost values for a register will be
+  // filled with zeros. Restricted the cost type to uint8_t in the
+  // generated table. It will considerably reduce the table size.
+  list<int> CostPerUse = [0];
 
   // CoveredBySubRegs - When this bit is set, the value of this register is
   // completely determined by the value of its sub-registers.  For example, the
@@ -301,6 +306,9 @@ class RegisterClass<string namespace, list<ValueType> regTypes, int alignment,
   // the assembly matcher will provide a function to map from diagnostic types
   // to message strings.
   string DiagnosticString = "";
+
+  // Target-specific flags. This becomes the TSFlags field in TargetRegisterClass.
+  bits<8> TSFlags = 0;
 }
 
 // The memberList in a RegisterClass is a dag of set operations. TableGen
@@ -632,11 +640,38 @@ class Instruction : InstructionEncoding {
   /// by TableGen.
   bit UseNamedOperandTable = false;
 
+  /// Should generate helper functions that help you to map a logical operand's
+  /// index to the underlying MIOperand's index.
+  /// In most architectures logical operand indicies are equal to
+  /// MIOperand indicies, but for some CISC architectures, a logical operand
+  /// might be consist of multiple MIOperand (e.g. a logical operand that
+  /// uses complex address mode).
+  bit UseLogicalOperandMappings = false;
+
   /// Should FastISel ignore this instruction. For certain ISAs, they have
   /// instructions which map to the same ISD Opcode, value type operands and
   /// instruction selection predicates. FastISel cannot handle such cases, but
   /// SelectionDAG can.
   bit FastISelShouldIgnore = false;
+
+  /// HasPositionOrder: Indicate tablegen to sort the instructions by record
+  /// ID, so that instruction that is defined earlier can be sorted earlier
+  /// in the assembly matching table.
+  bit HasPositionOrder = false;
+}
+
+/// Defines a Pat match between compressed and uncompressed instruction.
+/// The relationship and helper function generation are handled by
+/// CompressInstEmitter backend.
+class CompressPat<dag input, dag output, list<Predicate> predicates = []> {
+  /// Uncompressed instruction description.
+  dag Input = input;
+  /// Compressed instruction description.
+  dag Output = output;
+  /// Predicates that must be true for this to match.
+  list<Predicate> Predicates = predicates;
+  /// Duplicate match when tied operand is just different.
+  bit isCompressOnly = false;
 }
 
 /// Defines an additional encoding that disassembles to the given instruction
@@ -958,7 +993,7 @@ class InstrInfo {
   // by default, and TableGen will infer their value from the instruction
   // pattern when possible.
   //
-  // Normally, TableGen will issue an error it it can't infer the value of a
+  // Normally, TableGen will issue an error if it can't infer the value of a
   // property that hasn't been set explicitly. When guessInstructionProperties
   // is set, it will guess a safe value instead.
   //
@@ -1100,11 +1135,23 @@ def DBG_VALUE : StandardPseudoInstruction {
   let AsmString = "DBG_VALUE";
   let hasSideEffects = false;
 }
+def DBG_VALUE_LIST : StandardPseudoInstruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins variable_ops);
+  let AsmString = "DBG_VALUE_LIST";
+  let hasSideEffects = 0;
+}
 def DBG_INSTR_REF : StandardPseudoInstruction {
   let OutOperandList = (outs);
   let InOperandList = (ins variable_ops);
   let AsmString = "DBG_INSTR_REF";
   let hasSideEffects = false;
+}
+def DBG_PHI : StandardPseudoInstruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins variable_ops);
+  let AsmString = "DBG_PHI";
+  let hasSideEffects = 0;
 }
 def DBG_LABEL : StandardPseudoInstruction {
   let OutOperandList = (outs);
@@ -1150,6 +1197,13 @@ def PSEUDO_PROBE : StandardPseudoInstruction {
   let InOperandList = (ins i64imm:$guid, i64imm:$index, i8imm:$type, i32imm:$attr);
   let AsmString = "PSEUDO_PROBE";
   let hasSideEffects = 1;
+}
+def ARITH_FENCE : StandardPseudoInstruction {
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins unknown:$src);
+  let AsmString = "";
+  let hasSideEffects = false;
+  let Constraints = "$src = $dst";
 }
 
 def STACKMAP : StandardPseudoInstruction {

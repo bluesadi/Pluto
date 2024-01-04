@@ -75,6 +75,7 @@ executable("clang") {
     "//llvm/lib/Transforms/Utils",
     "//llvm/lib/Transforms/Vectorize",
   ]
+  assert_no_deps = [ "//llvm/lib/Debuginfod" ]
   if (host_os == "mac") {
     deps += [ ":write_info_plist" ]
     plist = get_target_outputs(":write_info_plist")
@@ -86,7 +87,7 @@ executable("clang") {
     # clang.  This is different from the CMake build, which requires devs to
     # explicitly build the "libcxx" target (which also needlessly compiles the
     # libcxx sources) to get a working compiler.
-    deps += [ "//libcxx/include" ]
+    deps += [ "//libcxx/include:copy_headers" ]
   }
   sources = [
     "cc1_main.cpp",

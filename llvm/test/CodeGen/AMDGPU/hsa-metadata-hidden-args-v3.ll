@@ -1,6 +1,6 @@
-; RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx700 -filetype=obj -o - < %s | llvm-readelf --notes - | FileCheck --check-prefix=CHECK %s
-; RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx803 -filetype=obj -o - < %s | llvm-readelf --notes - | FileCheck --check-prefix=CHECK %s
-; RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx900 -filetype=obj -o - < %s | llvm-readelf --notes - | FileCheck --check-prefix=CHECK %s
+; RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx700 --amdhsa-code-object-version=3 -filetype=obj -o - < %s | llvm-readelf --notes - | FileCheck --check-prefix=CHECK %s
+; RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx803 --amdhsa-code-object-version=3 -filetype=obj -o - < %s | llvm-readelf --notes - | FileCheck --check-prefix=CHECK %s
+; RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx900 --amdhsa-code-object-version=3 -filetype=obj -o - < %s | llvm-readelf --notes - | FileCheck --check-prefix=CHECK %s
 
 ; CHECK:              ---
 ; CHECK:      amdhsa.kernels:
@@ -296,9 +296,11 @@ entry:
 ; CHECK-NEXT: - 1
 ; CHECK-NEXT: - 0
 
-attributes #0 = { "amdgpu-implicitarg-num-bytes"="8" }
-attributes #1 = { "amdgpu-implicitarg-num-bytes"="16" }
-attributes #2 = { "amdgpu-implicitarg-num-bytes"="24" }
-attributes #3 = { "amdgpu-implicitarg-num-bytes"="32" }
-attributes #4 = { "amdgpu-implicitarg-num-bytes"="48" }
-attributes #5 = { "amdgpu-implicitarg-num-bytes"="56" }
+; We don't have a use of llvm.amdgcn.implicitarg.ptr, so optnone to
+; avoid optimizing out the implicit argument allocation.
+attributes #0 = { optnone noinline "amdgpu-implicitarg-num-bytes"="8" }
+attributes #1 = { optnone noinline "amdgpu-implicitarg-num-bytes"="16" }
+attributes #2 = { optnone noinline "amdgpu-implicitarg-num-bytes"="24" }
+attributes #3 = { optnone noinline "amdgpu-implicitarg-num-bytes"="32" }
+attributes #4 = { optnone noinline "amdgpu-implicitarg-num-bytes"="48" }
+attributes #5 = { optnone noinline "amdgpu-implicitarg-num-bytes"="56" }

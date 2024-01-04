@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/GCMetadata.h"
-#include "llvm/CodeGen/GCStrategy.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -86,6 +85,7 @@ INITIALIZE_PASS_END(LowerIntrinsics, "gc-lowering", "GC Lowering", false, false)
 FunctionPass *llvm::createGCLoweringPass() { return new LowerIntrinsics(); }
 
 char LowerIntrinsics::ID = 0;
+char &llvm::GCLoweringID = LowerIntrinsics::ID;
 
 LowerIntrinsics::LowerIntrinsics() : FunctionPass(ID) {
   initializeLowerIntrinsicsPass(*PassRegistry::getPassRegistry());
@@ -105,9 +105,9 @@ void LowerIntrinsics::getAnalysisUsage(AnalysisUsage &AU) const {
 bool LowerIntrinsics::doInitialization(Module &M) {
   GCModuleInfo *MI = getAnalysisIfAvailable<GCModuleInfo>();
   assert(MI && "LowerIntrinsics didn't require GCModuleInfo!?");
-  for (Module::iterator I = M.begin(), E = M.end(); I != E; ++I)
-    if (!I->isDeclaration() && I->hasGC())
-      MI->getFunctionInfo(*I); // Instantiate the GC strategy.
+  for (Function &F : M)
+    if (!F.isDeclaration() && F.hasGC())
+      MI->getFunctionInfo(F); // Instantiate the GC strategy.
 
   return false;
 }
@@ -193,8 +193,8 @@ bool LowerIntrinsics::DoLowering(Function &F, GCStrategy &S) {
 
   bool MadeChange = false;
   for (BasicBlock &BB : F)
-    for (BasicBlock::iterator II = BB.begin(), E = BB.end(); II != E;) {
-      IntrinsicInst *CI = dyn_cast<IntrinsicInst>(II++);
+    for (Instruction &I : llvm::make_early_inc_range(BB)) {
+      IntrinsicInst *CI = dyn_cast<IntrinsicInst>(&I);
       if (!CI)
         continue;
 
@@ -271,16 +271,15 @@ void GCMachineCodeAnalysis::VisitCallPoint(MachineBasicBlock::iterator CI) {
 
 void GCMachineCodeAnalysis::FindSafePoints(MachineFunction &MF) {
   for (MachineBasicBlock &MBB : MF)
-    for (MachineBasicBlock::iterator MI = MBB.begin(), ME = MBB.end();
-         MI != ME; ++MI)
-      if (MI->isCall()) {
+    for (MachineInstr &MI : MBB)
+      if (MI.isCall()) {
         // Do not treat tail or sibling call sites as safe points.  This is
         // legal since any arguments passed to the callee which live in the
         // remnants of the callers frame will be owned and updated by the
         // callee if required.
-        if (MI->isTerminator())
+        if (MI.isTerminator())
           continue;
-        VisitCallPoint(MI);
+        VisitCallPoint(&MI);
       }
 }
 
@@ -317,8 +316,8 @@ bool GCMachineCodeAnalysis::runOnMachineFunction(MachineFunction &MF) {
   // size, we use UINT64_MAX to represent this.
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   const TargetRegisterInfo *RegInfo = MF.getSubtarget().getRegisterInfo();
-  const bool DynamicFrameSize = MFI.hasVarSizedObjects() ||
-    RegInfo->needsStackRealignment(MF);
+  const bool DynamicFrameSize =
+      MFI.hasVarSizedObjects() || RegInfo->hasStackRealignment(MF);
   FI->setFrameSize(DynamicFrameSize ? UINT64_MAX : MFI.getStackSize());
 
   // Find all safe points.

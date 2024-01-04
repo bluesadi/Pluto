@@ -1,17 +1,15 @@
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/Pass.h"
+#pragma once
 
-namespace llvm {
+#include "llvm/Passes/PassBuilder.h"
 
-class MBAObfuscation : public FunctionPass {
-public:
-    static char ID;
-    bool enable;
+using namespace llvm;
 
-    MBAObfuscation(bool enable) : FunctionPass(ID) { this->enable = enable; }
+namespace Pluto {
 
-    bool runOnFunction(Function &F);
+struct MbaObfuscation : PassInfoMixin<MbaObfuscation> {
+    PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+
+    static bool isRequired() { return true; }
 
     void substituteConstant(Instruction *I, int i);
 
@@ -33,5 +31,4 @@ public:
     Value *substituteXor(BinaryOperator *BI);
 };
 
-FunctionPass *createMBAObfuscationPass(bool enable);
-} // namespace llvm
+}; // namespace Pluto

@@ -51,6 +51,14 @@ AArch64AppleInstPrinter::AArch64AppleInstPrinter(const MCAsmInfo &MAI,
                                                  const MCRegisterInfo &MRI)
     : AArch64InstPrinter(MAI, MII, MRI) {}
 
+bool AArch64InstPrinter::applyTargetSpecificCLOption(StringRef Opt) {
+  if (Opt == "no-aliases") {
+    PrintAliases = false;
+    return true;
+  }
+  return false;
+}
+
 void AArch64InstPrinter::printRegName(raw_ostream &OS, unsigned RegNo) const {
   // This is for .cfi directives.
   OS << getRegisterName(RegNo);
@@ -296,7 +304,7 @@ void AArch64InstPrinter::printInst(const MCInst *MI, uint64_t Address,
     return;
   }
 
-  if (!printAliasInstr(MI, Address, STI, O))
+  if (!PrintAliases || !printAliasInstr(MI, Address, STI, O))
     printInstruction(MI, Address, STI, O);
 
   printAnnotation(O, Annot);
@@ -872,6 +880,70 @@ bool AArch64InstPrinter::printSysAlias(const MCInst *MI,
   return true;
 }
 
+template <int EltSize>
+void AArch64InstPrinter::printMatrix(const MCInst *MI, unsigned OpNum,
+                                     const MCSubtargetInfo &STI,
+                                     raw_ostream &O) {
+  const MCOperand &RegOp = MI->getOperand(OpNum);
+  assert(RegOp.isReg() && "Unexpected operand type!");
+
+  O << getRegisterName(RegOp.getReg());
+  switch (EltSize) {
+  case 0:
+    break;
+  case 8:
+    O << ".b";
+    break;
+  case 16:
+    O << ".h";
+    break;
+  case 32:
+    O << ".s";
+    break;
+  case 64:
+    O << ".d";
+    break;
+  case 128:
+    O << ".q";
+    break;
+  default:
+    llvm_unreachable("Unsupported element size");
+  }
+}
+
+template <bool IsVertical>
+void AArch64InstPrinter::printMatrixTileVector(const MCInst *MI, unsigned OpNum,
+                                               const MCSubtargetInfo &STI,
+                                               raw_ostream &O) {
+  const MCOperand &RegOp = MI->getOperand(OpNum);
+  assert(RegOp.isReg() && "Unexpected operand type!");
+  StringRef RegName = getRegisterName(RegOp.getReg());
+
+  // Insert the horizontal/vertical flag before the suffix.
+  StringRef Base, Suffix;
+  std::tie(Base, Suffix) = RegName.split('.');
+  O << Base << (IsVertical ? "v" : "h") << '.' << Suffix;
+}
+
+void AArch64InstPrinter::printMatrixTile(const MCInst *MI, unsigned OpNum,
+                                         const MCSubtargetInfo &STI,
+                                         raw_ostream &O) {
+  const MCOperand &RegOp = MI->getOperand(OpNum);
+  assert(RegOp.isReg() && "Unexpected operand type!");
+  O << getRegisterName(RegOp.getReg());
+}
+
+void AArch64InstPrinter::printSVCROp(const MCInst *MI, unsigned OpNum,
+                                     const MCSubtargetInfo &STI,
+                                     raw_ostream &O) {
+  const MCOperand &MO = MI->getOperand(OpNum);
+  assert(MO.isImm() && "Unexpected operand type!");
+  unsigned svcrop = MO.getImm();
+  const auto *SVCR = AArch64SVCR::lookupSVCRByEncoding(svcrop);
+  assert(SVCR && "Unexpected SVCR operand!");
+  O << SVCR->Name;
+}
+
 void AArch64InstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
                                       const MCSubtargetInfo &STI,
                                       raw_ostream &O) {
@@ -954,11 +1026,11 @@ void AArch64InstPrinter::printAddSubImm(const MCInst *MI, unsigned OpNum,
     unsigned Shift =
         AArch64_AM::getShiftValue(MI->getOperand(OpNum + 1).getImm());
     O << '#' << formatImm(Val);
-    if (Shift != 0)
+    if (Shift != 0) {
       printShifter(MI, OpNum + 1, STI, O);
-
-    if (CommentStream)
-      *CommentStream << '=' << formatImm(Val << Shift) << '\n';
+      if (CommentStream)
+        *CommentStream << '=' << formatImm(Val << Shift) << '\n';
+    }
   } else {
     assert(MO.isExpr() && "Unexpected operand type!");
     MO.getExpr()->print(O, &MAI);
@@ -1152,7 +1224,7 @@ void AArch64InstPrinter::printPSBHintOp(const MCInst *MI, unsigned OpNum,
 void AArch64InstPrinter::printBTIHintOp(const MCInst *MI, unsigned OpNum,
                                         const MCSubtargetInfo &STI,
                                         raw_ostream &O) {
-  unsigned btihintop = (MI->getOperand(OpNum).getImm() ^ 32) >> 1;
+  unsigned btihintop = MI->getOperand(OpNum).getImm() ^ 32;
   auto BTI = AArch64BTIHint::lookupBTIByEncoding(btihintop);
   if (BTI)
     O << BTI->Name;
@@ -1164,8 +1236,8 @@ void AArch64InstPrinter::printFPImmOperand(const MCInst *MI, unsigned OpNum,
                                            const MCSubtargetInfo &STI,
                                            raw_ostream &O) {
   const MCOperand &MO = MI->getOperand(OpNum);
-  float FPImm =
-      MO.isFPImm() ? MO.getFPImm() : AArch64_AM::getFPImmFloat(MO.getImm());
+  float FPImm = MO.isDFPImm() ? bit_cast<double>(MO.getDFPImm())
+                              : AArch64_AM::getFPImmFloat(MO.getImm());
 
   // 8 decimal places are enough to perfectly represent permitted floats.
   O << format("#%.8f", FPImm);
@@ -1268,6 +1340,36 @@ void AArch64InstPrinter::printGPRSeqPairsClassOperand(const MCInst *MI,
   O << getRegisterName(Even) << ", " << getRegisterName(Odd);
 }
 
+static const unsigned MatrixZADRegisterTable[] = {
+  AArch64::ZAD0, AArch64::ZAD1, AArch64::ZAD2, AArch64::ZAD3,
+  AArch64::ZAD4, AArch64::ZAD5, AArch64::ZAD6, AArch64::ZAD7
+};
+
+void AArch64InstPrinter::printMatrixTileList(const MCInst *MI, unsigned OpNum,
+                                             const MCSubtargetInfo &STI,
+                                             raw_ostream &O) {
+  unsigned MaxRegs = 8;
+  unsigned RegMask = MI->getOperand(OpNum).getImm();
+
+  unsigned NumRegs = 0;
+  for (unsigned I = 0; I < MaxRegs; ++I)
+    if ((RegMask & (1 << I)) != 0)
+      ++NumRegs;
+
+  O << "{";
+  unsigned Printed = 0;
+  for (unsigned I = 0; I < MaxRegs; ++I) {
+    unsigned Reg = RegMask & (1 << I);
+    if (Reg == 0)
+      continue;
+    O << getRegisterName(MatrixZADRegisterTable[I]);
+    if (Printed + 1 != NumRegs)
+      O << ", ";
+    ++Printed;
+  }
+  O << "}";
+}
+
 void AArch64InstPrinter::printVectorList(const MCInst *MI, unsigned OpNum,
                                          const MCSubtargetInfo &STI,
                                          raw_ostream &O,
@@ -1346,6 +1448,12 @@ void AArch64InstPrinter::printVectorIndex(const MCInst *MI, unsigned OpNum,
                                           const MCSubtargetInfo &STI,
                                           raw_ostream &O) {
   O << "[" << MI->getOperand(OpNum).getImm() << "]";
+}
+
+void AArch64InstPrinter::printMatrixIndex(const MCInst *MI, unsigned OpNum,
+                                          const MCSubtargetInfo &STI,
+                                          raw_ostream &O) {
+  O << MI->getOperand(OpNum).getImm();
 }
 
 void AArch64InstPrinter::printAlignedLabel(const MCInst *MI, uint64_t Address,
@@ -1437,6 +1545,28 @@ void AArch64InstPrinter::printBarriernXSOption(const MCInst *MI, unsigned OpNo,
     O << "#" << Val;
 }
 
+static bool isValidSysReg(const AArch64SysReg::SysReg *Reg, bool Read,
+                          const MCSubtargetInfo &STI) {
+  return (Reg && (Read ? Reg->Readable : Reg->Writeable) &&
+          Reg->haveFeatures(STI.getFeatureBits()));
+}
+
+// Looks up a system register either by encoding or by name. Some system
+// registers share the same encoding between different architectures,
+// therefore a tablegen lookup by encoding will return an entry regardless
+// of the register's predication on a specific subtarget feature. To work
+// around this problem we keep an alternative name for such registers and
+// look them up by that name if the first lookup was unsuccessful.
+static const AArch64SysReg::SysReg *lookupSysReg(unsigned Val, bool Read,
+                                                 const MCSubtargetInfo &STI) {
+  const AArch64SysReg::SysReg *Reg = AArch64SysReg::lookupSysRegByEncoding(Val);
+
+  if (Reg && !isValidSysReg(Reg, Read, STI))
+    Reg = AArch64SysReg::lookupSysRegByName(Reg->AltName);
+
+  return Reg;
+}
+
 void AArch64InstPrinter::printMRSSystemRegister(const MCInst *MI, unsigned OpNo,
                                                 const MCSubtargetInfo &STI,
                                                 raw_ostream &O) {
@@ -1456,8 +1586,9 @@ void AArch64InstPrinter::printMRSSystemRegister(const MCInst *MI, unsigned OpNo,
     return;
   }
 
-  const AArch64SysReg::SysReg *Reg = AArch64SysReg::lookupSysRegByEncoding(Val);
-  if (Reg && Reg->Readable && Reg->haveFeatures(STI.getFeatureBits()))
+  const AArch64SysReg::SysReg *Reg = lookupSysReg(Val, true /*Read*/, STI);
+
+  if (isValidSysReg(Reg, true /*Read*/, STI))
     O << Reg->Name;
   else
     O << AArch64SysReg::genericRegisterString(Val);
@@ -1482,8 +1613,9 @@ void AArch64InstPrinter::printMSRSystemRegister(const MCInst *MI, unsigned OpNo,
     return;
   }
 
-  const AArch64SysReg::SysReg *Reg = AArch64SysReg::lookupSysRegByEncoding(Val);
-  if (Reg && Reg->Writeable && Reg->haveFeatures(STI.getFeatureBits()))
+  const AArch64SysReg::SysReg *Reg = lookupSysReg(Val, false /*Read*/, STI);
+
+  if (isValidSysReg(Reg, false /*Read*/, STI))
     O << Reg->Name;
   else
     O << AArch64SysReg::genericRegisterString(Val);

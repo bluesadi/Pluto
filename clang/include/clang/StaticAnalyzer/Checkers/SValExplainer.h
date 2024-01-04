@@ -32,7 +32,7 @@ private:
     std::string Str;
     llvm::raw_string_ostream OS(Str);
     S->printPretty(OS, nullptr, PrintingPolicy(ACtx.getLangOpts()));
-    return OS.str();
+    return Str;
   }
 
   bool isThisObject(const SymbolicRegion *R) {
@@ -65,11 +65,11 @@ public:
   }
 
   std::string VisitLocConcreteInt(loc::ConcreteInt V) {
-    llvm::APSInt I = V.getValue();
+    const llvm::APSInt &I = V.getValue();
     std::string Str;
     llvm::raw_string_ostream OS(Str);
     OS << "concrete memory address '" << I << "'";
-    return OS.str();
+    return Str;
   }
 
   std::string VisitNonLocSymbolVal(nonloc::SymbolVal V) {
@@ -77,12 +77,12 @@ public:
   }
 
   std::string VisitNonLocConcreteInt(nonloc::ConcreteInt V) {
-    llvm::APSInt I = V.getValue();
+    const llvm::APSInt &I = V.getValue();
     std::string Str;
     llvm::raw_string_ostream OS(Str);
     OS << (I.isSigned() ? "signed " : "unsigned ") << I.getBitWidth()
        << "-bit integer '" << I << "'";
-    return OS.str();
+    return Str;
   }
 
   std::string VisitNonLocLazyCompoundVal(nonloc::LazyCompoundVal V) {
@@ -123,7 +123,7 @@ public:
     OS << "(" << Visit(S->getLHS()) << ") "
        << std::string(BinaryOperator::getOpcodeStr(S->getOpcode())) << " "
        << S->getRHS();
-    return OS.str();
+    return Str;
   }
 
   // TODO: IntSymExpr doesn't appear in practice.
@@ -177,7 +177,7 @@ public:
     else
       OS << "'" << Visit(R->getIndex()) << "'";
     OS << " of " + Visit(R->getSuperRegion());
-    return OS.str();
+    return Str;
   }
 
   std::string VisitNonParamVarRegion(const NonParamVarRegion *R) {

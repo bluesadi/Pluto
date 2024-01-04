@@ -312,8 +312,8 @@ bool StraightLineStrengthReduce::isFoldable(const Candidate &C,
 // Returns true if GEP has zero or one non-zero index.
 static bool hasOnlyOneNonZeroIndex(GetElementPtrInst *GEP) {
   unsigned NumNonZeroIndices = 0;
-  for (auto I = GEP->idx_begin(); I != GEP->idx_end(); ++I) {
-    ConstantInt *ConstIdx = dyn_cast<ConstantInt>(*I);
+  for (Use &Idx : GEP->indices()) {
+    ConstantInt *ConstIdx = dyn_cast<ConstantInt>(Idx);
     if (ConstIdx == nullptr || !ConstIdx->isZero())
       ++NumNonZeroIndices;
   }
@@ -533,8 +533,8 @@ void StraightLineStrengthReduce::allocateCandidatesAndFindBasisForGEP(
     return;
 
   SmallVector<const SCEV *, 4> IndexExprs;
-  for (auto I = GEP->idx_begin(); I != GEP->idx_end(); ++I)
-    IndexExprs.push_back(SE->getSCEV(*I));
+  for (Use &Idx : GEP->indices())
+    IndexExprs.push_back(SE->getSCEV(Idx));
 
   gep_type_iterator GTI = gep_type_begin(GEP);
   for (unsigned I = 1, E = GEP->getNumOperands(); I != E; ++I, ++GTI) {
@@ -607,7 +607,7 @@ Value *StraightLineStrengthReduce::emitBump(const Candidate &Basis,
   if (IndexOffset == 1)
     return C.Stride;
   // Common case 2: if (i' - i) is -1, Bump = -S.
-  if (IndexOffset.isAllOnesValue())
+  if (IndexOffset.isAllOnes())
     return Builder.CreateNeg(C.Stride);
 
   // Otherwise, Bump = (i' - i) * sext/trunc(S). Note that (i' - i) and S may
@@ -620,7 +620,7 @@ Value *StraightLineStrengthReduce::emitBump(const Candidate &Basis,
     ConstantInt *Exponent = ConstantInt::get(DeltaType, IndexOffset.logBase2());
     return Builder.CreateShl(ExtendedStride, Exponent);
   }
-  if ((-IndexOffset).isPowerOf2()) {
+  if (IndexOffset.isNegatedPowerOf2()) {
     // If (i - i') is a power of 2, Bump = -sext/trunc(S) << log(i' - i).
     ConstantInt *Exponent =
         ConstantInt::get(DeltaType, (-IndexOffset).logBase2());

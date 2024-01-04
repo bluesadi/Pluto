@@ -7,12 +7,20 @@
 /// \file
 //===----------------------------------------------------------------------===//
 
-#include "llvm/MC/MCInstrDesc.h"
-
 #ifndef LLVM_LIB_TARGET_AMDGPU_SIDEFINES_H
 #define LLVM_LIB_TARGET_AMDGPU_SIDEFINES_H
 
+#include "llvm/MC/MCInstrDesc.h"
+
 namespace llvm {
+
+// This needs to be kept in sync with the field bits in SIRegisterClass.
+enum SIRCFlags : uint8_t {
+  // For vector registers.
+  HasVGPR = 1 << 0,
+  HasAGPR = 1 << 1,
+  HasSGPR = 1 << 2
+}; // enum SIRCFlags
 
 namespace SIInstrFlags {
 // This needs to be kept in sync with the field bits in InstSI.
@@ -91,7 +99,7 @@ enum : uint64_t {
   D16Buf = UINT64_C(1) << 50,
 
   // FLAT instruction accesses FLAT_GLBL segment.
-  IsFlatGlobal = UINT64_C(1) << 51,
+  FlatGlobal = UINT64_C(1) << 51,
 
   // Uses floating point double precision rounding mode
   FPDPRounding = UINT64_C(1) << 52,
@@ -106,7 +114,13 @@ enum : uint64_t {
   IsDOT = UINT64_C(1) << 55,
 
   // FLAT instruction accesses FLAT_SCRATCH segment.
-  IsFlatScratch = UINT64_C(1) << 56
+  FlatScratch = UINT64_C(1) << 56,
+
+  // Atomic without return.
+  IsAtomicNoRet = UINT64_C(1) << 57,
+
+  // Atomic with return.
+  IsAtomicRet = UINT64_C(1) << 58
 };
 
 // v_cmp_class_* etc. use a 10-bit mask for what operation is checked.
@@ -126,57 +140,67 @@ enum ClassFlags : unsigned {
 }
 
 namespace AMDGPU {
-  enum OperandType : unsigned {
-    /// Operands with register or 32-bit immediate
-    OPERAND_REG_IMM_INT32 = MCOI::OPERAND_FIRST_TARGET,
-    OPERAND_REG_IMM_INT64,
-    OPERAND_REG_IMM_INT16,
-    OPERAND_REG_IMM_FP32,
-    OPERAND_REG_IMM_FP64,
-    OPERAND_REG_IMM_FP16,
-    OPERAND_REG_IMM_V2FP16,
-    OPERAND_REG_IMM_V2INT16,
+enum OperandType : unsigned {
+  /// Operands with register or 32-bit immediate
+  OPERAND_REG_IMM_INT32 = MCOI::OPERAND_FIRST_TARGET,
+  OPERAND_REG_IMM_INT64,
+  OPERAND_REG_IMM_INT16,
+  OPERAND_REG_IMM_FP32,
+  OPERAND_REG_IMM_FP64,
+  OPERAND_REG_IMM_FP16,
+  OPERAND_REG_IMM_FP16_DEFERRED,
+  OPERAND_REG_IMM_FP32_DEFERRED,
+  OPERAND_REG_IMM_V2FP16,
+  OPERAND_REG_IMM_V2INT16,
+  OPERAND_REG_IMM_V2INT32,
+  OPERAND_REG_IMM_V2FP32,
 
-    /// Operands with register or inline constant
-    OPERAND_REG_INLINE_C_INT16,
-    OPERAND_REG_INLINE_C_INT32,
-    OPERAND_REG_INLINE_C_INT64,
-    OPERAND_REG_INLINE_C_FP16,
-    OPERAND_REG_INLINE_C_FP32,
-    OPERAND_REG_INLINE_C_FP64,
-    OPERAND_REG_INLINE_C_V2FP16,
-    OPERAND_REG_INLINE_C_V2INT16,
+  /// Operands with register or inline constant
+  OPERAND_REG_INLINE_C_INT16,
+  OPERAND_REG_INLINE_C_INT32,
+  OPERAND_REG_INLINE_C_INT64,
+  OPERAND_REG_INLINE_C_FP16,
+  OPERAND_REG_INLINE_C_FP32,
+  OPERAND_REG_INLINE_C_FP64,
+  OPERAND_REG_INLINE_C_V2INT16,
+  OPERAND_REG_INLINE_C_V2FP16,
+  OPERAND_REG_INLINE_C_V2INT32,
+  OPERAND_REG_INLINE_C_V2FP32,
 
-    /// Operands with an AccVGPR register or inline constant
-    OPERAND_REG_INLINE_AC_INT16,
-    OPERAND_REG_INLINE_AC_INT32,
-    OPERAND_REG_INLINE_AC_FP16,
-    OPERAND_REG_INLINE_AC_FP32,
-    OPERAND_REG_INLINE_AC_V2FP16,
-    OPERAND_REG_INLINE_AC_V2INT16,
+  /// Operand with 32-bit immediate that uses the constant bus.
+  OPERAND_KIMM32,
+  OPERAND_KIMM16,
 
-    OPERAND_REG_IMM_FIRST = OPERAND_REG_IMM_INT32,
-    OPERAND_REG_IMM_LAST = OPERAND_REG_IMM_V2INT16,
+  /// Operands with an AccVGPR register or inline constant
+  OPERAND_REG_INLINE_AC_INT16,
+  OPERAND_REG_INLINE_AC_INT32,
+  OPERAND_REG_INLINE_AC_FP16,
+  OPERAND_REG_INLINE_AC_FP32,
+  OPERAND_REG_INLINE_AC_FP64,
+  OPERAND_REG_INLINE_AC_V2INT16,
+  OPERAND_REG_INLINE_AC_V2FP16,
+  OPERAND_REG_INLINE_AC_V2INT32,
+  OPERAND_REG_INLINE_AC_V2FP32,
 
-    OPERAND_REG_INLINE_C_FIRST = OPERAND_REG_INLINE_C_INT16,
-    OPERAND_REG_INLINE_C_LAST = OPERAND_REG_INLINE_AC_V2INT16,
+  OPERAND_REG_IMM_FIRST = OPERAND_REG_IMM_INT32,
+  OPERAND_REG_IMM_LAST = OPERAND_REG_IMM_V2FP32,
 
-    OPERAND_REG_INLINE_AC_FIRST = OPERAND_REG_INLINE_AC_INT16,
-    OPERAND_REG_INLINE_AC_LAST = OPERAND_REG_INLINE_AC_V2INT16,
+  OPERAND_REG_INLINE_C_FIRST = OPERAND_REG_INLINE_C_INT16,
+  OPERAND_REG_INLINE_C_LAST = OPERAND_REG_INLINE_AC_V2FP32,
 
-    OPERAND_SRC_FIRST = OPERAND_REG_IMM_INT32,
-    OPERAND_SRC_LAST = OPERAND_REG_INLINE_C_LAST,
+  OPERAND_REG_INLINE_AC_FIRST = OPERAND_REG_INLINE_AC_INT16,
+  OPERAND_REG_INLINE_AC_LAST = OPERAND_REG_INLINE_AC_V2FP32,
 
-    // Operand for source modifiers for VOP instructions
-    OPERAND_INPUT_MODS,
+  OPERAND_SRC_FIRST = OPERAND_REG_IMM_INT32,
+  OPERAND_SRC_LAST = OPERAND_REG_INLINE_C_LAST,
 
-    // Operand for SDWA instructions
-    OPERAND_SDWA_VOPC_DST,
+  // Operand for source modifiers for VOP instructions
+  OPERAND_INPUT_MODS,
 
-    /// Operand with 32-bit immediate that uses the constant bus.
-    OPERAND_KIMM32,
-    OPERAND_KIMM16
-  };
+  // Operand for SDWA instructions
+  OPERAND_SDWA_VOPC_DST
+
+};
 }
 
 // Input operand modifiers bit-masks
@@ -263,15 +287,33 @@ enum : unsigned {
 } // namespace AMDGPU
 
 namespace AMDGPU {
+namespace CPol {
+
+enum CPol {
+  GLC = 1,
+  SLC = 2,
+  DLC = 4,
+  SCC = 16,
+  ALL = GLC | SLC | DLC | SCC
+};
+
+} // namespace CPol
+
 namespace SendMsg { // Encoding of SIMM16 used in s_sendmsg* insns.
 
 enum Id { // Message ID, width(4) [3:0].
   ID_UNKNOWN_ = -1,
   ID_INTERRUPT = 1,
-  ID_GS,
-  ID_GS_DONE,
-  ID_GS_ALLOC_REQ = 9,
-  ID_GET_DOORBELL = 10,
+  ID_GS = 2,
+  ID_GS_DONE = 3,
+  ID_SAVEWAVE = 4,           // added in GFX8
+  ID_STALL_WAVE_GEN = 5,     // added in GFX9
+  ID_HALT_WAVES = 6,         // added in GFX9
+  ID_ORDERED_PS_DONE = 7,    // added in GFX9
+  ID_EARLY_PRIM_DEALLOC = 8, // added in GFX9, removed in GFX10
+  ID_GS_ALLOC_REQ = 9,       // added in GFX9
+  ID_GET_DOORBELL = 10,      // added in GFX9
+  ID_GET_DDID = 11,          // added in GFX10
   ID_SYSMSG = 15,
   ID_GAPS_LAST_, // Indicate that sequence has gaps.
   ID_GAPS_FIRST_ = ID_INTERRUPT,
@@ -289,16 +331,16 @@ enum Op { // Both GS and SYS operation IDs.
   OP_MASK_ = (((1 << OP_WIDTH_) - 1) << OP_SHIFT_),
   // GS operations are encoded in bits 5:4
   OP_GS_NOP = 0,
-  OP_GS_CUT,
-  OP_GS_EMIT,
-  OP_GS_EMIT_CUT,
+  OP_GS_CUT = 1,
+  OP_GS_EMIT = 2,
+  OP_GS_EMIT_CUT = 3,
   OP_GS_LAST_,
   OP_GS_FIRST_ = OP_GS_NOP,
   // SYS operations are encoded in bits 6:4
   OP_SYS_ECC_ERR_INTERRUPT = 1,
-  OP_SYS_REG_RD,
-  OP_SYS_HOST_TRAP_ACK,
-  OP_SYS_TTRACE_PC,
+  OP_SYS_REG_RD = 2,
+  OP_SYS_HOST_TRAP_ACK = 3,
+  OP_SYS_TTRACE_PC = 4,
   OP_SYS_LAST_,
   OP_SYS_FIRST_ = OP_SYS_ECC_ERR_INTERRUPT,
 };
@@ -337,6 +379,8 @@ enum Id { // HwRegCode, (6) [5:0]
   ID_FLAT_SCR_LO = 20,
   ID_FLAT_SCR_HI = 21,
   ID_XNACK_MASK = 22,
+  ID_HW_ID1 = 23,
+  ID_HW_ID2 = 24,
   ID_POPS_PACKER = 25,
   ID_SHADER_CYCLES = 29,
   ID_SYMBOLIC_FIRST_GFX1030_ = ID_SHADER_CYCLES,
@@ -640,6 +684,7 @@ enum SDWA9EncValues : unsigned {
 
 namespace DPP {
 
+// clang-format off
 enum DppCtrl : unsigned {
   QUAD_PERM_FIRST   = 0,
   QUAD_PERM_ID      = 0xE4, // identity permutation
@@ -674,12 +719,17 @@ enum DppCtrl : unsigned {
   BCAST31           = 0x143,
   DPP_UNUSED8_FIRST = 0x144,
   DPP_UNUSED8_LAST  = 0x14F,
+  ROW_NEWBCAST_FIRST= 0x150,
+  ROW_NEWBCAST_LAST = 0x15F,
+  ROW_SHARE0        = 0x150,
   ROW_SHARE_FIRST   = 0x150,
   ROW_SHARE_LAST    = 0x15F,
+  ROW_XMASK0        = 0x160,
   ROW_XMASK_FIRST   = 0x160,
   ROW_XMASK_LAST    = 0x16F,
   DPP_LAST          = ROW_XMASK_LAST
 };
+// clang-format on
 
 enum DppFiMode {
   DPP_FI_0  = 0,
@@ -716,6 +766,17 @@ enum Target : unsigned {
 };
 
 } // namespace Exp
+
+namespace VOP3PEncoding {
+
+enum OpSel : uint64_t {
+  OP_SEL_HI_0 = UINT64_C(1) << 59,
+  OP_SEL_HI_1 = UINT64_C(1) << 60,
+  OP_SEL_HI_2 = UINT64_C(1) << 14,
+};
+
+} // namespace VOP3PEncoding
+
 } // namespace AMDGPU
 
 #define R_00B028_SPI_SHADER_PGM_RSRC1_PS                                0x00B028

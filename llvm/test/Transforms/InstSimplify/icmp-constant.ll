@@ -623,6 +623,72 @@ define i1 @add_nsw_neg_const1(i32 %x) {
   ret i1 %cmp
 }
 
+define i1 @add_nsw_sgt(i8 %x) {
+; CHECK-LABEL: @add_nsw_sgt(
+; CHECK-NEXT:    ret i1 true
+;
+  %add = add nsw i8 %x, 5
+  %cmp = icmp sgt i8 %add, -124
+  ret i1 %cmp
+}
+
+; nuw should not inhibit the fold.
+
+define i1 @add_nsw_nuw_sgt(i8 %x) {
+; CHECK-LABEL: @add_nsw_nuw_sgt(
+; CHECK-NEXT:    ret i1 true
+;
+  %add = add nsw nuw i8 %x, 5
+  %cmp = icmp sgt i8 %add, -124
+  ret i1 %cmp
+}
+
+; negative test - minimum x is -128, so add could be -124.
+
+define i1 @add_nsw_sgt_limit(i8 %x) {
+; CHECK-LABEL: @add_nsw_sgt_limit(
+; CHECK-NEXT:    [[ADD:%.*]] = add nsw i8 [[X:%.*]], 4
+; CHECK-NEXT:    [[CMP:%.*]] = icmp sgt i8 [[ADD]], -124
+; CHECK-NEXT:    ret i1 [[CMP]]
+;
+  %add = add nsw i8 %x, 4
+  %cmp = icmp sgt i8 %add, -124
+  ret i1 %cmp
+}
+
+define i1 @add_nsw_slt(i8 %x) {
+; CHECK-LABEL: @add_nsw_slt(
+; CHECK-NEXT:    ret i1 false
+;
+  %add = add nsw i8 %x, 5
+  %cmp = icmp slt i8 %add, -123
+  ret i1 %cmp
+}
+
+; nuw should not inhibit the fold.
+
+define i1 @add_nsw_nuw_slt(i8 %x) {
+; CHECK-LABEL: @add_nsw_nuw_slt(
+; CHECK-NEXT:    ret i1 false
+;
+  %add = add nsw nuw i8 %x, 5
+  %cmp = icmp slt i8 %add, -123
+  ret i1 %cmp
+}
+
+; negative test - minimum x is -128, so add could be -123.
+
+define i1 @add_nsw_slt_limit(i8 %x) {
+; CHECK-LABEL: @add_nsw_slt_limit(
+; CHECK-NEXT:    [[ADD:%.*]] = add nsw i8 [[X:%.*]], 5
+; CHECK-NEXT:    [[CMP:%.*]] = icmp slt i8 [[ADD]], -122
+; CHECK-NEXT:    ret i1 [[CMP]]
+;
+  %add = add nsw i8 %x, 5
+  %cmp = icmp slt i8 %add, -122
+  ret i1 %cmp
+}
+
 ; InstCombine can fold this, but not InstSimplify.
 
 define i1 @add_nsw_neg_const2(i32 %x) {
@@ -772,7 +838,7 @@ define <2 x i1> @add_nsw_pos_const5_splat_vec(<2 x i32> %x) {
 
 define i1 @ne_shl_by_constant_produces_poison(i8 %x) {
 ; CHECK-LABEL: @ne_shl_by_constant_produces_poison(
-; CHECK-NEXT:    ret i1 true
+; CHECK-NEXT:    ret i1 poison
 ;
   %zx = zext i8 %x to i16      ; zx  = 0x00xx
   %xor = xor i16 %zx, 32767    ; xor = 0x7fyy
@@ -784,7 +850,7 @@ define i1 @ne_shl_by_constant_produces_poison(i8 %x) {
 
 define i1 @eq_shl_by_constant_produces_poison(i8 %x) {
 ; CHECK-LABEL: @eq_shl_by_constant_produces_poison(
-; CHECK-NEXT:    ret i1 false
+; CHECK-NEXT:    ret i1 poison
 ;
   %clear_high_bit = and i8 %x, 127                 ; 0x7f
   %set_next_high_bits = or i8 %clear_high_bit, 112 ; 0x70
@@ -799,7 +865,7 @@ define i1 @eq_shl_by_constant_produces_poison(i8 %x) {
 
 define i1 @eq_shl_by_variable_produces_poison(i8 %x) {
 ; CHECK-LABEL: @eq_shl_by_variable_produces_poison(
-; CHECK-NEXT:    ret i1 false
+; CHECK-NEXT:    ret i1 poison
 ;
   %clear_high_bit = and i8 %x, 127                 ; 0x7f
   %set_next_high_bits = or i8 %clear_high_bit, 112 ; 0x70
@@ -1064,4 +1130,13 @@ bb2:
 bb3:
   %m = mul nuw i8 %x, 0
   br label %bb2
+}
+
+
+define <2 x i1> @heterogeneous_constvector(<2 x i8> %x) {
+; CHECK-LABEL: @heterogeneous_constvector(
+; CHECK-NEXT:    ret <2 x i1> zeroinitializer
+;
+  %c = icmp ult <2 x i8> %x, <i8 undef, i8 poison>
+  ret <2 x i1> %c
 }

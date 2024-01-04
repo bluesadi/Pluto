@@ -130,20 +130,21 @@ define i32 @func_m(i32 %a, i32 %b) nounwind {
   ret i32 %cond
 }
 
-; If EFLAGS is live-out, we can't remove cmp if there exists
-; a swapped sub.
+; (This used to test that an unsafe removal of cmp in bb.0 is not happening,
+;  but now we can do so safely).
 define i32 @func_l2(i32 %a, i32 %b) nounwind {
 ; CHECK-LABEL: func_l2:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %edx
-; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; CHECK-NEXT:    movl %ecx, %eax
-; CHECK-NEXT:    subl %edx, %eax
+; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; CHECK-NEXT:    movl %eax, %ecx
+; CHECK-NEXT:    subl %edx, %ecx
 ; CHECK-NEXT:    jne .LBB8_2
 ; CHECK-NEXT:  # %bb.1: # %if.then
-; CHECK-NEXT:    cmpl %ecx, %edx
-; CHECK-NEXT:    cmovlel %ecx, %eax
+; CHECK-NEXT:    cmovll %ecx, %eax
+; CHECK-NEXT:    retl
 ; CHECK-NEXT:  .LBB8_2: # %if.else
+; CHECK-NEXT:    movl %ecx, %eax
 ; CHECK-NEXT:    retl
   %cmp = icmp eq i32 %b, %a
   %sub = sub nsw i32 %a, %b
@@ -388,10 +389,11 @@ define i32 @func_test1(i32 %p1) nounwind uwtable {
 ; CHECK-LABEL: func_test1:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movl b, %eax
+; CHECK-NEXT:    xorl %ecx, %ecx
 ; CHECK-NEXT:    cmpl {{[0-9]+}}(%esp), %eax
 ; CHECK-NEXT:    setb %cl
 ; CHECK-NEXT:    movl a, %eax
-; CHECK-NEXT:    testb %al, %cl
+; CHECK-NEXT:    testl %eax, %ecx
 ; CHECK-NEXT:    je .LBB18_2
 ; CHECK-NEXT:  # %bb.1: # %if.then
 ; CHECK-NEXT:    decl %eax

@@ -44,10 +44,11 @@ private:
   bool HasSideEffects;
   bool IsAlignStack;
   AsmDialect Dialect;
+  bool CanThrow;
 
   InlineAsm(FunctionType *Ty, const std::string &AsmString,
             const std::string &Constraints, bool hasSideEffects,
-            bool isAlignStack, AsmDialect asmDialect);
+            bool isAlignStack, AsmDialect asmDialect, bool canThrow);
 
   /// When the ConstantUniqueMap merges two types and makes two InlineAsms
   /// identical, it destroys one of them with this method.
@@ -62,11 +63,12 @@ public:
   static InlineAsm *get(FunctionType *Ty, StringRef AsmString,
                         StringRef Constraints, bool hasSideEffects,
                         bool isAlignStack = false,
-                        AsmDialect asmDialect = AD_ATT);
+                        AsmDialect asmDialect = AD_ATT, bool canThrow = false);
 
   bool hasSideEffects() const { return HasSideEffects; }
   bool isAlignStack() const { return IsAlignStack; }
   AsmDialect getDialect() const { return Dialect; }
+  bool canThrow() const { return CanThrow; }
 
   /// getType - InlineAsm's are always pointers.
   ///
@@ -169,6 +171,11 @@ public:
     /// selectAlternative - Point this constraint to the alternative constraint
     /// indicated by the index.
     void selectAlternative(unsigned index);
+
+    /// Whether this constraint corresponds to an argument.
+    bool hasArg() const {
+      return Type == isInput || (Type == isOutput && isIndirect);
+    }
   };
 
   /// ParseConstraints - Split up the constraint string into the specific

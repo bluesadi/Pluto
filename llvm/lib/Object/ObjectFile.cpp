@@ -55,14 +55,15 @@ bool SectionRef::containsSymbol(SymbolRef S) const {
 }
 
 Expected<uint64_t> ObjectFile::getSymbolValue(DataRefImpl Ref) const {
-  if (Expected<uint32_t> FlagsOrErr = getSymbolFlags(Ref)) {
-    if (*FlagsOrErr & SymbolRef::SF_Undefined)
-      return 0;
-    if (*FlagsOrErr & SymbolRef::SF_Common)
-      return getCommonSymbolSize(Ref);
-  } else
+  uint32_t Flags;
+  if (Error E = getSymbolFlags(Ref).moveInto(Flags))
     // TODO: Test this error.
-    return FlagsOrErr.takeError();
+    return std::move(E);
+
+  if (Flags & SymbolRef::SF_Undefined)
+    return 0;
+  if (Flags & SymbolRef::SF_Common)
+    return getCommonSymbolSize(Ref);
   return getSymbolValueImpl(Ref);
 }
 
@@ -94,9 +95,7 @@ bool ObjectFile::isBerkeleyData(DataRefImpl Sec) const {
   return isSectionData(Sec);
 }
 
-bool ObjectFile::isDebugSection(StringRef SectionName) const {
-  return false;
-}
+bool ObjectFile::isDebugSection(DataRefImpl Sec) const { return false; }
 
 Expected<section_iterator>
 ObjectFile::getRelocatedSection(DataRefImpl Sec) const {
@@ -147,6 +146,7 @@ ObjectFile::createObjectFile(MemoryBufferRef Object, file_magic Type,
   case file_magic::windows_resource:
   case file_magic::pdb:
   case file_magic::minidump:
+  case file_magic::goff_object:
     return errorCodeToError(object_error::invalid_file_type);
   case file_magic::tapi_file:
     return errorCodeToError(object_error::invalid_file_type);

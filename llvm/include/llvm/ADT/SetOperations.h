@@ -5,10 +5,11 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-// This file defines generic set operations that may be used on set's of
-// different types, and different element types.
-//
+///
+/// \file
+/// This file defines generic set operations that may be used on set's of
+/// different types, and different element types.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_SETOPERATIONS_H
@@ -71,19 +72,10 @@ template <class S1Ty, class S2Ty>
 bool set_is_subset(const S1Ty &S1, const S2Ty &S2) {
   if (S1.size() > S2.size())
     return false;
-  for (auto &It : S1)
+  for (const auto It : S1)
     if (!S2.count(It))
       return false;
   return true;
-}
-
-/// set_is_strict_subset(A, B) - Return true iff A in B and and A != B
-///
-template <class S1Ty, class S2Ty>
-bool set_is_strict_subset(const S1Ty &S1, const S2Ty &S2) {
-  if (S1.size() >= S2.size())
-    return false;
-  return set_is_subset(S1, S2);
 }
 
 } // End llvm namespace

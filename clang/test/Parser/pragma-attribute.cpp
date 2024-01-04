@@ -165,9 +165,9 @@ _Pragma("clang attribute pop");
 
 #pragma clang attribute push ([[]], apply_to = function) // A noop
 
-#pragma clang attribute push ([[noreturn ""]], apply_to=function) // expected-error {{expected ']'}}
+#pragma clang attribute push ([[noreturn ""]], apply_to=function) // expected-error {{expected ','}}
 #pragma clang attribute pop
-#pragma clang attribute push ([[noreturn 42]]) // expected-error {{expected ']'}} expected-error {{expected ','}}
+#pragma clang attribute push ([[noreturn 42]]) // expected-error 2 {{expected ','}}
 
 #pragma clang attribute push(__attribute__, apply_to=function) // expected-error {{expected '(' after 'attribute'}}
 #pragma clang attribute push(__attribute__(), apply_to=function) // expected-error {{expected '(' after '('}}
@@ -195,3 +195,18 @@ _Pragma("clang attribute pop");
 #pragma clang attribute pop
 #pragma clang attribute push([[clang::uninitialized]], apply_to = any(variable(is_parameter), variable(unless(is_parameter)))) // expected-error {{attribute 'uninitialized' can't be applied to 'variable(is_parameter)', and 'variable(unless(is_parameter))'}}
 #pragma clang attribute pop
+// We're allowed to apply attributes to subsets of allowed subjects.
+#pragma clang attribute push([[clang::no_destroy]], apply_to = variable)
+#pragma clang attribute pop
+#pragma clang attribute push([[clang::no_destroy]], apply_to = variable(is_thread_local))
+#pragma clang attribute pop
+#pragma clang attribute push([[clang::no_destroy]], apply_to = variable(is_global))
+#pragma clang attribute pop
+#pragma clang attribute push([[clang::no_destroy]], apply_to = any(variable(is_parameter), variable(unless(is_parameter))))
+#pragma clang attribute pop
+
+// We explicitly do not wish to allow users to blast an attribute to everything
+// using an unconstrained "any", so "any" must have a valid argument list.
+#pragma clang attribute push([[clang::uninitialized]], apply_to=any) // expected-error {{expected '('}}
+#pragma clang attribute push([[clang::uninitialized]], apply_to = any()) // expected-error {{expected an identifier that corresponds to an attribute subject rule}}
+// NB: neither of these need to be popped; they were never successfully pushed.

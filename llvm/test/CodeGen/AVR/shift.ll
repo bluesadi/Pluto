@@ -1,4 +1,4 @@
-; RUN: llc < %s -march=avr | FileCheck %s
+; RUN: llc < %s -march=avr -verify-machineinstrs | FileCheck %s
 
 ; Optimize for speed.
 ; CHECK-LABEL: shift_i8_i8_speed
@@ -171,10 +171,157 @@ define i8 @lsr_i8_7(i8 %a) {
   ret i8 %result
 }
 
+define i8 @asr_i8_6(i8 %a) {
+; CHECK-LABEL: asr_i8_6
+; CHECK:      bst r24, 6
+; CHECK-NEXT: lsl r24
+; CHECK-NEXT: sbc r24, r24
+; CHECK-NEXT: bld r24, 0
+  %result = ashr i8 %a, 6
+  ret i8 %result
+}
+
 define i8 @asr_i8_7(i8 %a) {
 ; CHECK-LABEL: asr_i8_7
 ; CHECK:      lsl r24
 ; CHECK-NEXT: sbc r24, r24
   %result = ashr i8 %a, 7
   ret i8 %result
+}
+
+define i16 @lsl_i16_5(i16 %a) {
+; CHECK-LABEL: lsl_i16_5
+; CHECK:       swap r25
+; CHECK-NEXT:  swap r24
+; CHECK-NEXT:  andi r25, 240
+; CHECK-NEXT:  eor r25, r24
+; CHECK-NEXT:  andi r24, 240
+; CHECK-NEXT:  eor r25, r24
+; CHECK-NEXT:  lsl r24
+; CHECK-NEXT:  rol r25
+; CHECK-NEXT:  ret
+  %result = shl i16 %a, 5
+  ret i16 %result
+}
+
+define i16 @lsl_i16_6(i16 %a, i16 %b, i16 %c, i16 %d, i16 %e, i16 %f) {
+; CHECK-LABEL: lsl_i16_6
+; CHECK:       mov r24, r14
+; CHECK-NEXT:  mov r25, r15
+; CHECK-NEXT:  swap r25
+; CHECK-NEXT:  swap r24
+; CHECK-NEXT:  andi r25, 240
+; CHECK-NEXT:  eor r25, r24
+; CHECK-NEXT:  andi r24, 240
+; CHECK-NEXT:  eor r25, r24
+; CHECK-NEXT:  lsl r24
+; CHECK-NEXT:  rol r25
+; CHECK-NEXT:  lsl r24
+; CHECK-NEXT:  rol r25
+; CHECK-NEXT:  ret
+  %result = shl i16 %f, 6
+  ret i16 %result
+}
+
+define i16 @lsl_i16_9(i16 %a) {
+; CHECK-LABEL: lsl_i16_9
+; CHECK:       mov r25, r24
+; CHECK-NEXT:  clr r24
+; CHECK-NEXT:  lsl r25
+; CHECK-NEXT:  ret
+  %result = shl i16 %a, 9
+  ret i16 %result
+}
+
+define i16 @lsl_i16_13(i16 %a) {
+; CHECK-LABEL: lsl_i16_13
+; CHECK:       mov r25, r24
+; CHECK-NEXT:  swap r25
+; CHECK-NEXT:  andi r25, 240
+; CHECK-NEXT:  clr r24
+; CHECK-NEXT:  lsl r25
+; CHECK-NEXT:  ret
+  %result = shl i16 %a, 13
+  ret i16 %result
+}
+
+define i16 @lsr_i16_5(i16 %a) {
+; CHECK-LABEL: lsr_i16_5
+; CHECK:       swap r25
+; CHECK-NEXT:  swap r24
+; CHECK-NEXT:  andi r24, 15
+; CHECK-NEXT:  eor r24, r25
+; CHECK-NEXT:  andi r25, 15
+; CHECK-NEXT:  eor r24, r25
+; CHECK-NEXT:  lsr r25
+; CHECK-NEXT:  ror r24
+; CHECK-NEXT:  ret
+  %result = lshr i16 %a, 5
+  ret i16 %result
+}
+
+define i16 @lsr_i16_6(i16 %a, i16 %b, i16 %c, i16 %d, i16 %e, i16 %f) {
+; CHECK-LABEL: lsr_i16_6
+; CHECK:       mov r24, r14
+; CHECK-NEXT:  mov r25, r15
+; CHECK-NEXT:  swap r25
+; CHECK-NEXT:  swap r24
+; CHECK-NEXT:  andi r24, 15
+; CHECK-NEXT:  eor r24, r25
+; CHECK-NEXT:  andi r25, 15
+; CHECK-NEXT:  eor r24, r25
+; CHECK-NEXT:  lsr r25
+; CHECK-NEXT:  ror r24
+; CHECK-NEXT:  lsr r25
+; CHECK-NEXT:  ror r24
+; CHECK-NEXT: ret
+  %result = lshr i16 %f, 6
+  ret i16 %result
+}
+
+define i16 @lsr_i16_9(i16 %a) {
+; CHECK-LABEL: lsr_i16_9
+; CHECK:       mov r24, r25
+; CHECK-NEXT:  clr r25
+; CHECK-NEXT:  lsr r24
+; CHECK-NEXT:  ret
+  %result = lshr i16 %a, 9
+  ret i16 %result
+}
+
+define i16 @lsr_i16_13(i16 %a) {
+; CHECK-LABEL: lsr_i16_13
+; CHECK:       mov r24, r25
+; CHECK-NEXT:  swap r24
+; CHECK-NEXT:  andi r24, 15
+; CHECK-NEXT:  clr r25
+; CHECK-NEXT:  lsr r24
+; CHECK-NEXT:  ret
+  %result = lshr i16 %a, 13
+  ret i16 %result
+}
+
+define i16 @asr_i16_9(i16 %a) {
+; CHECK-LABEL: asr_i16_9
+; CHECK:       mov r24, r25
+; CHECK-NEXT:  lsl r25
+; CHECK-NEXT:  sbc r25, r25
+; CHECK-NEXT:  asr r24
+; CHECK-NEXT:  ret
+  %result = ashr i16 %a, 9
+  ret i16 %result
+}
+
+define i16 @asr_i16_12(i16 %a) {
+; CHECK-LABEL: asr_i16_12
+; CHECK:       mov r24, r25
+; CHECK-NEXT:  lsl r25
+; CHECK-NEXT:  sbc r25, r25
+; CHECK-NEXT:  asr r24
+; CHECK-NEXT:  asr r24
+; CHECK-NEXT:  asr r24
+; CHECK-NEXT:  asr r24
+; CHECK-NEXT:  ret
+  %result = ashr i16 %a, 12
+  ret i16 %result
 }

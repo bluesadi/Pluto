@@ -74,16 +74,24 @@ public:
   /// from.
   virtual StringRef getBufferIdentifier() const { return "Unknown buffer"; }
 
+  /// For read-only MemoryBuffer_MMap, mark the buffer as unused in the near
+  /// future and the kernel can free resources associated with it. Further
+  /// access is supported but may be expensive. This calls
+  /// madvise(MADV_DONTNEED) on read-only file mappings on *NIX systems. This
+  /// function should not be called on a writable buffer.
+  virtual void dontNeedIfMmap() {}
+
   /// Open the specified file as a MemoryBuffer, returning a new MemoryBuffer
-  /// if successful, otherwise returning null. If FileSize is specified, this
-  /// means that the client knows that the file exists and that it has the
-  /// specified size.
+  /// if successful, otherwise returning null.
+  ///
+  /// \param IsText Set to true to indicate that the file should be read in
+  /// text mode.
   ///
   /// \param IsVolatile Set to true to indicate that the contents of the file
   /// can change outside the user's control, e.g. when libclang tries to parse
   /// while the user is editing/updating the file or if the file is on an NFS.
   static ErrorOr<std::unique_ptr<MemoryBuffer>>
-  getFile(const Twine &Filename, int64_t FileSize = -1,
+  getFile(const Twine &Filename, bool IsText = false,
           bool RequiresNullTerminator = true, bool IsVolatile = false);
 
   /// Read all of the specified file into a MemoryBuffer as a stream
@@ -129,7 +137,7 @@ public:
   /// Open the specified file as a MemoryBuffer, or open stdin if the Filename
   /// is "-".
   static ErrorOr<std::unique_ptr<MemoryBuffer>>
-  getFileOrSTDIN(const Twine &Filename, int64_t FileSize = -1,
+  getFileOrSTDIN(const Twine &Filename, bool IsText = false,
                  bool RequiresNullTerminator = true);
 
   /// Map a subrange of the specified file as a MemoryBuffer.
@@ -180,8 +188,7 @@ public:
   }
 
   static ErrorOr<std::unique_ptr<WritableMemoryBuffer>>
-  getFile(const Twine &Filename, int64_t FileSize = -1,
-          bool IsVolatile = false);
+  getFile(const Twine &Filename, bool IsVolatile = false);
 
   /// Map a subrange of the specified file as a WritableMemoryBuffer.
   static ErrorOr<std::unique_ptr<WritableMemoryBuffer>>

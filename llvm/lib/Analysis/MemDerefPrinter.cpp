@@ -59,8 +59,8 @@ bool MemDerefPrinter::runOnFunction(Function &F) {
       Value *PO = LI->getPointerOperand();
       if (isDereferenceablePointer(PO, LI->getType(), DL))
         Deref.push_back(PO);
-      if (isDereferenceableAndAlignedPointer(
-              PO, LI->getType(), MaybeAlign(LI->getAlignment()), DL))
+      if (isDereferenceableAndAlignedPointer(PO, LI->getType(), LI->getAlign(),
+                                             DL))
         DerefAndAligned.insert(PO);
     }
   }
@@ -70,12 +70,13 @@ bool MemDerefPrinter::runOnFunction(Function &F) {
 void MemDerefPrinter::print(raw_ostream &OS, const Module *M) const {
   OS << "The following are dereferenceable:\n";
   for (Value *V: Deref) {
+    OS << "  ";
     V->print(OS);
     if (DerefAndAligned.count(V))
       OS << "\t(aligned)";
     else
       OS << "\t(unaligned)";
-    OS << "\n\n";
+    OS << "\n";
   }
 }
 
@@ -93,20 +94,21 @@ PreservedAnalyses MemDerefPrinterPass::run(Function &F,
       Value *PO = LI->getPointerOperand();
       if (isDereferenceablePointer(PO, LI->getType(), DL))
         Deref.push_back(PO);
-      if (isDereferenceableAndAlignedPointer(
-              PO, LI->getType(), MaybeAlign(LI->getAlignment()), DL))
+      if (isDereferenceableAndAlignedPointer(PO, LI->getType(), LI->getAlign(),
+                                             DL))
         DerefAndAligned.insert(PO);
     }
   }
 
   OS << "The following are dereferenceable:\n";
   for (Value *V : Deref) {
+    OS << "  ";
     V->print(OS);
     if (DerefAndAligned.count(V))
       OS << "\t(aligned)";
     else
       OS << "\t(unaligned)";
-    OS << "\n\n";
+    OS << "\n";
   }
   return PreservedAnalyses::all();
 }

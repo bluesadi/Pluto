@@ -3,6 +3,7 @@ set(LLVM_LINK_COMPONENTS
   Option
   Support
   MC
+  BinaryFormat
   )
 
 set(LLVM_TARGET_DEFINITIONS ObjcopyOpts.td)
@@ -22,14 +23,12 @@ tablegen(LLVM StripOpts.inc -gen-opt-parser-defs)
 add_public_tablegen_target(StripOptsTableGen)
 
 add_llvm_tool(llvm-objcopy
-  Buffer.cpp
-  CopyConfig.cpp
+  ConfigManager.cpp
   llvm-objcopy.cpp
   COFF/COFFObjcopy.cpp
   COFF/Object.cpp
   COFF/Reader.cpp
   COFF/Writer.cpp
-  ELF/ELFConfig.cpp
   ELF/ELFObjcopy.cpp
   ELF/Object.cpp
   MachO/MachOObjcopy.cpp

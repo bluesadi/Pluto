@@ -15,6 +15,7 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/IntrinsicInst.h"
 
 using namespace llvm;
 
@@ -96,4 +97,5 @@ void setProbeDistributionFactor(Instruction &Inst, float Factor) {
     }
   }
 }
+
 } // namespace llvm

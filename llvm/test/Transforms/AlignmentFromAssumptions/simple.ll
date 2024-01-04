@@ -1,5 +1,4 @@
 target datalayout = "e-i64:64-f80:128-n8:16:32:64-S128"
-; RUN: opt < %s -alignment-from-assumptions -S | FileCheck %s
 ; RUN: opt < %s -passes=alignment-from-assumptions -S | FileCheck %s
 
 define i32 @foo(i32* nocapture %a) nounwind uwtable readonly {
@@ -16,7 +15,7 @@ entry:
 define i32 @foo2(i32* nocapture %a) nounwind uwtable readonly {
 entry:
   tail call void @llvm.assume(i1 true) ["align"(i32* %a, i32 32, i32 24)]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 2
+  %arrayidx = getelementptr inbounds i32, i32* %a, i64 -2
   %0 = load i32, i32* %arrayidx, align 4
   ret i32 %0
 
@@ -28,12 +27,25 @@ entry:
 define i32 @foo2a(i32* nocapture %a) nounwind uwtable readonly {
 entry:
   tail call void @llvm.assume(i1 true) ["align"(i32* %a, i32 32, i32 28)]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 -1
+  %arrayidx = getelementptr inbounds i32, i32* %a, i64 1
   %0 = load i32, i32* %arrayidx, align 4
   ret i32 %0
 
 ; CHECK-LABEL: @foo2a
 ; CHECK: load i32, i32* {{[^,]+}}, align 32
+; CHECK: ret i32
+}
+
+; TODO: this can be 8-bytes aligned
+define i32 @foo2b(i32* nocapture %a) nounwind uwtable readonly {
+entry:
+  tail call void @llvm.assume(i1 true) ["align"(i32* %a, i32 32, i32 28)]
+  %arrayidx = getelementptr inbounds i32, i32* %a, i64 -1
+  %0 = load i32, i32* %arrayidx, align 4
+  ret i32 %0
+
+; CHECK-LABEL: @foo2b
+; CHECK: load i32, i32* {{[^,]+}}, align 4
 ; CHECK: ret i32
 }
 
@@ -237,6 +249,19 @@ entry:
 ; CHECK-LABEL: @moo3
 ; CHECK: @llvm.memcpy.p0i8.p0i8.i64(i8* align 32 %0, i8* align 128 %1, i64 64, i1 false)
 ; CHECK: ret i32 undef
+}
+
+
+; Variable alignments appear to be legal, don't crash
+define i32 @pr51680(i32* nocapture %a, i32 %align) nounwind uwtable readonly {
+entry:
+  tail call void @llvm.assume(i1 true) ["align"(i32* %a, i32 %align)]
+  %0 = load i32, i32* %a, align 4
+  ret i32 %0
+
+; CHECK-LABEL: @pr51680
+; CHECK: load i32, i32* {{[^,]+}}, align 4
+; CHECK: ret i32
 }
 
 declare void @llvm.assume(i1) nounwind

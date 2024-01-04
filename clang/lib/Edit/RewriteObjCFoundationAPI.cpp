@@ -704,7 +704,7 @@ static bool getLiteralInfo(SourceRange literalRange,
     }
   };
 
-  while (1) {
+  while (true) {
     if (Suff::has("u", text)) {
       UpperU = false;
     } else if (Suff::has("U", text)) {
@@ -1080,6 +1080,7 @@ static bool rewriteToNumericBoxedExpression(const ObjCMessageExpr *Msg,
     case CK_BuiltinFnToFnPtr:
     case CK_ZeroToOCLOpaqueType:
     case CK_IntToOCLSampler:
+    case CK_MatrixCast:
       return false;
 
     case CK_BooleanToSignedIntegral:

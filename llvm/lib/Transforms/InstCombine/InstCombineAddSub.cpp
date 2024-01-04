@@ -519,13 +519,6 @@ Value *FAddCombine::simplifyFAdd(AddendVect& Addends, unsigned InstrQuota) {
   unsigned NextTmpIdx = 0;
   FAddend TmpResult[3];
 
-  // Points to the constant addend of the resulting simplified expression.
-  // If the resulting expr has constant-addend, this constant-addend is
-  // desirable to reside at the top of the resulting expression tree. Placing
-  // constant close to supper-expr(s) will potentially reveal some optimization
-  // opportunities in super-expr(s).
-  const FAddend *ConstAdd = nullptr;
-
   // Simplified addends are placed <SimpVect>.
   AddendVect SimpVect;
 
@@ -541,6 +534,14 @@ Value *FAddCombine::simplifyFAdd(AddendVect& Addends, unsigned InstrQuota) {
     }
 
     Value *Val = ThisAddend->getSymVal();
+
+    // If the resulting expr has constant-addend, this constant-addend is
+    // desirable to reside at the top of the resulting expression tree. Placing
+    // constant close to super-expr(s) will potentially reveal some
+    // optimization opportunities in super-expr(s). Here we do not implement
+    // this logic intentionally and rely on SimplifyAssociativeOrCommutative
+    // call later.
+
     unsigned StartIdx = SimpVect.size();
     SimpVect.push_back(ThisAddend);
 
@@ -569,23 +570,14 @@ Value *FAddCombine::simplifyFAdd(AddendVect& Addends, unsigned InstrQuota) {
 
       // Pop all addends being folded and push the resulting folded addend.
       SimpVect.resize(StartIdx);
-      if (Val) {
-        if (!R.isZero()) {
-          SimpVect.push_back(&R);
-        }
-      } else {
-        // Don't push constant addend at this time. It will be the last element
-        // of <SimpVect>.
-        ConstAdd = &R;
+      if (!R.isZero()) {
+        SimpVect.push_back(&R);
       }
     }
   }
 
   assert((NextTmpIdx <= array_lengthof(TmpResult) + 1) &&
          "out-of-bound access");
-
-  if (ConstAdd)
-    SimpVect.push_back(ConstAdd);
 
   Value *Result;
   if (!SimpVect.empty())
@@ -864,7 +856,7 @@ static Instruction *foldNoWrapAdd(BinaryOperator &Add,
 Instruction *InstCombinerImpl::foldAddWithConstant(BinaryOperator &Add) {
   Value *Op0 = Add.getOperand(0), *Op1 = Add.getOperand(1);
   Constant *Op1C;
-  if (!match(Op1, m_Constant(Op1C)))
+  if (!match(Op1, m_ImmConstant(Op1C)))
     return nullptr;
 
   if (Instruction *NV = foldBinOpIntoSelectOrPhi(Add))
@@ -901,6 +893,12 @@ Instruction *InstCombinerImpl::foldAddWithConstant(BinaryOperator &Add) {
   if (!match(Op1, m_APInt(C)))
     return nullptr;
 
+  // (X | Op01C) + Op1C --> X + (Op01C + Op1C) iff the `or` is actually an `add`
+  Constant *Op01C;
+  if (match(Op0, m_Or(m_Value(X), m_ImmConstant(Op01C))) &&
+      haveNoCommonBitsSet(X, Op01C, DL, &AC, &Add, &DT))
+    return BinaryOperator::CreateAdd(X, ConstantExpr::getAdd(Op01C, Op1C));
+
   // (X | C2) + C --> (X | C2) ^ C2 iff (C2 == -C)
   const APInt *C2;
   if (match(Op0, m_Or(m_Value(), m_APInt(C2))) && *C2 == -*C)
@@ -933,7 +931,7 @@ Instruction *InstCombinerImpl::foldAddWithConstant(BinaryOperator &Add) {
     // add (xor X, LowMaskC), C --> sub (LowMaskC + C), X
     if (C2->isMask()) {
       KnownBits LHSKnown = computeKnownBits(X, 0, &Add);
-      if ((*C2 | LHSKnown.Zero).isAllOnesValue())
+      if ((*C2 | LHSKnown.Zero).isAllOnes())
         return BinaryOperator::CreateSub(ConstantInt::get(Ty, *C2 + *C), X);
     }
 
@@ -957,7 +955,7 @@ Instruction *InstCombinerImpl::foldAddWithConstant(BinaryOperator &Add) {
     }
   }
 
-  if (C->isOneValue() && Op0->hasOneUse()) {
+  if (C->isOne() && Op0->hasOneUse()) {
     // add (sext i1 X), 1 --> zext (not X)
     // TODO: The smallest IR representation is (select X, 0, 1), and that would
     // not require the one-use check. But we need to remove a transform in
@@ -1290,6 +1288,9 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
   if (Instruction *X = foldVectorBinop(I))
     return X;
 
+  if (Instruction *Phi = foldBinopWithPhiOperands(I))
+    return Phi;
+
   // (A*B)+(A*C) -> A*(B+C) etc
   if (Value *V = SimplifyUsingDistributiveLaws(I))
     return replaceInstUsesWith(I, V);
@@ -1348,6 +1349,17 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
   // LHS + (A + LHS) --> A + (LHS << 1)
   if (match(RHS, m_OneUse(m_c_Add(m_Value(A), m_Specific(LHS)))))
     return BinaryOperator::CreateAdd(A, Builder.CreateShl(LHS, 1, "reass.add"));
+
+  {
+    // (A + C1) + (C2 - B) --> (A - B) + (C1 + C2)
+    Constant *C1, *C2;
+    if (match(&I, m_c_Add(m_Add(m_Value(A), m_ImmConstant(C1)),
+                          m_Sub(m_ImmConstant(C2), m_Value(B)))) &&
+        (LHS->hasOneUse() || RHS->hasOneUse())) {
+      Value *Sub = Builder.CreateSub(A, B);
+      return BinaryOperator::CreateAdd(Sub, ConstantExpr::getAdd(C1, C2));
+    }
+  }
 
   // X % C0 + (( X / C0 ) % C1) * C0 => X % (C0 * C1)
   if (Value *V = SimplifyAddWithRemainder(I)) return replaceInstUsesWith(I, V);
@@ -1442,6 +1454,14 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
         Builder.CreateIntrinsic(Intrinsic::umax, {I.getType()}, {A, B}));
   }
 
+  // ctpop(A) + ctpop(B) => ctpop(A | B) if A and B have no bits set in common.
+  if (match(LHS, m_OneUse(m_Intrinsic<Intrinsic::ctpop>(m_Value(A)))) &&
+      match(RHS, m_OneUse(m_Intrinsic<Intrinsic::ctpop>(m_Value(B)))) &&
+      haveNoCommonBitsSet(A, B, DL, &AC, &I, &DT))
+    return replaceInstUsesWith(
+        I, Builder.CreateIntrinsic(Intrinsic::ctpop, {I.getType()},
+                                   {Builder.CreateOr(A, B)}));
+
   return Changed ? &I : nullptr;
 }
 
@@ -1473,15 +1493,18 @@ static Instruction *factorizeFAddFSub(BinaryOperator &I,
     return Lerp;
 
   Value *Op0 = I.getOperand(0), *Op1 = I.getOperand(1);
+  if (!Op0->hasOneUse() || !Op1->hasOneUse())
+    return nullptr;
+
   Value *X, *Y, *Z;
   bool IsFMul;
-  if ((match(Op0, m_OneUse(m_FMul(m_Value(X), m_Value(Z)))) &&
-       match(Op1, m_OneUse(m_c_FMul(m_Value(Y), m_Specific(Z))))) ||
-      (match(Op0, m_OneUse(m_FMul(m_Value(Z), m_Value(X)))) &&
-       match(Op1, m_OneUse(m_c_FMul(m_Value(Y), m_Specific(Z))))))
+  if ((match(Op0, m_FMul(m_Value(X), m_Value(Z))) &&
+       match(Op1, m_c_FMul(m_Value(Y), m_Specific(Z)))) ||
+      (match(Op0, m_FMul(m_Value(Z), m_Value(X))) &&
+       match(Op1, m_c_FMul(m_Value(Y), m_Specific(Z)))))
     IsFMul = true;
-  else if (match(Op0, m_OneUse(m_FDiv(m_Value(X), m_Value(Z)))) &&
-           match(Op1, m_OneUse(m_FDiv(m_Value(Y), m_Specific(Z)))))
+  else if (match(Op0, m_FDiv(m_Value(X), m_Value(Z))) &&
+           match(Op1, m_FDiv(m_Value(Y), m_Specific(Z))))
     IsFMul = false;
   else
     return nullptr;
@@ -1515,6 +1538,9 @@ Instruction *InstCombinerImpl::visitFAdd(BinaryOperator &I) {
 
   if (Instruction *X = foldVectorBinop(I))
     return X;
+
+  if (Instruction *Phi = foldBinopWithPhiOperands(I))
+    return Phi;
 
   if (Instruction *FoldedFAdd = foldBinOpIntoSelectOrPhi(I))
     return FoldedFAdd;
@@ -1608,6 +1634,35 @@ Instruction *InstCombinerImpl::visitFAdd(BinaryOperator &I) {
   if (I.hasAllowReassoc() && I.hasNoSignedZeros()) {
     if (Instruction *F = factorizeFAddFSub(I, Builder))
       return F;
+
+    // Try to fold fadd into start value of reduction intrinsic.
+    if (match(&I, m_c_FAdd(m_OneUse(m_Intrinsic<Intrinsic::vector_reduce_fadd>(
+                               m_AnyZeroFP(), m_Value(X))),
+                           m_Value(Y)))) {
+      // fadd (rdx 0.0, X), Y --> rdx Y, X
+      return replaceInstUsesWith(
+          I, Builder.CreateIntrinsic(Intrinsic::vector_reduce_fadd,
+                                     {X->getType()}, {Y, X}, &I));
+    }
+    const APFloat *StartC, *C;
+    if (match(LHS, m_OneUse(m_Intrinsic<Intrinsic::vector_reduce_fadd>(
+                       m_APFloat(StartC), m_Value(X)))) &&
+        match(RHS, m_APFloat(C))) {
+      // fadd (rdx StartC, X), C --> rdx (C + StartC), X
+      Constant *NewStartC = ConstantFP::get(I.getType(), *C + *StartC);
+      return replaceInstUsesWith(
+          I, Builder.CreateIntrinsic(Intrinsic::vector_reduce_fadd,
+                                     {X->getType()}, {NewStartC, X}, &I));
+    }
+
+    // (X * MulC) + X --> X * (MulC + 1.0)
+    Constant *MulC;
+    if (match(&I, m_c_FAdd(m_FMul(m_Value(X), m_ImmConstant(MulC)),
+                           m_Deferred(X)))) {
+      MulC = ConstantExpr::getFAdd(MulC, ConstantFP::get(I.getType(), 1.0));
+      return BinaryOperator::CreateFMulFMF(X, MulC, &I);
+    }
+
     if (Value *V = FAddCombine(Builder).simplify(&I))
       return replaceInstUsesWith(I, V);
   }
@@ -1702,6 +1757,9 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
   if (Instruction *X = foldVectorBinop(I))
     return X;
 
+  if (Instruction *Phi = foldBinopWithPhiOperands(I))
+    return Phi;
+
   Value *Op0 = I.getOperand(0), *Op1 = I.getOperand(1);
 
   // If this is a 'B = x-(-A)', change to B = x+A.
@@ -1726,12 +1784,13 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
   if (Instruction *R = factorizeMathWithShlOps(I, Builder))
     return R;
 
-  if (Constant *C = dyn_cast<Constant>(Op0)) {
+  Constant *C;
+  if (match(Op0, m_ImmConstant(C))) {
     Value *X;
     Constant *C2;
 
     // C-(X+C2) --> (C-C2)-X
-    if (match(Op1, m_Add(m_Value(X), m_Constant(C2))))
+    if (match(Op1, m_Add(m_Value(X), m_ImmConstant(C2))))
       return BinaryOperator::CreateSub(ConstantExpr::getSub(C, C2), X);
   }
 
@@ -1781,12 +1840,8 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
   if (match(Op0, m_AllOnes()))
     return BinaryOperator::CreateNot(Op1);
 
-  // (~X) - (~Y) --> Y - X
-  Value *X, *Y;
-  if (match(Op0, m_Not(m_Value(X))) && match(Op1, m_Not(m_Value(Y))))
-    return BinaryOperator::CreateSub(Y, X);
-
   // (X + -1) - Y --> ~Y + X
+  Value *X, *Y;
   if (match(Op0, m_OneUse(m_Add(m_Value(X), m_AllOnes()))))
     return BinaryOperator::CreateAdd(Builder.CreateNot(Op1), X);
 
@@ -1799,6 +1854,23 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
     Value *XZ = Builder.CreateAdd(X, Z);
     Value *YW = Builder.CreateAdd(Y, Op1);
     return BinaryOperator::CreateSub(XZ, YW);
+  }
+
+  // ((X - Y) - Op1)  -->  X - (Y + Op1)
+  if (match(Op0, m_OneUse(m_Sub(m_Value(X), m_Value(Y))))) {
+    Value *Add = Builder.CreateAdd(Y, Op1);
+    return BinaryOperator::CreateSub(X, Add);
+  }
+
+  // (~X) - (~Y) --> Y - X
+  // This is placed after the other reassociations and explicitly excludes a
+  // sub-of-sub pattern to avoid infinite looping.
+  if (isFreeToInvert(Op0, Op0->hasOneUse()) &&
+      isFreeToInvert(Op1, Op1->hasOneUse()) &&
+      !match(Op0, m_Sub(m_ImmConstant(), m_Value()))) {
+    Value *NotOp0 = Builder.CreateNot(Op0);
+    Value *NotOp1 = Builder.CreateNot(Op1);
+    return BinaryOperator::CreateSub(NotOp1, NotOp0);
   }
 
   auto m_AddRdx = [](Value *&Vec) {
@@ -1850,7 +1922,7 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
     // Turn this into a xor if LHS is 2^n-1 and the remaining bits are known
     // zero.
     KnownBits RHSKnown = computeKnownBits(Op1, 0, &I);
-    if ((*Op0C | RHSKnown.Zero).isAllOnesValue())
+    if ((*Op0C | RHSKnown.Zero).isAllOnes())
       return BinaryOperator::CreateXor(Op1, Op0);
   }
 
@@ -1997,12 +2069,31 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
     return BinaryOperator::CreateAnd(
         Op0, Builder.CreateNot(Y, Y->getName() + ".not"));
 
+  // ~X - Min/Max(~X, Y) -> ~Min/Max(X, ~Y) - X
+  // ~X - Min/Max(Y, ~X) -> ~Min/Max(X, ~Y) - X
+  // Min/Max(~X, Y) - ~X -> X - ~Min/Max(X, ~Y)
+  // Min/Max(Y, ~X) - ~X -> X - ~Min/Max(X, ~Y)
+  // As long as Y is freely invertible, this will be neutral or a win.
+  // Note: We don't generate the inverse max/min, just create the 'not' of
+  // it and let other folds do the rest.
+  if (match(Op0, m_Not(m_Value(X))) &&
+      match(Op1, m_c_MaxOrMin(m_Specific(Op0), m_Value(Y))) &&
+      !Op0->hasNUsesOrMore(3) && isFreeToInvert(Y, Y->hasOneUse())) {
+    Value *Not = Builder.CreateNot(Op1);
+    return BinaryOperator::CreateSub(Not, X);
+  }
+  if (match(Op1, m_Not(m_Value(X))) &&
+      match(Op0, m_c_MaxOrMin(m_Specific(Op1), m_Value(Y))) &&
+      !Op1->hasNUsesOrMore(3) && isFreeToInvert(Y, Y->hasOneUse())) {
+    Value *Not = Builder.CreateNot(Op0);
+    return BinaryOperator::CreateSub(X, Not);
+  }
+
+  // TODO: This is the same logic as above but handles the cmp-select idioms
+  //       for min/max, so the use checks are increased to account for the
+  //       extra instructions. If we canonicalize to intrinsics, this block
+  //       can likely be removed.
   {
-    // ~A - Min/Max(~A, O) -> Max/Min(A, ~O) - A
-    // ~A - Min/Max(O, ~A) -> Max/Min(A, ~O) - A
-    // Min/Max(~A, O) - ~A -> A - Max/Min(A, ~O)
-    // Min/Max(O, ~A) - ~A -> A - Max/Min(A, ~O)
-    // So long as O here is freely invertible, this will be neutral or a win.
     Value *LHS, *RHS, *A;
     Value *NotA = Op0, *MinMax = Op1;
     SelectPatternFlavor SPF = matchSelectPattern(MinMax, LHS, RHS).Flavor;
@@ -2015,12 +2106,10 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
         match(NotA, m_Not(m_Value(A))) && (NotA == LHS || NotA == RHS)) {
       if (NotA == LHS)
         std::swap(LHS, RHS);
-      // LHS is now O above and expected to have at least 2 uses (the min/max)
-      // NotA is epected to have 2 uses from the min/max and 1 from the sub.
+      // LHS is now Y above and expected to have at least 2 uses (the min/max)
+      // NotA is expected to have 2 uses from the min/max and 1 from the sub.
       if (isFreeToInvert(LHS, !LHS->hasNUsesOrMore(3)) &&
           !NotA->hasNUsesOrMore(4)) {
-        // Note: We don't generate the inverse max/min, just create the not of
-        // it and let other folds do the rest.
         Value *Not = Builder.CreateNot(MinMax);
         if (NotA == Op0)
           return BinaryOperator::CreateSub(Not, A);
@@ -2077,7 +2166,7 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
     unsigned BitWidth = Ty->getScalarSizeInBits();
     unsigned Cttz = AddC->countTrailingZeros();
     APInt HighMask(APInt::getHighBitsSet(BitWidth, BitWidth - Cttz));
-    if ((HighMask & *AndC).isNullValue())
+    if ((HighMask & *AndC).isZero())
       return BinaryOperator::CreateAnd(Op0, ConstantInt::get(Ty, ~(*AndC)));
   }
 
@@ -2085,33 +2174,72 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
           canonicalizeCondSignextOfHighBitExtractToSignextHighBitExtract(I))
     return V;
 
+  // X - usub.sat(X, Y) => umin(X, Y)
+  if (match(Op1, m_OneUse(m_Intrinsic<Intrinsic::usub_sat>(m_Specific(Op0),
+                                                           m_Value(Y)))))
+    return replaceInstUsesWith(
+        I, Builder.CreateIntrinsic(Intrinsic::umin, {I.getType()}, {Op0, Y}));
+
+  // umax(X, Op1) - Op1 --> usub.sat(X, Op1)
+  // TODO: The one-use restriction is not strictly necessary, but it may
+  //       require improving other pattern matching and/or codegen.
+  if (match(Op0, m_OneUse(m_c_UMax(m_Value(X), m_Specific(Op1)))))
+    return replaceInstUsesWith(
+        I, Builder.CreateIntrinsic(Intrinsic::usub_sat, {Ty}, {X, Op1}));
+
+  // Op0 - umax(X, Op0) --> 0 - usub.sat(X, Op0)
+  if (match(Op1, m_OneUse(m_c_UMax(m_Value(X), m_Specific(Op0))))) {
+    Value *USub = Builder.CreateIntrinsic(Intrinsic::usub_sat, {Ty}, {X, Op0});
+    return BinaryOperator::CreateNeg(USub);
+  }
+
+  // C - ctpop(X) => ctpop(~X) if C is bitwidth
+  if (match(Op0, m_SpecificInt(Ty->getScalarSizeInBits())) &&
+      match(Op1, m_OneUse(m_Intrinsic<Intrinsic::ctpop>(m_Value(X)))))
+    return replaceInstUsesWith(
+        I, Builder.CreateIntrinsic(Intrinsic::ctpop, {I.getType()},
+                                   {Builder.CreateNot(X)}));
+
   return TryToNarrowDeduceFlags();
 }
 
 /// This eliminates floating-point negation in either 'fneg(X)' or
 /// 'fsub(-0.0, X)' form by combining into a constant operand.
 static Instruction *foldFNegIntoConstant(Instruction &I) {
+  // This is limited with one-use because fneg is assumed better for
+  // reassociation and cheaper in codegen than fmul/fdiv.
+  // TODO: Should the m_OneUse restriction be removed?
+  Instruction *FNegOp;
+  if (!match(&I, m_FNeg(m_OneUse(m_Instruction(FNegOp)))))
+    return nullptr;
+
   Value *X;
   Constant *C;
 
-  // Fold negation into constant operand. This is limited with one-use because
-  // fneg is assumed better for analysis and cheaper in codegen than fmul/fdiv.
+  // Fold negation into constant operand.
   // -(X * C) --> X * (-C)
-  // FIXME: It's arguable whether these should be m_OneUse or not. The current
-  // belief is that the FNeg allows for better reassociation opportunities.
-  if (match(&I, m_FNeg(m_OneUse(m_FMul(m_Value(X), m_Constant(C))))))
+  if (match(FNegOp, m_FMul(m_Value(X), m_Constant(C))))
     return BinaryOperator::CreateFMulFMF(X, ConstantExpr::getFNeg(C), &I);
   // -(X / C) --> X / (-C)
-  if (match(&I, m_FNeg(m_OneUse(m_FDiv(m_Value(X), m_Constant(C))))))
+  if (match(FNegOp, m_FDiv(m_Value(X), m_Constant(C))))
     return BinaryOperator::CreateFDivFMF(X, ConstantExpr::getFNeg(C), &I);
   // -(C / X) --> (-C) / X
-  if (match(&I, m_FNeg(m_OneUse(m_FDiv(m_Constant(C), m_Value(X))))))
-    return BinaryOperator::CreateFDivFMF(ConstantExpr::getFNeg(C), X, &I);
+  if (match(FNegOp, m_FDiv(m_Constant(C), m_Value(X)))) {
+    Instruction *FDiv =
+        BinaryOperator::CreateFDivFMF(ConstantExpr::getFNeg(C), X, &I);
 
+    // Intersect 'nsz' and 'ninf' because those special value exceptions may not
+    // apply to the fdiv. Everything else propagates from the fneg.
+    // TODO: We could propagate nsz/ninf from fdiv alone?
+    FastMathFlags FMF = I.getFastMathFlags();
+    FastMathFlags OpFMF = FNegOp->getFastMathFlags();
+    FDiv->setHasNoSignedZeros(FMF.noSignedZeros() && OpFMF.noSignedZeros());
+    FDiv->setHasNoInfs(FMF.noInfs() && OpFMF.noInfs());
+    return FDiv;
+  }
   // With NSZ [ counter-example with -0.0: -(-0.0 + 0.0) != 0.0 + -0.0 ]:
   // -(X + C) --> -X + -C --> -C - X
-  if (I.hasNoSignedZeros() &&
-      match(&I, m_FNeg(m_OneUse(m_FAdd(m_Value(X), m_Constant(C))))))
+  if (I.hasNoSignedZeros() && match(FNegOp, m_FAdd(m_Value(X), m_Constant(C))))
     return BinaryOperator::CreateFSubFMF(ConstantExpr::getFNeg(C), X, &I);
 
   return nullptr;
@@ -2153,6 +2281,35 @@ Instruction *InstCombinerImpl::visitFNeg(UnaryOperator &I) {
   if (Instruction *R = hoistFNegAboveFMulFDiv(I, Builder))
     return R;
 
+  // Try to eliminate fneg if at least 1 arm of the select is negated.
+  Value *Cond;
+  if (match(Op, m_OneUse(m_Select(m_Value(Cond), m_Value(X), m_Value(Y))))) {
+    // Unlike most transforms, this one is not safe to propagate nsz unless
+    // it is present on the original select. (We are conservatively intersecting
+    // the nsz flags from the select and root fneg instruction.)
+    auto propagateSelectFMF = [&](SelectInst *S) {
+      S->copyFastMathFlags(&I);
+      if (auto *OldSel = dyn_cast<SelectInst>(Op))
+        if (!OldSel->hasNoSignedZeros())
+          S->setHasNoSignedZeros(false);
+    };
+    // -(Cond ? -P : Y) --> Cond ? P : -Y
+    Value *P;
+    if (match(X, m_FNeg(m_Value(P)))) {
+      Value *NegY = Builder.CreateFNegFMF(Y, &I, Y->getName() + ".neg");
+      SelectInst *NewSel = SelectInst::Create(Cond, P, NegY);
+      propagateSelectFMF(NewSel);
+      return NewSel;
+    }
+    // -(Cond ? X : -P) --> Cond ? -X : P
+    if (match(Y, m_FNeg(m_Value(P)))) {
+      Value *NegX = Builder.CreateFNegFMF(X, &I, X->getName() + ".neg");
+      SelectInst *NewSel = SelectInst::Create(Cond, NegX, P);
+      propagateSelectFMF(NewSel);
+      return NewSel;
+    }
+  }
+
   return nullptr;
 }
 
@@ -2164,6 +2321,9 @@ Instruction *InstCombinerImpl::visitFSub(BinaryOperator &I) {
 
   if (Instruction *X = foldVectorBinop(I))
     return X;
+
+  if (Instruction *Phi = foldBinopWithPhiOperands(I))
+    return Phi;
 
   // Subtraction from -0.0 is the canonical form of fneg.
   // fsub -0.0, X ==> fneg X

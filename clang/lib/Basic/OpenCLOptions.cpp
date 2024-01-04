@@ -7,46 +7,67 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Basic/OpenCLOptions.h"
+#include "clang/Basic/Diagnostic.h"
+#include "clang/Basic/TargetInfo.h"
 
 namespace clang {
+
+const OpenCLOptions::FeatureDepList OpenCLOptions::DependentFeaturesList = {
+    {"__opencl_c_read_write_images", "__opencl_c_images"},
+    {"__opencl_c_3d_image_writes", "__opencl_c_images"},
+    {"__opencl_c_pipes", "__opencl_c_generic_address_space"},
+    {"__opencl_c_device_enqueue", "__opencl_c_generic_address_space"},
+    {"__opencl_c_device_enqueue", "__opencl_c_program_scope_global_variables"}};
+
+const llvm::StringMap<llvm::StringRef> OpenCLOptions::FeatureExtensionMap = {
+    {"cl_khr_fp64", "__opencl_c_fp64"},
+    {"cl_khr_3d_image_writes", "__opencl_c_3d_image_writes"}};
 
 bool OpenCLOptions::isKnown(llvm::StringRef Ext) const {
   return OptMap.find(Ext) != OptMap.end();
 }
 
+bool OpenCLOptions::isAvailableOption(llvm::StringRef Ext,
+                                      const LangOptions &LO) const {
+  if (!isKnown(Ext))
+    return false;
+
+  auto &OptInfo = OptMap.find(Ext)->getValue();
+  if (OptInfo.isCoreIn(LO) || OptInfo.isOptionalCoreIn(LO))
+    return isSupported(Ext, LO);
+
+  return isEnabled(Ext);
+}
+
 bool OpenCLOptions::isEnabled(llvm::StringRef Ext) const {
+  auto I = OptMap.find(Ext);
+  return I != OptMap.end() && I->getValue().Enabled;
+}
+
+bool OpenCLOptions::isWithPragma(llvm::StringRef Ext) const {
   auto E = OptMap.find(Ext);
-  return E != OptMap.end() && E->second.Enabled;
+  return E != OptMap.end() && E->second.WithPragma;
 }
 
 bool OpenCLOptions::isSupported(llvm::StringRef Ext,
                                 const LangOptions &LO) const {
-  auto E = OptMap.find(Ext);
-  if (E == OptMap.end()) {
-    return false;
-  }
-  auto I = OptMap.find(Ext)->getValue();
-  return I.Supported && I.isAvailableIn(LO);
+  auto I = OptMap.find(Ext);
+  return I != OptMap.end() && I->getValue().Supported &&
+         I->getValue().isAvailableIn(LO);
 }
 
 bool OpenCLOptions::isSupportedCore(llvm::StringRef Ext,
                                     const LangOptions &LO) const {
-  auto E = OptMap.find(Ext);
-  if (E == OptMap.end()) {
-    return false;
-  }
-  auto I = OptMap.find(Ext)->getValue();
-  return I.Supported && I.isCoreIn(LO);
+  auto I = OptMap.find(Ext);
+  return I != OptMap.end() && I->getValue().Supported &&
+         I->getValue().isCoreIn(LO);
 }
 
 bool OpenCLOptions::isSupportedOptionalCore(llvm::StringRef Ext,
                                             const LangOptions &LO) const {
-  auto E = OptMap.find(Ext);
-  if (E == OptMap.end()) {
-    return false;
-  }
-  auto I = OptMap.find(Ext)->getValue();
-  return I.Supported && I.isOptionalCoreIn(LO);
+  auto I = OptMap.find(Ext);
+  return I != OptMap.end() && I->getValue().Supported &&
+         I->getValue().isOptionalCoreIn(LO);
 }
 
 bool OpenCLOptions::isSupportedCoreOrOptionalCore(llvm::StringRef Ext,
@@ -56,17 +77,18 @@ bool OpenCLOptions::isSupportedCoreOrOptionalCore(llvm::StringRef Ext,
 
 bool OpenCLOptions::isSupportedExtension(llvm::StringRef Ext,
                                          const LangOptions &LO) const {
-  auto E = OptMap.find(Ext);
-  if (E == OptMap.end()) {
-    return false;
-  }
-  auto I = OptMap.find(Ext)->getValue();
-  return I.Supported && I.isAvailableIn(LO) &&
+  auto I = OptMap.find(Ext);
+  return I != OptMap.end() && I->getValue().Supported &&
+         I->getValue().isAvailableIn(LO) &&
          !isSupportedCoreOrOptionalCore(Ext, LO);
 }
 
 void OpenCLOptions::enable(llvm::StringRef Ext, bool V) {
   OptMap[Ext].Enabled = V;
+}
+
+void OpenCLOptions::acceptsPragma(llvm::StringRef Ext, bool V) {
+  OptMap[Ext].WithPragma = V;
 }
 
 void OpenCLOptions::support(llvm::StringRef Ext, bool V) {
@@ -76,10 +98,8 @@ void OpenCLOptions::support(llvm::StringRef Ext, bool V) {
 }
 
 OpenCLOptions::OpenCLOptions() {
-#define OPENCL_GENERIC_EXTENSION(Ext, AvailVer, CoreVer, OptVer)               \
-  OptMap[#Ext].Avail = AvailVer;                                               \
-  OptMap[#Ext].Core = CoreVer;                                                 \
-  OptMap[#Ext].Opt = OptVer;
+#define OPENCL_GENERIC_EXTENSION(Ext, ...)                                     \
+  OptMap.insert_or_assign(#Ext, OpenCLOptionInfo{__VA_ARGS__});
 #include "clang/Basic/OpenCLExtensions.def"
 }
 
@@ -97,10 +117,36 @@ void OpenCLOptions::disableAll() {
     Opt.getValue().Enabled = false;
 }
 
-void OpenCLOptions::enableSupportedCore(const LangOptions &LO) {
-  for (auto &Opt : OptMap)
-    if (isSupportedCoreOrOptionalCore(Opt.getKey(), LO))
-      Opt.getValue().Enabled = true;
+bool OpenCLOptions::diagnoseUnsupportedFeatureDependencies(
+    const TargetInfo &TI, DiagnosticsEngine &Diags) {
+  auto OpenCLFeaturesMap = TI.getSupportedOpenCLOpts();
+
+  bool IsValid = true;
+  for (auto &FeaturePair : DependentFeaturesList) {
+    auto Feature = FeaturePair.first;
+    auto Dep = FeaturePair.second;
+    if (TI.hasFeatureEnabled(OpenCLFeaturesMap, Feature) &&
+        !TI.hasFeatureEnabled(OpenCLFeaturesMap, Dep)) {
+      IsValid = false;
+      Diags.Report(diag::err_opencl_feature_requires) << Feature << Dep;
+    }
+  }
+  return IsValid;
+}
+
+bool OpenCLOptions::diagnoseFeatureExtensionDifferences(
+    const TargetInfo &TI, DiagnosticsEngine &Diags) {
+  auto OpenCLFeaturesMap = TI.getSupportedOpenCLOpts();
+
+  bool IsValid = true;
+  for (auto &ExtAndFeat : FeatureExtensionMap)
+    if (TI.hasFeatureEnabled(OpenCLFeaturesMap, ExtAndFeat.getKey()) !=
+        TI.hasFeatureEnabled(OpenCLFeaturesMap, ExtAndFeat.getValue())) {
+      IsValid = false;
+      Diags.Report(diag::err_opencl_extension_and_feature_differs)
+          << ExtAndFeat.getKey() << ExtAndFeat.getValue();
+    }
+  return IsValid;
 }
 
 } // end namespace clang

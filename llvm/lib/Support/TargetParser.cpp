@@ -13,10 +13,8 @@
 
 #include "llvm/Support/TargetParser.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Support/ARMBuildAttributes.h"
+#include "llvm/ADT/Triple.h"
 
 using namespace llvm;
 using namespace AMDGPU;
@@ -87,15 +85,15 @@ constexpr GPUInfo AMDGCNGPUs[] = {
   {{"gfx705"},    {"gfx705"},  GK_GFX705,  FEATURE_NONE},
   {{"gfx801"},    {"gfx801"},  GK_GFX801,  FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
   {{"carrizo"},   {"gfx801"},  GK_GFX801,  FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
-  {{"gfx802"},    {"gfx802"},  GK_GFX802,  FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
-  {{"iceland"},   {"gfx802"},  GK_GFX802,  FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
-  {{"tonga"},     {"gfx802"},  GK_GFX802,  FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
-  {{"gfx803"},    {"gfx803"},  GK_GFX803,  FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
-  {{"fiji"},      {"gfx803"},  GK_GFX803,  FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
-  {{"polaris10"}, {"gfx803"},  GK_GFX803,  FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
-  {{"polaris11"}, {"gfx803"},  GK_GFX803,  FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
-  {{"gfx805"},    {"gfx805"},  GK_GFX805,  FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
-  {{"tongapro"},  {"gfx805"},  GK_GFX805,  FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
+  {{"gfx802"},    {"gfx802"},  GK_GFX802,  FEATURE_FAST_DENORMAL_F32},
+  {{"iceland"},   {"gfx802"},  GK_GFX802,  FEATURE_FAST_DENORMAL_F32},
+  {{"tonga"},     {"gfx802"},  GK_GFX802,  FEATURE_FAST_DENORMAL_F32},
+  {{"gfx803"},    {"gfx803"},  GK_GFX803,  FEATURE_FAST_DENORMAL_F32},
+  {{"fiji"},      {"gfx803"},  GK_GFX803,  FEATURE_FAST_DENORMAL_F32},
+  {{"polaris10"}, {"gfx803"},  GK_GFX803,  FEATURE_FAST_DENORMAL_F32},
+  {{"polaris11"}, {"gfx803"},  GK_GFX803,  FEATURE_FAST_DENORMAL_F32},
+  {{"gfx805"},    {"gfx805"},  GK_GFX805,  FEATURE_FAST_DENORMAL_F32},
+  {{"tongapro"},  {"gfx805"},  GK_GFX805,  FEATURE_FAST_DENORMAL_F32},
   {{"gfx810"},    {"gfx810"},  GK_GFX810,  FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
   {{"stoney"},    {"gfx810"},  GK_GFX810,  FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
   {{"gfx900"},    {"gfx900"},  GK_GFX900,  FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
@@ -104,14 +102,18 @@ constexpr GPUInfo AMDGCNGPUs[] = {
   {{"gfx906"},    {"gfx906"},  GK_GFX906,  FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK|FEATURE_SRAMECC},
   {{"gfx908"},    {"gfx908"},  GK_GFX908,  FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK|FEATURE_SRAMECC},
   {{"gfx909"},    {"gfx909"},  GK_GFX909,  FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
+  {{"gfx90a"},    {"gfx90a"},  GK_GFX90A,  FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK|FEATURE_SRAMECC},
   {{"gfx90c"},    {"gfx90c"},  GK_GFX90C,  FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_XNACK},
   {{"gfx1010"},   {"gfx1010"}, GK_GFX1010, FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_WAVE32|FEATURE_XNACK},
   {{"gfx1011"},   {"gfx1011"}, GK_GFX1011, FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_WAVE32|FEATURE_XNACK},
   {{"gfx1012"},   {"gfx1012"}, GK_GFX1012, FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_WAVE32|FEATURE_XNACK},
+  {{"gfx1013"},   {"gfx1013"}, GK_GFX1013, FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_WAVE32|FEATURE_XNACK},
   {{"gfx1030"},   {"gfx1030"}, GK_GFX1030, FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_WAVE32},
   {{"gfx1031"},   {"gfx1031"}, GK_GFX1031, FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_WAVE32},
   {{"gfx1032"},   {"gfx1032"}, GK_GFX1032, FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_WAVE32},
   {{"gfx1033"},   {"gfx1033"}, GK_GFX1033, FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_WAVE32},
+  {{"gfx1034"},   {"gfx1034"}, GK_GFX1034, FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_WAVE32},
+  {{"gfx1035"},   {"gfx1035"}, GK_GFX1035, FEATURE_FAST_FMA_F32|FEATURE_FAST_DENORMAL_F32|FEATURE_WAVE32},
 };
 
 const GPUInfo *getArchEntry(AMDGPU::GPUKind AK, ArrayRef<GPUInfo> Table) {
@@ -213,14 +215,18 @@ AMDGPU::IsaVersion AMDGPU::getIsaVersion(StringRef GPU) {
   case GK_GFX906:  return {9, 0, 6};
   case GK_GFX908:  return {9, 0, 8};
   case GK_GFX909:  return {9, 0, 9};
+  case GK_GFX90A:  return {9, 0, 10};
   case GK_GFX90C:  return {9, 0, 12};
   case GK_GFX1010: return {10, 1, 0};
   case GK_GFX1011: return {10, 1, 1};
   case GK_GFX1012: return {10, 1, 2};
+  case GK_GFX1013: return {10, 1, 3};
   case GK_GFX1030: return {10, 3, 0};
   case GK_GFX1031: return {10, 3, 1};
   case GK_GFX1032: return {10, 3, 2};
   case GK_GFX1033: return {10, 3, 3};
+  case GK_GFX1034: return {10, 3, 4};
+  case GK_GFX1035: return {10, 3, 5};
   default:         return {0, 0, 0};
   }
 }
@@ -323,5 +329,68 @@ bool getCPUFeaturesExceptStdExt(CPUKind Kind,
   return true;
 }
 
+StringRef computeDefaultABIFromArch(const llvm::RISCVISAInfo &ISAInfo) {
+  if (ISAInfo.getXLen() == 32) {
+    if (ISAInfo.hasExtension("d"))
+      return "ilp32d";
+    if (ISAInfo.hasExtension("e"))
+      return "ilp32e";
+    return "ilp32";
+  } else if (ISAInfo.getXLen() == 64) {
+    if (ISAInfo.hasExtension("d"))
+      return "lp64d";
+    return "lp64";
+  }
+  llvm_unreachable("Invalid XLEN");
+}
+
 } // namespace RISCV
 } // namespace llvm
+
+// Parse a branch protection specification, which has the form
+//   standard | none | [bti,pac-ret[+b-key,+leaf]*]
+// Returns true on success, with individual elements of the specification
+// returned in `PBP`. Returns false in error, with `Err` containing
+// an erroneous part of the spec.
+bool ARM::parseBranchProtection(StringRef Spec, ParsedBranchProtection &PBP,
+                                StringRef &Err) {
+  PBP = {"none", "a_key", false};
+  if (Spec == "none")
+    return true; // defaults are ok
+
+  if (Spec == "standard") {
+    PBP.Scope = "non-leaf";
+    PBP.BranchTargetEnforcement = true;
+    return true;
+  }
+
+  SmallVector<StringRef, 4> Opts;
+  Spec.split(Opts, "+");
+  for (int I = 0, E = Opts.size(); I != E; ++I) {
+    StringRef Opt = Opts[I].trim();
+    if (Opt == "bti") {
+      PBP.BranchTargetEnforcement = true;
+      continue;
+    }
+    if (Opt == "pac-ret") {
+      PBP.Scope = "non-leaf";
+      for (; I + 1 != E; ++I) {
+        StringRef PACOpt = Opts[I + 1].trim();
+        if (PACOpt == "leaf")
+          PBP.Scope = "all";
+        else if (PACOpt == "b-key")
+          PBP.Key = "b_key";
+        else
+          break;
+      }
+      continue;
+    }
+    if (Opt == "")
+      Err = "<empty>";
+    else
+      Err = Opt;
+    return false;
+  }
+
+  return true;
+}

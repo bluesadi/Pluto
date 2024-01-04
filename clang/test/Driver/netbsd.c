@@ -236,6 +236,7 @@
 // ARMEB: "{{.*}}/usr/lib{{/|\\\\}}eabi{{/|\\\\}}crti.o"
 // ARMEB: "{{.*}}/usr/lib{{/|\\\\}}crtbegin.o" "{{.*}}.o" "-lc"
 // ARMEB: "{{.*}}/usr/lib{{/|\\\\}}crtend.o" "{{.*}}/usr/lib{{/|\\\\}}crtn.o"
+// ARMV7EB: as{{.*}}" "-mcpu=cortex-a8"
 // ARMV7EB: ld{{.*}}" "--eh-frame-hdr" "-dynamic-linker" "/libexec/ld.elf_so"
 // ARMV7EB: "--be8" "-m" "armelfb_nbsd_eabi"
 
@@ -466,3 +467,11 @@
 // RUN: %clang -target powerpc-unknown-netbsd -### -c %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=POWERPC-SECUREPLT %s
 // POWERPC-SECUREPLT: "-target-feature" "+secure-plt"
+
+// -r suppresses default -l and crt*.o like -nostdlib.
+// RUN: %clang -no-canonical-prefixes -target x86_64-unknown-netbsd -r \
+// RUN: --sysroot=%S/Inputs/basic_netbsd_tree %s -### 2>&1 \
+// RUN: | FileCheck -check-prefix=RELOCATABLE %s
+// RELOCATABLE:     "-r"
+// RELOCATABLE-NOT: "-l
+// RELOCATABLE-NOT: crt{{[^.]+}}.o

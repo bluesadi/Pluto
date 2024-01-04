@@ -16,7 +16,11 @@ def RocketModel : SchedMachineModel {
   let IssueWidth = 1;        // 1 micro-op is dispatched per cycle.
   let LoadLatency = 3;
   let MispredictPenalty = 3;
-  let UnsupportedFeatures = [HasStdExtV, HasStdExtZvamo, HasStdExtZvlsseg];
+  let CompleteModel = false;
+  let UnsupportedFeatures = [HasStdExtZbkb, HasStdExtZbkc, HasStdExtZbkx,
+                             HasStdExtZknd, HasStdExtZkne, HasStdExtZknh,
+                             HasStdExtZksed, HasStdExtZksh, HasStdExtZkr,
+                             HasVInstructions, HasVInstructionsI64];
 }
 
 //===----------------------------------------------------------------------===//
@@ -52,8 +56,10 @@ def : WriteRes<WriteJmpReg, [RocketUnitB]>;
 // Integer arithmetic and logic
 def : WriteRes<WriteIALU32, [RocketUnitALU]>;
 def : WriteRes<WriteIALU, [RocketUnitALU]>;
-def : WriteRes<WriteShift32, [RocketUnitALU]>;
-def : WriteRes<WriteShift, [RocketUnitALU]>;
+def : WriteRes<WriteShiftImm32, [RocketUnitALU]>;
+def : WriteRes<WriteShiftImm, [RocketUnitALU]>;
+def : WriteRes<WriteShiftReg32, [RocketUnitALU]>;
+def : WriteRes<WriteShiftReg, [RocketUnitALU]>;
 
 // Integer multiplication
 let Latency = 4 in {
@@ -143,14 +149,12 @@ def : WriteRes<WriteFMovI64ToF64, [RocketUnitFPALU]>;
 // FP multiplication
 let Latency = 5 in {
 def : WriteRes<WriteFMul32, [RocketUnitFPALU]>;
-def : WriteRes<WriteFMulAdd32, [RocketUnitFPALU]>;
-def : WriteRes<WriteFMulSub32, [RocketUnitFPALU]>;
+def : WriteRes<WriteFMA32, [RocketUnitFPALU]>;
 }
 
 let Latency = 7 in {
 def : WriteRes<WriteFMul64, [RocketUnitFPALU]>;
-def : WriteRes<WriteFMulAdd64, [RocketUnitFPALU]>;
-def : WriteRes<WriteFMulSub64, [RocketUnitFPALU]>;
+def : WriteRes<WriteFMA64, [RocketUnitFPALU]>;
 }
 
 // FP division
@@ -181,8 +185,10 @@ def : ReadAdvance<ReadStoreData, 0>;
 def : ReadAdvance<ReadMemBase, 0>;
 def : ReadAdvance<ReadIALU, 0>;
 def : ReadAdvance<ReadIALU32, 0>;
-def : ReadAdvance<ReadShift, 0>;
-def : ReadAdvance<ReadShift32, 0>;
+def : ReadAdvance<ReadShiftImm, 0>;
+def : ReadAdvance<ReadShiftImm32, 0>;
+def : ReadAdvance<ReadShiftReg, 0>;
+def : ReadAdvance<ReadShiftReg32, 0>;
 def : ReadAdvance<ReadIDiv, 0>;
 def : ReadAdvance<ReadIDiv32, 0>;
 def : ReadAdvance<ReadIMul, 0>;
@@ -199,11 +205,9 @@ def : ReadAdvance<ReadFMemBase, 0>;
 def : ReadAdvance<ReadFALU32, 0>;
 def : ReadAdvance<ReadFALU64, 0>;
 def : ReadAdvance<ReadFMul32, 0>;
-def : ReadAdvance<ReadFMulAdd32, 0>;
-def : ReadAdvance<ReadFMulSub32, 0>;
+def : ReadAdvance<ReadFMA32, 0>;
 def : ReadAdvance<ReadFMul64, 0>;
-def : ReadAdvance<ReadFMulAdd64, 0>;
-def : ReadAdvance<ReadFMulSub64, 0>;
+def : ReadAdvance<ReadFMA64, 0>;
 def : ReadAdvance<ReadFDiv32, 0>;
 def : ReadAdvance<ReadFDiv64, 0>;
 def : ReadAdvance<ReadFSqrt32, 0>;
@@ -230,4 +234,14 @@ def : ReadAdvance<ReadFMovF64ToI64, 0>;
 def : ReadAdvance<ReadFMovI64ToF64, 0>;
 def : ReadAdvance<ReadFClass32, 0>;
 def : ReadAdvance<ReadFClass64, 0>;
+
+//===----------------------------------------------------------------------===//
+// Unsupported extensions
+defm : UnsupportedSchedV;
+defm : UnsupportedSchedZba;
+defm : UnsupportedSchedZbb;
+defm : UnsupportedSchedZbc;
+defm : UnsupportedSchedZbs;
+defm : UnsupportedSchedZbf;
+defm : UnsupportedSchedZfh;
 }

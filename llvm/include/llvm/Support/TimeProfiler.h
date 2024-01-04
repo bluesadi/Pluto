@@ -6,13 +6,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_SUPPORT_TIME_PROFILER_H
-#define LLVM_SUPPORT_TIME_PROFILER_H
+#ifndef LLVM_SUPPORT_TIMEPROFILER_H
+#define LLVM_SUPPORT_TIMEPROFILER_H
 
 #include "llvm/Support/Error.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
 
 namespace llvm {
+
+class raw_pwrite_stream;
 
 struct TimeTraceProfiler;
 TimeTraceProfiler *getTimeTraceProfilerInstance();

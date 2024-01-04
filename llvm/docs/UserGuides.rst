@@ -27,12 +27,14 @@ intermediate LLVM representation.
    CommandLine
    CompileCudaWithLLVM
    CoverageMappingFormat
+   CycleTerminology
    DebuggingJITedCode
    Docker
    ExtendingLLVM
    GoldPlugin
    HowToBuildOnARM
    HowToBuildWithPGO
+   HowToBuildWindowsItaniumPrograms
    HowToCrossCompileBuiltinsOnArm
    HowToCrossCompileLLVM
    HowToUpdateDebugInfo
@@ -42,6 +44,10 @@ intermediate LLVM representation.
    MemorySSA
    MergeFunctions
    MCJITDesignAndImplementation
+   ORCv2
+   OpaquePointers
+   JITLink
+   NewPassManager
    NVPTXUsage
    Phabricator
    Passes
@@ -132,6 +138,9 @@ Optimizations
 :doc:`LoopTerminology`
   A document describing Loops and associated terms as used in LLVM.
 
+:doc:`CycleTerminology`
+  A document describing cycles as a generalization of loops.
+
 :doc:`Vectorizers`
    This document describes the current status of vectorization in LLVM.
 
@@ -171,6 +180,14 @@ JIT
 :doc:`MCJITDesignAndImplementation`
    Describes the inner workings of MCJIT execution engine.
 
+:doc:`ORCv2`
+   Describes the design and implementation of the ORC APIs, including some
+   usage examples, and a guide for users transitioning from ORCv1 to ORCv2.
+
+:doc:`JITLink`
+   Describes the design and APIs for the JITLink library, ORC's new JIT
+   linker.
+
 :doc:`DebuggingJITedCode`
    How to debug JITed code with GDB.
 
@@ -186,6 +203,9 @@ Additional Topics
 :doc:`AddingConstrainedIntrinsics`
    Gives the steps necessary when adding a new constrained math intrinsic
    to LLVM.
+
+:doc:`HowToBuildWindowsItaniumPrograms`
+   Notes on assembling a Windows Itanium environment.
 
 :doc:`HowToCrossCompileBuiltinsOnArm`
    Notes on cross-building and testing the compiler-rt builtins for Arm.
@@ -206,3 +226,8 @@ Additional Topics
 :doc:`AMDGPUDwarfExtensionsForHeterogeneousDebugging`
    This document describes DWARF extensions to support heterogeneous debugging
    for targets such as the AMDGPU backend.
+
+:doc:`AMDGPUDwarfExtensionAllowLocationDescriptionOnTheDwarfExpressionStack/AMDGPUDwarfExtensionAllowLocationDescriptionOnTheDwarfExpressionStack`
+   This document describes a DWARF extension to allow location descriptions on
+   the DWARF expression stack. It is part of
+   :doc:`AMDGPUDwarfExtensionsForHeterogeneousDebugging`.

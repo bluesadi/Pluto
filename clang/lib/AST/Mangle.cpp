@@ -116,6 +116,12 @@ bool MangleContext::shouldMangleDeclName(const NamedDecl *D) {
   if (!D->hasExternalFormalLinkage() && D->getOwningModuleForLinkage())
     return true;
 
+  // C functions with internal linkage have to be mangled with option
+  // -funique-internal-linkage-names.
+  if (!getASTContext().getLangOpts().CPlusPlus &&
+      isUniqueInternalLinkageDecl(D))
+    return true;
+
   // In C, functions with no attributes never need to be mangled. Fastpath them.
   if (!getASTContext().getLangOpts().CPlusPlus && !D->hasAttrs())
     return false;
@@ -133,7 +139,9 @@ bool MangleContext::shouldMangleDeclName(const NamedDecl *D) {
 }
 
 void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
+  const ASTContext &ASTContext = getASTContext();
   const NamedDecl *D = cast<NamedDecl>(GD.getDecl());
+
   // Any decl can be declared with __asm("foo") on it, and this takes precedence
   // over all other naming in the .o file.
   if (const AsmLabelAttr *ALA = D->getAttr<AsmLabelAttr>()) {
@@ -151,9 +159,16 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
     // tricks normally used for producing aliases (PR9177). Fortunately the
     // llvm mangler on ELF is a nop, so we can just avoid adding the \01
     // marker.
+    StringRef UserLabelPrefix =
+        getASTContext().getTargetInfo().getUserLabelPrefix();
+#ifndef NDEBUG
     char GlobalPrefix =
-        getASTContext().getTargetInfo().getDataLayout().getGlobalPrefix();
-    if (GlobalPrefix)
+        llvm::DataLayout(getASTContext().getTargetInfo().getDataLayoutString())
+            .getGlobalPrefix();
+    assert((UserLabelPrefix.empty() && !GlobalPrefix) ||
+           (UserLabelPrefix.size() == 1 && UserLabelPrefix[0] == GlobalPrefix));
+#endif
+    if (!UserLabelPrefix.empty())
       Out << '\01'; // LLVM IR Marker for __asm("foo")
 
     Out << ALA->getLabel();
@@ -163,7 +178,6 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
   if (auto *GD = dyn_cast<MSGuidDecl>(D))
     return mangleMSGuidDecl(GD, Out);
 
-  const ASTContext &ASTContext = getASTContext();
   CCMangling CC = getCallingConvMangling(ASTContext, D);
 
   if (CC == CCM_WasmMainArgcArgv) {
@@ -211,11 +225,17 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
   if (const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(FD))
     if (!MD->isStatic())
       ++ArgWords;
-  for (const auto &AT : Proto->param_types())
+  for (const auto &AT : Proto->param_types()) {
+    // If an argument type is incomplete there is no way to get its size to
+    // correctly encode into the mangling scheme.
+    // Follow GCCs behaviour by simply breaking out of the loop.
+    if (AT->isIncompleteType())
+      break;
     // Size should be aligned to pointer size.
     ArgWords +=
         llvm::alignTo(ASTContext.getTypeSize(AT), TI.getPointerWidth(0)) /
         TI.getPointerWidth(0);
+  }
   Out << ((TI.getPointerWidth(0) / 8) * ArgWords);
 }
 
@@ -377,8 +397,8 @@ class ASTNameGenerator::Implementation {
 
 public:
   explicit Implementation(ASTContext &Ctx)
-      : MC(Ctx.createMangleContext()), DL(Ctx.getTargetInfo().getDataLayout()) {
-  }
+      : MC(Ctx.createMangleContext()),
+        DL(Ctx.getTargetInfo().getDataLayoutString()) {}
 
   bool writeName(const Decl *D, raw_ostream &OS) {
     // First apply frontend mangling.

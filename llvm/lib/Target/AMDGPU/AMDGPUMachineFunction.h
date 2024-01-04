@@ -15,8 +15,6 @@
 
 namespace llvm {
 
-class GCNSubtarget;
-
 class AMDGPUMachineFunction : public MachineFunctionInfo {
   /// A map to keep track of local memory objects and their offsets within the
   /// local memory space.
@@ -94,6 +92,7 @@ public:
   }
 
   unsigned allocateLDSGlobal(const DataLayout &DL, const GlobalVariable &GV);
+  void allocateModuleLDSGlobal(const Module *M);
 
   Align getDynLDSAlign() const { return DynLDSAlign; }
 

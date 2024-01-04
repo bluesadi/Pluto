@@ -13,7 +13,7 @@ enum B {};
 typedef int C;
 }
 
-// CHECK: VarDecl {{0x[0-9a-fA-F]+}} <line:[[@LINE+1]]:1, col:36> col:15 ImplicitConstrArray 'foo::A [2]'
+// CHECK: VarDecl {{0x[0-9a-fA-F]+}} <line:[[@LINE+1]]:1, col:36> col:15 ImplicitConstrArray 'foo::A[2]'
 static foo::A ImplicitConstrArray[2];
 
 int main() {
@@ -107,6 +107,24 @@ namespace attributed_decl {
     extern int __declspec(dllexport) i5;
   }
 }
+
+// CHECK-1Z: NamespaceDecl {{.*}} attributed_case
+namespace attributed_case {
+void f(int n) {
+  switch (n) {
+  case 0:
+    n--;
+    // CHECK: AttributedStmt {{.*}} <line:[[@LINE+2]]:5, line:[[@LINE+4]]:35>
+    // CHECK: FallThroughAttr {{.*}} <line:[[@LINE+1]]:20>
+    __attribute__((fallthrough))
+    // CHECK: FallThroughAttr {{.*}} <line:[[@LINE+1]]:22>
+      __attribute__((fallthrough));
+  case 1:
+    n++;
+    break;
+  }
+}
+} // namespace attributed_case
 
 // CHECK: NamespaceDecl {{.*}} attributed_stmt
 namespace attributed_stmt {

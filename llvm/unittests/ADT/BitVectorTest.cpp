@@ -21,7 +21,7 @@ class BitVectorTest : public ::testing::Test { };
 
 // Test both BitVector and SmallBitVector with the same suite of tests.
 typedef ::testing::Types<BitVector, SmallBitVector> BitVectorTestTypes;
-TYPED_TEST_CASE(BitVectorTest, BitVectorTestTypes);
+TYPED_TEST_SUITE(BitVectorTest, BitVectorTestTypes, );
 
 TYPED_TEST(BitVectorTest, TrivialOperation) {
   TypeParam Vec;
@@ -779,6 +779,7 @@ TYPED_TEST(BitVectorTest, ProxyIndex) {
   EXPECT_TRUE(Vec.none());
 }
 
+
 TYPED_TEST(BitVectorTest, PortableBitMask) {
   TypeParam A;
   const uint32_t Mask1[] = { 0x80000000, 6, 5 };
@@ -1142,10 +1143,12 @@ TYPED_TEST(BitVectorTest, Iterators) {
 
   TypeParam Empty;
   EXPECT_EQ(Empty.set_bits_begin(), Empty.set_bits_end());
+  int BitCount = 0;
   for (unsigned Bit : Empty.set_bits()) {
     (void)Bit;
-    EXPECT_TRUE(false);
+    BitCount++;
   }
+  ASSERT_EQ(BitCount, 0);
 
   TypeParam ToFill(100, false);
   ToFill.set(0);
@@ -1168,21 +1171,25 @@ TYPED_TEST(BitVectorTest, PushBack) {
   EXPECT_EQ(-1, Vec.find_first());
   EXPECT_EQ(10U, Vec.size());
   EXPECT_EQ(0U, Vec.count());
+  EXPECT_EQ(false, Vec.back());
 
   Vec.push_back(true);
   EXPECT_EQ(10, Vec.find_first());
   EXPECT_EQ(11U, Vec.size());
   EXPECT_EQ(1U, Vec.count());
+  EXPECT_EQ(true, Vec.back());
 
   Vec.push_back(false);
   EXPECT_EQ(10, Vec.find_first());
   EXPECT_EQ(12U, Vec.size());
   EXPECT_EQ(1U, Vec.count());
+  EXPECT_EQ(false, Vec.back());
 
   Vec.push_back(true);
   EXPECT_EQ(10, Vec.find_first());
   EXPECT_EQ(13U, Vec.size());
   EXPECT_EQ(2U, Vec.count());
+  EXPECT_EQ(true, Vec.back());
 
   // Add a lot of values to cause reallocation.
   for (int i = 0; i != 100; ++i) {
@@ -1192,6 +1199,28 @@ TYPED_TEST(BitVectorTest, PushBack) {
   EXPECT_EQ(10, Vec.find_first());
   EXPECT_EQ(213U, Vec.size());
   EXPECT_EQ(102U, Vec.count());
+}
+
+TYPED_TEST(BitVectorTest, PopBack) {
+  TypeParam Vec(10, true);
+  EXPECT_EQ(10U, Vec.size());
+  EXPECT_EQ(10U, Vec.count());
+  EXPECT_EQ(true, Vec.back());
+
+  Vec.pop_back();
+  EXPECT_EQ(9U, Vec.size());
+  EXPECT_EQ(9U, Vec.count());
+  EXPECT_EQ(true, Vec.back());
+
+  Vec.push_back(false);
+  EXPECT_EQ(10U, Vec.size());
+  EXPECT_EQ(9U, Vec.count());
+  EXPECT_EQ(false, Vec.back());
+
+  Vec.pop_back();
+  EXPECT_EQ(9U, Vec.size());
+  EXPECT_EQ(9U, Vec.count());
+  EXPECT_EQ(true, Vec.back());
 }
 
 TYPED_TEST(BitVectorTest, DenseSet) {
@@ -1258,5 +1287,41 @@ TYPED_TEST(BitVectorTest, DenseMapHashing) {
     EXPECT_EQ(DMI::getHashValue(A), DMI::getHashValue(B));
   }
 }
+
+TEST(BitVectoryTest, Apply) {
+  for (int i = 0; i < 2; ++i) {
+    int j = i * 100 + 3;
+
+    const BitVector x =
+        createBitVector<BitVector>(j + 5, {{i, i + 1}, {j - 1, j}});
+    const BitVector y = createBitVector<BitVector>(j + 5, {{i, j}});
+    const BitVector z =
+        createBitVector<BitVector>(j + 5, {{i + 1, i + 2}, {j, j + 1}});
+
+    auto op0 = [](auto x) { return ~x; };
+    BitVector expected0 = x;
+    expected0.flip();
+    BitVector out0(j - 2);
+    BitVector::apply(op0, out0, x);
+    EXPECT_EQ(out0, expected0);
+
+    auto op1 = [](auto x, auto y) { return x & ~y; };
+    BitVector expected1 = x;
+    expected1.reset(y);
+    BitVector out1;
+    BitVector::apply(op1, out1, x, y);
+    EXPECT_EQ(out1, expected1);
+
+    auto op2 = [](auto x, auto y, auto z) { return (x ^ ~y) | z; };
+    BitVector expected2 = y;
+    expected2.flip();
+    expected2 ^= x;
+    expected2 |= z;
+    BitVector out2(j + 5);
+    BitVector::apply(op2, out2, x, y, z);
+    EXPECT_EQ(out2, expected2);
+  }
+}
+
 
 } // namespace

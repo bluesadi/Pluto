@@ -54,7 +54,7 @@ auto [e1, e2] = make<E>();
 //   CHECK: call i32 @__cxa_atexit({{.*}}@_ZN1XD1Ev{{.*}}@_ZGR2b1_
 //   CHECK: store {{.*}}* @_ZGR2b1_,
 //
-//   CHECK: call double @_Z3getILi1EEDa1B()
+//   CHECK: call noundef double @_Z3getILi1EEDa1B()
 //   CHECK: fptosi double %{{.*}} to i32
 //   CHECK: store i32 %{{.*}}, i32* @_ZGR2b2_
 //   CHECK: store i32* @_ZGR2b2_, i32** @b2
@@ -95,7 +95,7 @@ int test_locals() {
   //   CHECK: call i32 @_Z3getILi0EEDa1B()
   //   CHECK: call void @_ZN1XC1E1Y({{.*}}* {{[^,]*}} %[[b1:.*]], i32
   //
-  //   CHECK: call double @_Z3getILi1EEDa1B()
+  //   CHECK: call noundef double @_Z3getILi1EEDa1B()
   //   CHECK: %[[cvt:.*]] = fptosi double %{{.*}} to i32
   //   CHECK: store i32 %[[cvt]], i32* %[[b2:.*]],
   //   CHECK: store i32* %[[b2]], i32** %[[b2ref:.*]],
@@ -120,7 +120,7 @@ void test_bitfield(A &a) {
 // CHECK-LABEL: define {{.*}}@_Z18test_static_simple
 void test_static_simple() {
   static auto [x1, x2] = make<A>();
-  // CHECK: load atomic {{.*}}i64* @_ZGVZ18test_static_simplevEDC2x12x2E
+  // CHECK: load atomic i8, {{.*}}@_ZGVZ18test_static_simplevEDC2x12x2E{{.*}} acquire, align 8
   // CHECK: br i1
   // CHECK: @__cxa_guard_acquire(
   // CHECK: call {{.*}} @_Z4makeI1AERT_v(
@@ -138,14 +138,14 @@ int test_static_tuple() {
   static auto [x1, x2] = make<B>();
 
   // Initialization of the implied variable.
-  // CHECK: load atomic {{.*}} @_ZGVZ17test_static_tuplevEDC2x12x2E
+  // CHECK: load atomic i8, {{.*}}@_ZGVZ17test_static_tuplevEDC2x12x2E{{.*}} acquire, align 8
   // CHECK: br i1
   // CHECK: @__cxa_guard_acquire({{.*}} @_ZGVZ17test_static_tuplevEDC2x12x2E)
   // CHECK: call {{.*}} @_Z4makeI1BERT_v(
   // CHECK: @__cxa_guard_release({{.*}} @_ZGVZ17test_static_tuplevEDC2x12x2E)
 
   // Initialization of the secret 'x1' variable.
-  // CHECK: load atomic {{.*}} @_ZGVZ17test_static_tuplevE2x1
+  // CHECK: load atomic i8, {{.*}}@_ZGVZ17test_static_tuplevE2x1{{.*}} acquire, align 8
   // CHECK: br i1
   // CHECK: @__cxa_guard_acquire({{.*}} @_ZGVZ17test_static_tuplevE2x1)
   // CHECK: call {{.*}} @_Z3getILi0EEDa1B(
@@ -155,7 +155,7 @@ int test_static_tuple() {
   // CHECK: call void @__cxa_guard_release({{.*}} @_ZGVZ17test_static_tuplevE2x1)
 
   // Initialization of the secret 'x2' variable.
-  // CHECK: load atomic {{.*}} @_ZGVZ17test_static_tuplevE2x2
+  // CHECK: load atomic i8, {{.*}}@_ZGVZ17test_static_tuplevE2x2{{.*}} acquire, align 8
   // CHECK: br i1
   // CHECK: @__cxa_guard_acquire({{.*}} @_ZGVZ17test_static_tuplevE2x2)
   // CHECK: call {{.*}} @_Z3getILi1EEDa1B(

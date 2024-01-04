@@ -2,6 +2,8 @@
 ; RUN: opt -cost-model -analyze -mtriple=thumbv8.1m.main-none-eabi -mattr=+mve < %s | FileCheck %s --check-prefix=CHECK-MVE
 ; RUN: opt -cost-model -analyze -mtriple=thumbv8.1m.main-none-eabi -mattr=+mve.fp < %s | FileCheck %s --check-prefix=CHECK-MVEFP
 
+target datalayout = "e-m:e-p:32:32-Fi8-i64:64-v128:64:128-a:0:32-n32-S64"
+
 define void @f32() {
 ; CHECK-MVE-LABEL: 'f32'
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %c = fadd float undef, undef
@@ -61,15 +63,15 @@ define void @f64() {
 
 define void @vf32() {
 ; CHECK-MVE-LABEL: 'vf32'
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %c2 = fadd <2 x float> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %d2 = fsub <2 x float> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %e2 = fmul <2 x float> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %c4 = fadd <4 x float> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %d4 = fsub <4 x float> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %e4 = fmul <4 x float> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %c8 = fadd <8 x float> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %d8 = fsub <8 x float> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %e8 = fmul <8 x float> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %c2 = fadd <2 x float> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %d2 = fsub <2 x float> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %e2 = fmul <2 x float> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %c4 = fadd <4 x float> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %d4 = fsub <4 x float> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %e4 = fmul <4 x float> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %c8 = fadd <8 x float> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %d8 = fsub <8 x float> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %e8 = fmul <8 x float> undef, undef
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-MVEFP-LABEL: 'vf32'
@@ -98,15 +100,15 @@ define void @vf32() {
 
 define void @vf16() {
 ; CHECK-MVE-LABEL: 'vf16'
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %c2 = fadd <2 x half> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %d2 = fsub <2 x half> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %e2 = fmul <2 x half> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %c4 = fadd <4 x half> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %d4 = fsub <4 x half> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %e4 = fmul <4 x half> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %c8 = fadd <8 x half> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %d8 = fsub <8 x half> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %e8 = fmul <8 x half> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %c2 = fadd <2 x half> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %d2 = fsub <2 x half> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %e2 = fmul <2 x half> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %c4 = fadd <4 x half> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %d4 = fsub <4 x half> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %e4 = fmul <4 x half> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %c8 = fadd <8 x half> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %d8 = fsub <8 x half> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %e8 = fmul <8 x half> undef, undef
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-MVEFP-LABEL: 'vf16'
@@ -135,27 +137,27 @@ define void @vf16() {
 
 define void @vf64() {
 ; CHECK-MVE-LABEL: 'vf64'
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %c2 = fadd <2 x double> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %d2 = fsub <2 x double> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %e2 = fmul <2 x double> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %c4 = fadd <4 x double> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %d4 = fsub <4 x double> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %e4 = fmul <4 x double> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %c8 = fadd <8 x double> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %d8 = fsub <8 x double> undef, undef
-; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %e8 = fmul <8 x double> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %c2 = fadd <2 x double> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %d2 = fsub <2 x double> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %e2 = fmul <2 x double> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %c4 = fadd <4 x double> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %d4 = fsub <4 x double> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %e4 = fmul <4 x double> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %c8 = fadd <8 x double> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %d8 = fsub <8 x double> undef, undef
+; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %e8 = fmul <8 x double> undef, undef
 ; CHECK-MVE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
 ; CHECK-MVEFP-LABEL: 'vf64'
-; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %c2 = fadd <2 x double> undef, undef
-; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %d2 = fsub <2 x double> undef, undef
-; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %e2 = fmul <2 x double> undef, undef
-; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %c4 = fadd <4 x double> undef, undef
-; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %d4 = fsub <4 x double> undef, undef
-; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %e4 = fmul <4 x double> undef, undef
-; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %c8 = fadd <8 x double> undef, undef
-; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %d8 = fsub <8 x double> undef, undef
-; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %e8 = fmul <8 x double> undef, undef
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %c2 = fadd <2 x double> undef, undef
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %d2 = fsub <2 x double> undef, undef
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %e2 = fmul <2 x double> undef, undef
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %c4 = fadd <4 x double> undef, undef
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %d4 = fsub <4 x double> undef, undef
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %e4 = fmul <4 x double> undef, undef
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %c8 = fadd <8 x double> undef, undef
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %d8 = fsub <8 x double> undef, undef
+; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %e8 = fmul <8 x double> undef, undef
 ; CHECK-MVEFP-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
   %c2 = fadd <2 x double> undef, undef

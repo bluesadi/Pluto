@@ -115,10 +115,12 @@
 // COMMON:#define __STDC__ 1
 // COMMON:#define __VERSION__ {{.*}}
 // COMMON:#define __clang__ 1
+// COMMON:#define __clang_literal_encoding__ {{.*}}
 // COMMON:#define __clang_major__ {{[0-9]+}}
 // COMMON:#define __clang_minor__ {{[0-9]+}}
 // COMMON:#define __clang_patchlevel__ {{[0-9]+}}
 // COMMON:#define __clang_version__ {{.*}}
+// COMMON:#define __clang_wide_literal_encoding__ {{.*}}
 // COMMON:#define __llvm__ 1
 //
 // RUN: %clang_cc1 -E -dM -triple=x86_64-pc-win32 < /dev/null | FileCheck -match-full-lines -check-prefix C-DEFAULT %s
@@ -192,6 +194,8 @@
 // MSEXT:#define _INTEGRAL_MAX_BITS 64
 // MSEXT-NOT:#define _NATIVE_WCHAR_T_DEFINED 1
 // MSEXT-NOT:#define _WCHAR_T_DEFINED 1
+// MSEXT:#define _MSVC_EXECUTION_CHARACTER_SET 65001
+// MSEXT:#define __STDC_NO_THREADS__ 1
 //
 //
 // RUN: %clang_cc1 -x c++ -fms-extensions -triple i686-pc-win32 -E -dM < /dev/null | FileCheck -match-full-lines -check-prefix MSEXT-CXX %s
@@ -874,9 +878,7 @@
 // RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=sparc-none-none < /dev/null | FileCheck -match-full-lines -check-prefix SPARC -check-prefix SPARC-DEFAULT %s
 // RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=sparc-rtems-elf < /dev/null | FileCheck -match-full-lines -check-prefix SPARC -check-prefix SPARC-DEFAULT %s
 // RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=sparc-none-netbsd < /dev/null | FileCheck -match-full-lines -check-prefix SPARC -check-prefix SPARC-NETOPENBSD %s
-// RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=sparc-none-openbsd < /dev/null | FileCheck -match-full-lines -check-prefix SPARC -check-prefix SPARC-NETOPENBSD %s
 // RUN: %clang_cc1 -x c++ -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=sparc-none-none < /dev/null | FileCheck -match-full-lines -check-prefix SPARC -check-prefix SPARC-DEFAULT -check-prefix SPARC-DEFAULT-CXX %s
-// RUN: %clang_cc1 -x c++ -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=sparc-none-openbsd < /dev/null | FileCheck -match-full-lines -check-prefix SPARC -check-prefix SPARC-NETOPENBSD -check-prefix SPARC-NETOPENBSD-CXX %s
 //
 // SPARC-NOT:#define _LP64
 // SPARC:#define __BIGGEST_ALIGNMENT__ 8
@@ -1026,7 +1028,6 @@
 // SPARC-NETOPENBSD:#define __SIZE_TYPE__ long unsigned int
 // SPARC:#define __SIZE_WIDTH__ 32
 // SPARC-DEFAULT-CXX:#define __STDCPP_DEFAULT_NEW_ALIGNMENT__ 8U
-// SPARC-NETOPENBSD-CXX:#define __STDCPP_DEFAULT_NEW_ALIGNMENT__ 8UL
 // SPARC:#define __UINT16_C_SUFFIX__
 // SPARC:#define __UINT16_MAX__ 65535
 // SPARC:#define __UINT16_TYPE__ unsigned short
@@ -1462,10 +1463,19 @@
 // OPENBSD:#define __WCHAR_TYPE__ int
 // OPENBSD:#define __WINT_TYPE__ int
 //
+// RUN: %clang_cc1 -x c -std=c11 -E -dM -ffreestanding -triple=amd64-unknown-openbsd < /dev/null | FileCheck -match-full-lines -check-prefix OPENBSD-STDC %s
+// RUN: %clang_cc1 -x c -std=gnu11 -E -dM -ffreestanding -triple=amd64-unknown-openbsd < /dev/null | FileCheck -match-full-lines -check-prefix OPENBSD-STDC %s
+// RUN: %clang_cc1 -x c -std=c17 -E -dM -ffreestanding -triple=amd64-unknown-openbsd < /dev/null | FileCheck -match-full-lines -check-prefix OPENBSD-STDC %s
+// OPENBSD-STDC:#define __STDC_NO_THREADS__ 1
+//
+// RUN: %clang_cc1 -x c -std=c99 -E -dM -ffreestanding -triple=amd64-unknown-openbsd < /dev/null | FileCheck -match-full-lines -check-prefix OPENBSD-STDC-N %s
+// OPENBSD-STDC-N-NOT:#define __STDC_NO_THREADS__ 1
+//
 // RUN: %clang_cc1 -E -dM -ffreestanding -triple=xcore-none-none < /dev/null | FileCheck -match-full-lines -check-prefix XCORE %s
 // XCORE:#define __BYTE_ORDER__ __ORDER_LITTLE_ENDIAN__
 // XCORE:#define __LITTLE_ENDIAN__ 1
 // XCORE:#define __XS1B__ 1
+// XCORE:#define __xcore__ 1
 //
 // RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=wasm32-unknown-unknown \
 // RUN:   < /dev/null \
@@ -1473,17 +1483,33 @@
 // RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=wasm64-unknown-unknown \
 // RUN:   < /dev/null \
 // RUN:   | FileCheck -match-full-lines -check-prefixes=WEBASSEMBLY,WEBASSEMBLY64 %s
+// RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=wasm32-emscripten \
+// RUN:   < /dev/null \
+// RUN:   | FileCheck -match-full-lines -check-prefixes=WEBASSEMBLY,WEBASSEMBLY32,EMSCRIPTEN %s
+// RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=wasm32-emscripten -pthread -target-feature +atomics \
+// RUN:   < /dev/null \
+// RUN:   | FileCheck -match-full-lines -check-prefixes=WEBASSEMBLY,WEBASSEMBLY32,EMSCRIPTEN,EMSCRIPTEN-THREADS %s
+// RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=wasm64-emscripten \
+// RUN:   < /dev/null \
+// RUN:   | FileCheck -match-full-lines -check-prefixes=WEBASSEMBLY,WEBASSEMBLY64,EMSCRIPTEN %s
 // RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=wasm32-wasi \
 // RUN:   < /dev/null \
 // RUN:   | FileCheck -match-full-lines -check-prefixes=WEBASSEMBLY,WEBASSEMBLY32,WEBASSEMBLY-WASI %s
 // RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=wasm64-wasi \
 // RUN:   < /dev/null \
 // RUN:   | FileCheck -match-full-lines -check-prefixes=WEBASSEMBLY,WEBASSEMBLY64,WEBASSEMBLY-WASI %s
+// RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=wasm32-unknown-unknown -x c++ \
+// RUN:   < /dev/null \
+// RUN:   | FileCheck -match-full-lines -check-prefixes=WEBASSEMBLY-CXX %s
+// RUN: %clang_cc1 -E -dM -ffreestanding -fgnuc-version=4.2.1 -triple=wasm32-unknown-unknown -x c++ -pthread -target-feature +atomics \
+// RUN:   < /dev/null \
+// RUN:   | FileCheck -match-full-lines -check-prefixes=WEBASSEMBLY-CXX-ATOMICS %s
 //
 // WEBASSEMBLY32:#define _ILP32 1
 // WEBASSEMBLY32-NOT:#define _LP64
 // WEBASSEMBLY64-NOT:#define _ILP32
 // WEBASSEMBLY64:#define _LP64 1
+// EMSCRIPTEN-THREADS:#define _REENTRANT 1
 // WEBASSEMBLY-NEXT:#define __ATOMIC_ACQUIRE 2
 // WEBASSEMBLY-NEXT:#define __ATOMIC_ACQ_REL 4
 // WEBASSEMBLY-NEXT:#define __ATOMIC_CONSUME 1
@@ -1491,6 +1517,8 @@
 // WEBASSEMBLY-NEXT:#define __ATOMIC_RELEASE 3
 // WEBASSEMBLY-NEXT:#define __ATOMIC_SEQ_CST 5
 // WEBASSEMBLY-NEXT:#define __BIGGEST_ALIGNMENT__ 16
+// WEBASSEMBLY-NEXT:#define __BITINT_MAXWIDTH__ 128
+// WEBASSEMBLY-NEXT:#define __BOOL_WIDTH__ 8
 // WEBASSEMBLY-NEXT:#define __BYTE_ORDER__ __ORDER_LITTLE_ENDIAN__
 // WEBASSEMBLY-NEXT:#define __CHAR16_TYPE__ unsigned short
 // WEBASSEMBLY-NEXT:#define __CHAR32_TYPE__ unsigned int
@@ -1523,6 +1551,8 @@
 // WEBASSEMBLY-NEXT:#define __DBL_MIN__ 2.2250738585072014e-308
 // WEBASSEMBLY-NEXT:#define __DECIMAL_DIG__ __LDBL_DECIMAL_DIG__
 // WEBASSEMBLY-NOT:#define __ELF__
+// EMSCRIPTEN-THREADS-NEXT:#define __EMSCRIPTEN_PTHREADS__ 1
+// EMSCRIPTEN-NEXT:#define __EMSCRIPTEN__ 1
 // WEBASSEMBLY-NEXT:#define __FINITE_MATH_ONLY__ 0
 // WEBASSEMBLY-NEXT:#define __FLOAT128__ 1
 // WEBASSEMBLY-NOT:#define __FLT16_DECIMAL_DIG__
@@ -1610,35 +1640,44 @@
 // WEBASSEMBLY-NEXT:#define __INT_FAST16_FMTi__ "hi"
 // WEBASSEMBLY-NEXT:#define __INT_FAST16_MAX__ 32767
 // WEBASSEMBLY-NEXT:#define __INT_FAST16_TYPE__ short
+// WEBASSEMBLY-NEXT:#define __INT_FAST16_WIDTH__ 16
 // WEBASSEMBLY-NEXT:#define __INT_FAST32_FMTd__ "d"
 // WEBASSEMBLY-NEXT:#define __INT_FAST32_FMTi__ "i"
 // WEBASSEMBLY-NEXT:#define __INT_FAST32_MAX__ 2147483647
 // WEBASSEMBLY-NEXT:#define __INT_FAST32_TYPE__ int
+// WEBASSEMBLY-NEXT:#define __INT_FAST32_WIDTH__ 32
 // WEBASSEMBLY-NEXT:#define __INT_FAST64_FMTd__ "lld"
 // WEBASSEMBLY-NEXT:#define __INT_FAST64_FMTi__ "lli"
 // WEBASSEMBLY-NEXT:#define __INT_FAST64_MAX__ 9223372036854775807LL
 // WEBASSEMBLY-NEXT:#define __INT_FAST64_TYPE__ long long int
+// WEBASSEMBLY-NEXT:#define __INT_FAST64_WIDTH__ 64
 // WEBASSEMBLY-NEXT:#define __INT_FAST8_FMTd__ "hhd"
 // WEBASSEMBLY-NEXT:#define __INT_FAST8_FMTi__ "hhi"
 // WEBASSEMBLY-NEXT:#define __INT_FAST8_MAX__ 127
 // WEBASSEMBLY-NEXT:#define __INT_FAST8_TYPE__ signed char
+// WEBASSEMBLY-NEXT:#define __INT_FAST8_WIDTH__ 8
 // WEBASSEMBLY-NEXT:#define __INT_LEAST16_FMTd__ "hd"
 // WEBASSEMBLY-NEXT:#define __INT_LEAST16_FMTi__ "hi"
 // WEBASSEMBLY-NEXT:#define __INT_LEAST16_MAX__ 32767
 // WEBASSEMBLY-NEXT:#define __INT_LEAST16_TYPE__ short
+// WEBASSEMBLY-NEXT:#define __INT_LEAST16_WIDTH__ 16
 // WEBASSEMBLY-NEXT:#define __INT_LEAST32_FMTd__ "d"
 // WEBASSEMBLY-NEXT:#define __INT_LEAST32_FMTi__ "i"
 // WEBASSEMBLY-NEXT:#define __INT_LEAST32_MAX__ 2147483647
 // WEBASSEMBLY-NEXT:#define __INT_LEAST32_TYPE__ int
+// WEBASSEMBLY-NEXT:#define __INT_LEAST32_WIDTH__ 32
 // WEBASSEMBLY-NEXT:#define __INT_LEAST64_FMTd__ "lld"
 // WEBASSEMBLY-NEXT:#define __INT_LEAST64_FMTi__ "lli"
 // WEBASSEMBLY-NEXT:#define __INT_LEAST64_MAX__ 9223372036854775807LL
 // WEBASSEMBLY-NEXT:#define __INT_LEAST64_TYPE__ long long int
+// WEBASSEMBLY-NEXT:#define __INT_LEAST64_WIDTH__ 64
 // WEBASSEMBLY-NEXT:#define __INT_LEAST8_FMTd__ "hhd"
 // WEBASSEMBLY-NEXT:#define __INT_LEAST8_FMTi__ "hhi"
 // WEBASSEMBLY-NEXT:#define __INT_LEAST8_MAX__ 127
 // WEBASSEMBLY-NEXT:#define __INT_LEAST8_TYPE__ signed char
+// WEBASSEMBLY-NEXT:#define __INT_LEAST8_WIDTH__ 8
 // WEBASSEMBLY-NEXT:#define __INT_MAX__ 2147483647
+// WEBASSEMBLY-NEXT:#define __INT_WIDTH__ 32
 // WEBASSEMBLY-NEXT:#define __LDBL_DECIMAL_DIG__ 36
 // WEBASSEMBLY-NEXT:#define __LDBL_DENORM_MIN__ 6.47517511943802511092443895822764655e-4966L
 // WEBASSEMBLY-NEXT:#define __LDBL_DIG__ 33
@@ -1654,12 +1693,16 @@
 // WEBASSEMBLY-NEXT:#define __LDBL_MIN_EXP__ (-16381)
 // WEBASSEMBLY-NEXT:#define __LDBL_MIN__ 3.36210314311209350626267781732175260e-4932L
 // WEBASSEMBLY-NEXT:#define __LITTLE_ENDIAN__ 1
+// WEBASSEMBLY-NEXT:#define __LLONG_WIDTH__ 64
 // WEBASSEMBLY-NEXT:#define __LONG_LONG_MAX__ 9223372036854775807LL
 // WEBASSEMBLY32-NEXT:#define __LONG_MAX__ 2147483647L
 // WEBASSEMBLY32-NOT:#define __LP64__
+// WEBASSEMBLY32-NEXT:#define __LONG_WIDTH__ 32
 // WEBASSEMBLY64-NEXT:#define __LONG_MAX__ 9223372036854775807L
+// WEBASSEMBLY64-NEXT:#define __LONG_WIDTH__ 64
 // WEBASSEMBLY64-NEXT:#define __LP64__ 1
 // WEBASSEMBLY-NEXT:#define __NO_INLINE__ 1
+// WEBASSEMBLY-NEXT:#define __NO_MATH_ERRNO__ 1
 // WEBASSEMBLY-NEXT:#define __OBJC_BOOL_IS_BOOL 0
 // WEBASSEMBLY-NEXT:#define __OPENCL_MEMORY_SCOPE_ALL_SVM_DEVICES 3
 // WEBASSEMBLY-NEXT:#define __OPENCL_MEMORY_SCOPE_DEVICE 2
@@ -1682,6 +1725,7 @@
 // WEBASSEMBLY-NOT:#define __REGISTER_PREFIX__
 // WEBASSEMBLY-NEXT:#define __SCHAR_MAX__ 127
 // WEBASSEMBLY-NEXT:#define __SHRT_MAX__ 32767
+// WEBASSEMBLY-NEXT:#define __SHRT_WIDTH__ 16
 // WEBASSEMBLY32-NEXT:#define __SIG_ATOMIC_MAX__ 2147483647L
 // WEBASSEMBLY32-NEXT:#define __SIG_ATOMIC_WIDTH__ 32
 // WEBASSEMBLY64-NEXT:#define __SIG_ATOMIC_MAX__ 9223372036854775807L
@@ -1826,13 +1870,17 @@
 // WEBASSEMBLY-NOT:#define __WINT_UNSIGNED__
 // WEBASSEMBLY-NEXT:#define __WINT_WIDTH__ 32
 // WEBASSEMBLY-NEXT:#define __clang__ 1
+// WEBASSEMBLY-NEXT:#define __clang_literal_encoding__ {{.*}}
 // WEBASSEMBLY-NEXT:#define __clang_major__ {{.*}}
 // WEBASSEMBLY-NEXT:#define __clang_minor__ {{.*}}
 // WEBASSEMBLY-NEXT:#define __clang_patchlevel__ {{.*}}
 // WEBASSEMBLY-NEXT:#define __clang_version__ "{{.*}}"
+// WEBASSEMBLY-NEXT:#define __clang_wide_literal_encoding__ {{.*}}
 // WEBASSEMBLY-NEXT:#define __llvm__ 1
-// WEBASSEMBLY-NOT:#define __unix
-// WEBASSEMBLY-NOT:#define __unix__
+// WEBASSEMBLY-WASI-NOT:#define __unix
+// WEBASSEMBLY-WASI-NOT:#define __unix__
+// EMSCRIPTEN-NEXT:#define __unix 1
+// EMSCRIPTEN-NEXT:#define __unix__ 1
 // WEBASSEMBLY-WASI-NEXT:#define __wasi__ 1
 // WEBASSEMBLY-NOT:#define __wasm_simd128__
 // WEBASSEMBLY-NOT:#define __wasm_simd256__
@@ -1847,6 +1895,12 @@
 // WEBASSEMBLY64-NEXT:#define __wasm64 1
 // WEBASSEMBLY64-NEXT:#define __wasm64__ 1
 // WEBASSEMBLY-NEXT:#define __wasm__ 1
+// EMSCRIPTEN:#define unix 1
+// WEBASSEMBLY-WASI-NOT:#define unix 1
+// WEBASSEMBLY-CXX-NOT:_REENTRANT
+// WEBASSEMBLY-CXX-NOT:__STDCPP_THREADS__
+// WEBASSEMBLY-CXX-ATOMICS:#define _REENTRANT 1
+// WEBASSEMBLY-CXX-ATOMICS:#define __STDCPP_THREADS__ 1
 
 // RUN: %clang_cc1 -E -dM -ffreestanding -triple i686-windows-cygnus < /dev/null | FileCheck -match-full-lines -check-prefix CYGWIN-X32 %s
 // CYGWIN-X32: #define __USER_LABEL_PREFIX__ _
@@ -1915,7 +1969,7 @@
 // AVR:#define __GXX_ABI_VERSION 1002
 // AVR:#define __INT16_C_SUFFIX__
 // AVR:#define __INT16_MAX__ 32767
-// AVR:#define __INT16_TYPE__ short
+// AVR:#define __INT16_TYPE__ int
 // AVR:#define __INT32_C_SUFFIX__ L
 // AVR:#define __INT32_MAX__ 2147483647L
 // AVR:#define __INT32_TYPE__ long int
@@ -1990,7 +2044,7 @@
 // AVR:#define __SIZE_TYPE__ unsigned int
 // AVR:#define __STDC__ 1
 // AVR:#define __UINT16_MAX__ 65535U
-// AVR:#define __UINT16_TYPE__ unsigned short
+// AVR:#define __UINT16_TYPE__ unsigned int
 // AVR:#define __UINT32_C_SUFFIX__ UL
 // AVR:#define __UINT32_MAX__ 4294967295UL
 // AVR:#define __UINT32_TYPE__ long unsigned int

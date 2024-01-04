@@ -212,7 +212,7 @@ namespace test16 {
 
 namespace test17 {
   // CHECK-DAG: @_ZZN6test173fooILi42EEEPivE3bar = linkonce_odr
-  // CHECK-DAG: define weak_odr i32* @_ZN6test173fooILi42EEEPiv(
+  // CHECK-DAG: define weak_odr noundef i32* @_ZN6test173fooILi42EEEPiv(
   template<int I>
   int *foo() {
     static int bar;
@@ -226,5 +226,5 @@ namespace test18 {
   template<template<typename> class> struct A {};
   struct B { template<typename> struct C; };
   void f(A<B::C>) {}
-  // CHECK-DAG: define dso_local void @_ZN6test181fENS_1AINS_1B1CEEE(
+  // CHECK-DAG: define void @_ZN6test181fENS_1AINS_1B1CEEE(
 }

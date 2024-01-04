@@ -1,8 +1,8 @@
-// RUN: %clang_cc1 -std=c++11 -triple i386-linux -emit-llvm -o - %s | FileCheck %s --check-prefix=ITANIUM
-// RUN: %clang_cc1 -std=c++11 -triple x86_64-darwin -emit-llvm -o - %s | FileCheck %s --check-prefix=ITANIUM
-// RUN: %clang_cc1 -std=c++11 -triple arm64-ehabi -emit-llvm -o - %s | FileCheck %s --check-prefix=ITANIUM
-// RUN: %clang_cc1 -std=c++11 -triple i386-windows -emit-llvm -o - %s | FileCheck %s --check-prefix=MSABI --check-prefix=WIN32
-// RUN: %clang_cc1 -std=c++11 -triple x86_64-windows -emit-llvm -o - %s | FileCheck %s --check-prefix=MSABI --check-prefix=WIN64
+// RUN: %clang_cc1 -disable-noundef-analysis -std=c++11 -triple i386-linux -emit-llvm -o - %s | FileCheck %s --check-prefix=ITANIUM
+// RUN: %clang_cc1 -disable-noundef-analysis -std=c++11 -triple x86_64-darwin -emit-llvm -o - %s | FileCheck %s --check-prefix=ITANIUM
+// RUN: %clang_cc1 -disable-noundef-analysis -std=c++11 -triple arm64-ehabi -emit-llvm -o - %s | FileCheck %s --check-prefix=ITANIUM
+// RUN: %clang_cc1 -disable-noundef-analysis -std=c++11 -triple i386-windows -emit-llvm -o - %s | FileCheck %s --check-prefix=MSABI --check-prefix=WIN32
+// RUN: %clang_cc1 -disable-noundef-analysis -std=c++11 -triple x86_64-windows -emit-llvm -o - %s | FileCheck %s --check-prefix=MSABI --check-prefix=WIN64
 
 // PR12219
 struct A { A(int); virtual ~A(); };
@@ -134,7 +134,7 @@ namespace inalloca_nonvirt {
   // WIN32: store i32 2, i32* %[[ARG2]]
   // WIN32: %[[ARG4:.*]] = getelementptr {{.*}} %[[ARGMEM]]
   // WIN32: store {{.*}}* %[[TMP]], {{.*}}** %[[ARG4]]
-  // WIN32: call {{.*}} @"??0A@inalloca_nonvirt@@QAE@UQ@@H0$$QAU2@@Z"(%{{[^,]*}}, <{{.*}}>* inalloca %[[ARGMEM]])
+  // WIN32: call {{.*}} @"??0A@inalloca_nonvirt@@QAE@UQ@@H0$$QAU2@@Z"(%{{[^,]*}}, <{{.*}}>* inalloca(<{{.*}}>) %[[ARGMEM]])
   // WIN32: call void @llvm.stackrestore(
   // WIN32: call {{.*}} @"??0Z@@QAE@XZ"(
   // WIN32: call {{.*}} @"??1Q@@QAE@XZ"(
@@ -170,7 +170,7 @@ namespace inalloca_nonvirt {
   // WIN32: store i32 2, i32* %[[ARG2]]
   // WIN32: %[[ARG4:.*]] = getelementptr {{.*}} %[[ARGMEM]]
   // WIN32: store {{.*}}* %[[TMP]], {{.*}}** %[[ARG4]]
-  // WIN32: call {{.*}} @"??0A@inalloca_nonvirt@@QAE@UQ@@H0$$QAU2@@Z"(%{{[^,]*}}, <{{.*}}>* inalloca %[[ARGMEM]])
+  // WIN32: call {{.*}} @"??0A@inalloca_nonvirt@@QAE@UQ@@H0$$QAU2@@Z"(%{{[^,]*}}, <{{.*}}>* inalloca(<{{.*}}>) %[[ARGMEM]])
   // WIN32: call void @llvm.stackrestore(
   // WIN32: call {{.*}} @"??0Z@@QAE@XZ"(
   // WIN32: call {{.*}} @"??1Q@@QAE@XZ"(
@@ -216,7 +216,7 @@ namespace inalloca_virt {
   // WIN32: store i32 2, i32* %[[ARG2]]
   // WIN32: %[[ARG4:.*]] = getelementptr {{.*}} %[[ARGMEM]]
   // WIN32: store {{.*}}* %[[TMP]], {{.*}}** %[[ARG4]]
-  // WIN32: call {{.*}} @"??0A@inalloca_virt@@QAE@UQ@@H0$$QAU2@@Z"(%{{[^,]*}}, <{{.*}}>* inalloca %[[ARGMEM]])
+  // WIN32: call {{.*}} @"??0A@inalloca_virt@@QAE@UQ@@H0$$QAU2@@Z"(%{{[^,]*}}, <{{.*}}>* inalloca(<{{.*}}>) %[[ARGMEM]])
   // WIN32: call void @llvm.stackrestore(
   // WIN32: br
   //
@@ -266,7 +266,7 @@ namespace inalloca_virt {
   // WIN32: store i32 2, i32* %[[ARG2]]
   // WIN32: %[[ARG4:.*]] = getelementptr {{.*}} %[[ARGMEM]]
   // WIN32: store {{.*}}* %[[TMP]], {{.*}}** %[[ARG4]]
-  // WIN32: call {{.*}} @"??0A@inalloca_virt@@QAE@UQ@@H0$$QAU2@@Z"(%{{[^,]*}}, <{{.*}}>* inalloca %[[ARGMEM]])
+  // WIN32: call {{.*}} @"??0A@inalloca_virt@@QAE@UQ@@H0$$QAU2@@Z"(%{{[^,]*}}, <{{.*}}>* inalloca(<{{.*}}>) %[[ARGMEM]])
   // WIN32: call void @llvm.stackrestore(
   // WIN32: br
   //

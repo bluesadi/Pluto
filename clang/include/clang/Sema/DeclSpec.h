@@ -266,7 +266,7 @@ public:
   static const TST TST_char32 = clang::TST_char32;
   static const TST TST_int = clang::TST_int;
   static const TST TST_int128 = clang::TST_int128;
-  static const TST TST_extint = clang::TST_extint;
+  static const TST TST_bitint = clang::TST_bitint;
   static const TST TST_half = clang::TST_half;
   static const TST TST_BFloat16 = clang::TST_BFloat16;
   static const TST TST_float = clang::TST_float;
@@ -275,6 +275,7 @@ public:
   static const TST TST_accum = clang::TST_Accum;
   static const TST TST_fract = clang::TST_Fract;
   static const TST TST_float128 = clang::TST_float128;
+  static const TST TST_ibm128 = clang::TST_ibm128;
   static const TST TST_bool = clang::TST_bool;
   static const TST TST_decimal32 = clang::TST_decimal32;
   static const TST TST_decimal64 = clang::TST_decimal64;
@@ -403,7 +404,7 @@ private:
             T == TST_underlyingType || T == TST_atomic);
   }
   static bool isExprRep(TST T) {
-    return (T == TST_typeofExpr || T == TST_decltype || T == TST_extint);
+    return (T == TST_typeofExpr || T == TST_decltype || T == TST_bitint);
   }
   static bool isTemplateIdRep(TST T) {
     return (T == TST_auto || T == TST_decltype_auto);
@@ -433,8 +434,7 @@ public:
         FS_noreturn_specified(false), Friend_specified(false),
         ConstexprSpecifier(
             static_cast<unsigned>(ConstexprSpecKind::Unspecified)),
-        FS_explicit_specifier(), Attrs(attrFactory), writtenBS(),
-        ObjCQualifiers(nullptr) {}
+        Attrs(attrFactory), writtenBS(), ObjCQualifiers(nullptr) {}
 
   // storage-class-specifier
   SCS getStorageClassSpec() const { return (SCS)StorageClassSpec; }
@@ -702,7 +702,7 @@ public:
   bool SetTypePipe(bool isPipe, SourceLocation Loc,
                        const char *&PrevSpec, unsigned &DiagID,
                        const PrintingPolicy &Policy);
-  bool SetExtIntType(SourceLocation KWLoc, Expr *BitWidth,
+  bool SetBitIntType(SourceLocation KWLoc, Expr *BitWidth,
                      const char *&PrevSpec, unsigned &DiagID,
                      const PrintingPolicy &Policy);
   bool SetTypeSpecSat(SourceLocation Loc, const char *&PrevSpec,
@@ -2620,7 +2620,8 @@ public:
     VS_Final = 2,
     VS_Sealed = 4,
     // Represents the __final keyword, which is legal for gcc in pre-C++11 mode.
-    VS_GNU_Final = 8
+    VS_GNU_Final = 8,
+    VS_Abstract = 16
   };
 
   VirtSpecifiers() : Specifiers(0), LastSpecifier(VS_None) { }
@@ -2636,6 +2637,7 @@ public:
   bool isFinalSpecified() const { return Specifiers & (VS_Final | VS_Sealed | VS_GNU_Final); }
   bool isFinalSpelledSealed() const { return Specifiers & VS_Sealed; }
   SourceLocation getFinalLoc() const { return VS_finalLoc; }
+  SourceLocation getAbstractLoc() const { return VS_abstractLoc; }
 
   void clear() { Specifiers = 0; }
 
@@ -2649,7 +2651,7 @@ private:
   unsigned Specifiers;
   Specifier LastSpecifier;
 
-  SourceLocation VS_overrideLoc, VS_finalLoc;
+  SourceLocation VS_overrideLoc, VS_finalLoc, VS_abstractLoc;
   SourceLocation FirstLocation;
   SourceLocation LastLocation;
 };

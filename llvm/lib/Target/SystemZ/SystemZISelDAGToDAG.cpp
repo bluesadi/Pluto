@@ -62,8 +62,7 @@ struct SystemZAddressingMode {
   bool IncludesDynAlloc;
 
   SystemZAddressingMode(AddrForm form, DispRange dr)
-    : Form(form), DR(dr), Base(), Disp(0), Index(),
-      IncludesDynAlloc(false) {}
+      : Form(form), DR(dr), Disp(0), IncludesDynAlloc(false) {}
 
   // True if the address can have an index register.
   bool hasIndexField() { return Form != FormBD; }
@@ -1432,8 +1431,8 @@ bool SystemZDAGToDAGISel::canUseBlockOperation(StoreSDNode *Store,
   if (V1 == V2 && End1 == End2)
     return false;
 
-  return !AA->alias(MemoryLocation(V1, End1, Load->getAAInfo()),
-                    MemoryLocation(V2, End2, Store->getAAInfo()));
+  return AA->isNoAlias(MemoryLocation(V1, End1, Load->getAAInfo()),
+                       MemoryLocation(V2, End2, Store->getAAInfo()));
 }
 
 bool SystemZDAGToDAGISel::storeLoadCanUseMVC(SDNode *N) const {

@@ -12,6 +12,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/BinaryFormat/COFF.h"
 #include "llvm/Object/COFF.h"
+#include "llvm/Support/Errc.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <cstddef>
 #include <cstdint>
@@ -115,7 +116,7 @@ void COFFWriter::layoutSections() {
   }
 }
 
-size_t COFFWriter::finalizeStringTable() {
+Expected<size_t> COFFWriter::finalizeStringTable() {
   for (const auto &S : Obj.getSections())
     if (S.Name.size() > COFF::NameSize)
       StrTabBuilder.add(S.Name);
@@ -128,11 +129,16 @@ size_t COFFWriter::finalizeStringTable() {
 
   for (auto &S : Obj.getMutableSections()) {
     memset(S.Header.Name, 0, sizeof(S.Header.Name));
-    if (S.Name.size() > COFF::NameSize) {
-      snprintf(S.Header.Name, sizeof(S.Header.Name), "/%d",
-               (int)StrTabBuilder.getOffset(S.Name));
-    } else {
+    if (S.Name.size() <= COFF::NameSize) {
+      // Short names can go in the field directly.
       memcpy(S.Header.Name, S.Name.data(), S.Name.size());
+    } else {
+      // Offset of the section name in the string table.
+      size_t Offset = StrTabBuilder.getOffset(S.Name);
+      if (!COFF::encodeSectionName(S.Header.Name, Offset))
+        return createStringError(object_error::invalid_section_index,
+                                 "COFF string table is greater than 64GB, "
+                                 "unable to encode section name offset");
     }
   }
   for (auto &S : Obj.getMutableSymbols()) {
@@ -218,7 +224,11 @@ Error COFFWriter::finalize(bool IsBigObj) {
     Obj.PeHeader.CheckSum = 0;
   }
 
-  size_t StrTabSize = finalizeStringTable();
+  Expected<size_t> StrTabSizeOrErr = finalizeStringTable();
+  if (!StrTabSizeOrErr)
+    return StrTabSizeOrErr.takeError();
+
+  size_t StrTabSize = *StrTabSizeOrErr;
 
   size_t PointerToSymbolTable = FileSize;
   // StrTabSize <= 4 is the size of an empty string table, only consisting
@@ -240,7 +250,7 @@ Error COFFWriter::finalize(bool IsBigObj) {
 }
 
 void COFFWriter::writeHeaders(bool IsBigObj) {
-  uint8_t *Ptr = Buf.getBufferStart();
+  uint8_t *Ptr = reinterpret_cast<uint8_t *>(Buf->getBufferStart());
   if (Obj.IsPE) {
     memcpy(Ptr, &Obj.DosHeader, sizeof(Obj.DosHeader));
     Ptr += sizeof(Obj.DosHeader);
@@ -302,7 +312,8 @@ void COFFWriter::writeHeaders(bool IsBigObj) {
 
 void COFFWriter::writeSections() {
   for (const auto &S : Obj.getSections()) {
-    uint8_t *Ptr = Buf.getBufferStart() + S.Header.PointerToRawData;
+    uint8_t *Ptr = reinterpret_cast<uint8_t *>(Buf->getBufferStart()) +
+                   S.Header.PointerToRawData;
     ArrayRef<uint8_t> Contents = S.getContents();
     std::copy(Contents.begin(), Contents.end(), Ptr);
 
@@ -331,7 +342,8 @@ void COFFWriter::writeSections() {
 }
 
 template <class SymbolTy> void COFFWriter::writeSymbolStringTables() {
-  uint8_t *Ptr = Buf.getBufferStart() + Obj.CoffFileHeader.PointerToSymbolTable;
+  uint8_t *Ptr = reinterpret_cast<uint8_t *>(Buf->getBufferStart()) +
+                 Obj.CoffFileHeader.PointerToSymbolTable;
   for (const auto &S : Obj.getSymbols()) {
     // Convert symbols back to the right size, from coff_symbol32.
     copySymbol<SymbolTy, coff_symbol32>(*reinterpret_cast<SymbolTy *>(Ptr),
@@ -366,8 +378,11 @@ Error COFFWriter::write(bool IsBigObj) {
   if (Error E = finalize(IsBigObj))
     return E;
 
-  if (Error E = Buf.allocate(FileSize))
-    return E;
+  Buf = WritableMemoryBuffer::getNewMemBuffer(FileSize);
+  if (!Buf)
+    return createStringError(llvm::errc::not_enough_memory,
+                             "failed to allocate memory buffer of " +
+                                 Twine::utohexstr(FileSize) + " bytes.");
 
   writeHeaders(IsBigObj);
   writeSections();
@@ -380,7 +395,10 @@ Error COFFWriter::write(bool IsBigObj) {
     if (Error E = patchDebugDirectory())
       return E;
 
-  return Buf.commit();
+  // TODO: Implement direct writing to the output stream (without intermediate
+  // memory buffer Buf).
+  Out.write(Buf->getBufferStart(), Buf->getBufferSize());
+  return Error::success();
 }
 
 Expected<uint32_t> COFFWriter::virtualAddressToFileAddress(uint32_t RVA) {
@@ -397,7 +415,7 @@ Expected<uint32_t> COFFWriter::virtualAddressToFileAddress(uint32_t RVA) {
 // the debug_directory structs in there, and set the PointerToRawData field
 // in all of them, according to their new physical location in the file.
 Error COFFWriter::patchDebugDirectory() {
-  if (Obj.DataDirectories.size() < DEBUG_DIRECTORY)
+  if (Obj.DataDirectories.size() <= DEBUG_DIRECTORY)
     return Error::success();
   const data_directory *Dir = &Obj.DataDirectories[DEBUG_DIRECTORY];
   if (Dir->Size <= 0)
@@ -412,19 +430,18 @@ Error COFFWriter::patchDebugDirectory() {
                                  "debug directory extends past end of section");
 
       size_t Offset = Dir->RelativeVirtualAddress - S.Header.VirtualAddress;
-      uint8_t *Ptr = Buf.getBufferStart() + S.Header.PointerToRawData + Offset;
+      uint8_t *Ptr = reinterpret_cast<uint8_t *>(Buf->getBufferStart()) +
+                     S.Header.PointerToRawData + Offset;
       uint8_t *End = Ptr + Dir->Size;
       while (Ptr < End) {
         debug_directory *Debug = reinterpret_cast<debug_directory *>(Ptr);
-        if (!Debug->AddressOfRawData)
-          return createStringError(object_error::parse_failed,
-                                   "debug directory payload outside of "
-                                   "mapped sections not supported");
-        if (Expected<uint32_t> FilePosOrErr =
-                virtualAddressToFileAddress(Debug->AddressOfRawData))
-          Debug->PointerToRawData = *FilePosOrErr;
-        else
-          return FilePosOrErr.takeError();
+        if (Debug->PointerToRawData) {
+          if (Expected<uint32_t> FilePosOrErr =
+                  virtualAddressToFileAddress(Debug->AddressOfRawData))
+            Debug->PointerToRawData = *FilePosOrErr;
+          else
+            return FilePosOrErr.takeError();
+        }
         Ptr += sizeof(debug_directory);
         Offset += sizeof(debug_directory);
       }

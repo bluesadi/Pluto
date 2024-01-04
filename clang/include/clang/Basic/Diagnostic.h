@@ -164,9 +164,9 @@ struct DiagnosticStorage {
   /// The values for the various substitution positions.
   ///
   /// This is used when the argument is not an std::string. The specific value
-  /// is mangled into an intptr_t and the interpretation depends on exactly
+  /// is mangled into an uint64_t and the interpretation depends on exactly
   /// what sort of argument kind it is.
-  intptr_t DiagArgumentsVal[MaxArguments];
+  uint64_t DiagArgumentsVal[MaxArguments];
 
   /// The values for the various substitution positions that have
   /// string arguments.
@@ -272,6 +272,13 @@ private:
 
   // Which overload candidates to show.
   OverloadsShown ShowOverloads = Ovl_All;
+
+  // With Ovl_Best, the number of overload candidates to show when we encounter
+  // an error.
+  //
+  // The value here is the number of candidates to show in the first nontrivial
+  // error.  Future errors may show a different number of candidates.
+  unsigned NumOverloadsToShow = 32;
 
   // Cap of # errors emitted, 0 -> no limit.
   unsigned ErrorLimit = 0;
@@ -707,6 +714,37 @@ public:
   }
   OverloadsShown getShowOverloads() const { return ShowOverloads; }
 
+  /// When a call or operator fails, print out up to this many candidate
+  /// overloads as suggestions.
+  ///
+  /// With Ovl_Best, we set a high limit for the first nontrivial overload set
+  /// we print, and a lower limit for later sets.  This way the user has a
+  /// chance of diagnosing at least one callsite in their program without
+  /// having to recompile with -fshow-overloads=all.
+  unsigned getNumOverloadCandidatesToShow() const {
+    switch (getShowOverloads()) {
+    case Ovl_All:
+      // INT_MAX rather than UINT_MAX so that we don't have to think about the
+      // effect of implicit conversions on this value. In practice we'll never
+      // hit 2^31 candidates anyway.
+      return std::numeric_limits<int>::max();
+    case Ovl_Best:
+      return NumOverloadsToShow;
+    }
+    llvm_unreachable("invalid OverloadsShown kind");
+  }
+
+  /// Call this after showing N overload candidates.  This influences the value
+  /// returned by later calls to getNumOverloadCandidatesToShow().
+  void overloadCandidatesShown(unsigned N) {
+    // Current heuristic: Start out with a large value for NumOverloadsToShow,
+    // and then once we print one nontrivially-large overload set, decrease it
+    // for future calls.
+    if (N > 4) {
+      NumOverloadsToShow = 4;
+    }
+  }
+
   /// Pretend that the last diagnostic issued was ignored, so any
   /// subsequent notes will be suppressed, or restore a prior ignoring
   /// state after ignoring some diagnostics and their notes, possibly in
@@ -769,6 +807,9 @@ public:
   bool setSeverityForGroup(diag::Flavor Flavor, StringRef Group,
                            diag::Severity Map,
                            SourceLocation Loc = SourceLocation());
+  bool setSeverityForGroup(diag::Flavor Flavor, diag::Group Group,
+                           diag::Severity Map,
+                           SourceLocation Loc = SourceLocation());
 
   /// Set the warning-as-error flag for the given diagnostic group.
   ///
@@ -806,6 +847,7 @@ public:
     return FatalErrorOccurred || UnrecoverableErrorOccurred;
   }
 
+  unsigned getNumErrors() const { return NumErrors; }
   unsigned getNumWarnings() const { return NumWarnings; }
 
   void setNumWarnings(unsigned NumWarnings) {
@@ -1137,7 +1179,7 @@ public:
     DiagStorage = nullptr;
   }
 
-  void AddTaggedVal(intptr_t V, DiagnosticsEngine::ArgumentKind Kind) const {
+  void AddTaggedVal(uint64_t V, DiagnosticsEngine::ArgumentKind Kind) const {
     if (!DiagStorage)
       DiagStorage = getStorage();
 
@@ -1360,6 +1402,12 @@ inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
   return DB;
 }
 
+inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
+                                             int64_t I) {
+  DB.AddTaggedVal(I, DiagnosticsEngine::ak_sint);
+  return DB;
+}
+
 // We use enable_if here to prevent that this overload is selected for
 // pointers or other arguments that are implicitly convertible to bool.
 template <typename T>
@@ -1372,6 +1420,12 @@ operator<<(const StreamingDiagnostic &DB, T I) {
 
 inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
                                              unsigned I) {
+  DB.AddTaggedVal(I, DiagnosticsEngine::ak_uint);
+  return DB;
+}
+
+inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
+                                             uint64_t I) {
   DB.AddTaggedVal(I, DiagnosticsEngine::ak_uint);
   return DB;
 }
@@ -1538,18 +1592,18 @@ public:
 
   /// Return the specified signed integer argument.
   /// \pre getArgKind(Idx) == DiagnosticsEngine::ak_sint
-  int getArgSInt(unsigned Idx) const {
+  int64_t getArgSInt(unsigned Idx) const {
     assert(getArgKind(Idx) == DiagnosticsEngine::ak_sint &&
            "invalid argument accessor!");
-    return (int)DiagObj->DiagStorage.DiagArgumentsVal[Idx];
+    return (int64_t)DiagObj->DiagStorage.DiagArgumentsVal[Idx];
   }
 
   /// Return the specified unsigned integer argument.
   /// \pre getArgKind(Idx) == DiagnosticsEngine::ak_uint
-  unsigned getArgUInt(unsigned Idx) const {
+  uint64_t getArgUInt(unsigned Idx) const {
     assert(getArgKind(Idx) == DiagnosticsEngine::ak_uint &&
            "invalid argument accessor!");
-    return (unsigned)DiagObj->DiagStorage.DiagArgumentsVal[Idx];
+    return DiagObj->DiagStorage.DiagArgumentsVal[Idx];
   }
 
   /// Return the specified IdentifierInfo argument.
@@ -1563,7 +1617,7 @@ public:
 
   /// Return the specified non-string argument in an opaque form.
   /// \pre getArgKind(Idx) != DiagnosticsEngine::ak_std_string
-  intptr_t getRawArg(unsigned Idx) const {
+  uint64_t getRawArg(unsigned Idx) const {
     assert(getArgKind(Idx) != DiagnosticsEngine::ak_std_string &&
            "invalid argument accessor!");
     return DiagObj->DiagStorage.DiagArgumentsVal[Idx];

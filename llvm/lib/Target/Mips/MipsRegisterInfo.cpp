@@ -159,8 +159,8 @@ getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
   const MipsSubtarget &Subtarget = MF.getSubtarget<MipsSubtarget>();
 
-  for (unsigned I = 0; I < array_lengthof(ReservedGPR32); ++I)
-    Reserved.set(ReservedGPR32[I]);
+  for (MCPhysReg R : ReservedGPR32)
+    Reserved.set(R);
 
   // Reserve registers for the NaCl sandbox.
   if (Subtarget.isTargetNaCl()) {
@@ -169,8 +169,8 @@ getReservedRegs(const MachineFunction &MF) const {
     Reserved.set(Mips::T8);   // Reserved for thread pointer.
   }
 
-  for (unsigned I = 0; I < array_lengthof(ReservedGPR64); ++I)
-    Reserved.set(ReservedGPR64[I]);
+  for (MCPhysReg R : ReservedGPR64)
+    Reserved.set(R);
 
   // For mno-abicalls, GP is a program invariant!
   if (!Subtarget.isABICalls()) {
@@ -198,8 +198,7 @@ getReservedRegs(const MachineFunction &MF) const {
       // Reserve the base register if we need to both realign the stack and
       // allocate variable-sized objects at runtime. This should test the
       // same conditions as MipsFrameLowering::hasBP().
-      if (needsStackRealignment(MF) &&
-          MF.getFrameInfo().hasVarSizedObjects()) {
+      if (hasStackRealignment(MF) && MF.getFrameInfo().hasVarSizedObjects()) {
         Reserved.set(Mips::S7);
         Reserved.set(Mips::S7_64);
       }

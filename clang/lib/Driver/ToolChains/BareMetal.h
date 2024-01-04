@@ -33,21 +33,24 @@ public:
 protected:
   Tool *buildLinker() const override;
 
+  std::string buildCompilerRTBasename(const llvm::opt::ArgList &Args,
+                                      StringRef Component,
+                                      FileType Type = ToolChain::FT_Static,
+                                      bool AddArch = true) const override;
+
 public:
   bool useIntegratedAs() const override { return true; }
   bool isCrossCompiling() const override { return true; }
   bool isPICDefault() const override { return false; }
-  bool isPIEDefault() const override { return false; }
+  bool isPIEDefault(const llvm::opt::ArgList &Args) const override {
+    return false;
+  }
   bool isPICDefaultForced() const override { return false; }
   bool SupportsProfiling() const override { return false; }
 
   StringRef getOSLibName() const override { return "baremetal"; }
 
   std::string getCompilerRTPath() const override;
-  std::string getCompilerRTBasename(const llvm::opt::ArgList &Args,
-                                    StringRef Component,
-                                    FileType Type = ToolChain::FT_Static,
-                                    bool AddArch = true) const override;
 
   RuntimeLibType GetDefaultRuntimeLibType() const override {
     return ToolChain::RLT_CompilerRT;

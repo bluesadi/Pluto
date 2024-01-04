@@ -1,26 +1,21 @@
 add_llvm_component_library(LLVMObfuscation
-  PassRegistry.cpp
   HelloWorld.cpp
-  SplitBasicBlock.cpp
   CryptoUtils.cpp
-  Utils.cpp
   Flattening.cpp
-  FlatteningEnhanced.cpp
-  BogusControlFlow.cpp
-  Substitution.cpp
-  GlobalsEncryption.cpp
-  VariableSubstitution.cpp
-  RandomControlFlow.cpp
-  TrapAngr.cpp
-  MBAObfuscation.cpp
   MBAUtils.cpp
-
-  DEPENDS
-  intrinsics_gen
+  MBAObfuscation.cpp
+  Substitution.cpp
+  IndirectCall.cpp
+  BogusControlFlow.cpp
+  GlobalEncryption.cpp
+  Pipeline.cpp
 
   LINK_COMPONENTS
   Core
   Support
   Analysis
   TransformUtils
+  
+  LINK_LIBS
+  z3
   )

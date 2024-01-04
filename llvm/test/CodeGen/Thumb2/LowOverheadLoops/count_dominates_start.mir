@@ -62,8 +62,8 @@ tracksRegLiveness: true
 registers:
   - { id: 0, class: rgpr, preferred-register: '' }
   - { id: 1, class: gpr, preferred-register: '' }
-  - { id: 2, class: gprnopc, preferred-register: '' }
-  - { id: 3, class: gprnopc, preferred-register: '' }
+  - { id: 2, class: rgpr, preferred-register: '' }
+  - { id: 3, class: rgpr, preferred-register: '' }
   - { id: 4, class: tgpreven, preferred-register: '' }
   - { id: 5, class: gprlr, preferred-register: '' }
   - { id: 6, class: rgpr, preferred-register: '' }
@@ -129,17 +129,17 @@ body:             |
   ; CHECK:   [[t2DoLoopStartTP:%[0-9]+]]:gprlr = t2DoLoopStartTP [[COPY4]], [[COPY6]]
   ; CHECK: bb.3.vector.body:
   ; CHECK:   successors: %bb.3(0x7c000000), %bb.4(0x04000000)
-  ; CHECK:   [[PHI:%[0-9]+]]:gprnopc = PHI [[COPY2]], %bb.2, %10, %bb.3
-  ; CHECK:   [[PHI1:%[0-9]+]]:gprnopc = PHI [[COPY1]], %bb.2, %9, %bb.3
+  ; CHECK:   [[PHI:%[0-9]+]]:rgpr = PHI [[COPY2]], %bb.2, %10, %bb.3
+  ; CHECK:   [[PHI1:%[0-9]+]]:rgpr = PHI [[COPY1]], %bb.2, %9, %bb.3
   ; CHECK:   [[PHI2:%[0-9]+]]:tgpreven = PHI [[COPY5]], %bb.2, %8, %bb.3
   ; CHECK:   [[PHI3:%[0-9]+]]:gprlr = PHI [[t2DoLoopStartTP]], %bb.2, %33, %bb.3
   ; CHECK:   [[PHI4:%[0-9]+]]:rgpr = PHI [[COPY6]], %bb.2, %7, %bb.3
-  ; CHECK:   [[MVE_VCTP16_:%[0-9]+]]:vccr = MVE_VCTP16 [[PHI4]], 0, $noreg
+  ; CHECK:   [[MVE_VCTP16_:%[0-9]+]]:vccr = MVE_VCTP16 [[PHI4]], 0, $noreg, $noreg
   ; CHECK:   [[t2SUBri1:%[0-9]+]]:rgpr = t2SUBri [[PHI4]], 8, 14 /* CC::al */, $noreg, $noreg
   ; CHECK:   [[COPY7:%[0-9]+]]:gpr = COPY [[t2SUBri1]]
-  ; CHECK:   [[MVE_VLDRHU16_post:%[0-9]+]]:rgpr, [[MVE_VLDRHU16_post1:%[0-9]+]]:mqpr = MVE_VLDRHU16_post [[PHI]], 16, 1, [[MVE_VCTP16_]] :: (load 16 from %ir.lsr.iv35, align 2)
-  ; CHECK:   [[MVE_VLDRHU16_post2:%[0-9]+]]:rgpr, [[MVE_VLDRHU16_post3:%[0-9]+]]:mqpr = MVE_VLDRHU16_post [[PHI1]], 16, 1, [[MVE_VCTP16_]] :: (load 16 from %ir.lsr.iv12, align 2)
-  ; CHECK:   [[MVE_VMLADAVas16_:%[0-9]+]]:tgpreven = MVE_VMLADAVas16 [[PHI2]], killed [[MVE_VLDRHU16_post3]], killed [[MVE_VLDRHU16_post1]], 1, [[MVE_VCTP16_]]
+  ; CHECK:   [[MVE_VLDRHU16_post:%[0-9]+]]:rgpr, [[MVE_VLDRHU16_post1:%[0-9]+]]:mqpr = MVE_VLDRHU16_post [[PHI]], 16, 1, [[MVE_VCTP16_]], [[PHI3]] :: (load (s128) from %ir.lsr.iv35, align 2)
+  ; CHECK:   [[MVE_VLDRHU16_post2:%[0-9]+]]:rgpr, [[MVE_VLDRHU16_post3:%[0-9]+]]:mqpr = MVE_VLDRHU16_post [[PHI1]], 16, 1, [[MVE_VCTP16_]], [[PHI3]] :: (load (s128) from %ir.lsr.iv12, align 2)
+  ; CHECK:   [[MVE_VMLADAVas16_:%[0-9]+]]:tgpreven = MVE_VMLADAVas16 [[PHI2]], killed [[MVE_VLDRHU16_post3]], killed [[MVE_VLDRHU16_post1]], 1, [[MVE_VCTP16_]], [[PHI3]]
   ; CHECK:   [[COPY8:%[0-9]+]]:gpr = COPY [[MVE_VMLADAVas16_]]
   ; CHECK:   [[COPY9:%[0-9]+]]:gpr = COPY [[MVE_VLDRHU16_post2]]
   ; CHECK:   [[COPY10:%[0-9]+]]:gpr = COPY [[MVE_VLDRHU16_post]]
@@ -184,17 +184,17 @@ body:             |
   bb.2.vector.body:
     successors: %bb.2(0x7c000000), %bb.3(0x04000000)
 
-    %2:gprnopc = PHI %13, %bb.1, %10, %bb.2
-    %3:gprnopc = PHI %14, %bb.1, %9, %bb.2
+    %2:rgpr = PHI %13, %bb.1, %10, %bb.2
+    %3:rgpr = PHI %14, %bb.1, %9, %bb.2
     %4:tgpreven = PHI %23, %bb.1, %8, %bb.2
     %5:gprlr = PHI %1, %bb.1, %11, %bb.2
     %6:rgpr = PHI %35, %bb.1, %7, %bb.2
-    %26:vccr = MVE_VCTP16 %6, 0, $noreg
+    %26:vccr = MVE_VCTP16 %6, 0, $noreg, $noreg
     %27:rgpr = t2SUBri %6, 8, 14 /* CC::al */, $noreg, $noreg
     %7:gpr = COPY %27
-    %28:rgpr, %29:mqpr = MVE_VLDRHU16_post %2, 16, 1, %26 :: (load 16 from %ir.lsr.iv35, align 2)
-    %30:rgpr, %31:mqpr = MVE_VLDRHU16_post %3, 16, 1, %26 :: (load 16 from %ir.lsr.iv12, align 2)
-    %32:tgpreven = MVE_VMLADAVas16 %4, killed %31, killed %29, 1, %26
+    %28:rgpr, %29:mqpr = MVE_VLDRHU16_post %2, 16, 1, %26, $noreg :: (load (s128) from %ir.lsr.iv35, align 2)
+    %30:rgpr, %31:mqpr = MVE_VLDRHU16_post %3, 16, 1, %26, $noreg :: (load (s128) from %ir.lsr.iv12, align 2)
+    %32:tgpreven = MVE_VMLADAVas16 %4, killed %31, killed %29, 1, %26, $noreg
     %8:gpr = COPY %32
     %9:gpr = COPY %30
     %10:gpr = COPY %28

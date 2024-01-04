@@ -13,13 +13,16 @@
 
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm-c/ErrorHandling.h"
-#include "llvm/ADT/SmallString.h"
 #include "llvm/Config/config.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/Watchdog.h"
 #include "llvm/Support/raw_ostream.h"
+
+#ifdef __APPLE__
+#include "llvm/ADT/SmallString.h"
+#endif
 
 #include <atomic>
 #include <cassert>
@@ -73,7 +76,7 @@ PrettyStackTraceEntry *ReverseStackTrace(PrettyStackTraceEntry *Head) {
         std::make_tuple(Head, Head->NextEntry, Prev);
   return Prev;
 }
-}
+} // namespace llvm
 
 static void PrintStack(raw_ostream &OS) {
   // Print out the stack in reverse order. To avoid recursion (which is likely

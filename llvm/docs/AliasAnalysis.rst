@@ -31,7 +31,7 @@ well together.
 
 This document contains information necessary to successfully implement this
 interface, use it, and to test both sides.  It also explains some of the finer
-points about what exactly results mean.  
+points about what exactly results mean.
 
 ``AliasAnalysis`` Class Overview
 ================================
@@ -70,7 +70,7 @@ possible) C code:
 
   int i;
   char C[2];
-  char A[10]; 
+  char A[10];
   /* ... */
   for (i = 0; i != 10; ++i) {
     C[0] = A[i];          /* One byte store */
@@ -87,7 +87,7 @@ contrast, the following code:
 
   int i;
   char C[2];
-  char A[10]; 
+  char A[10];
   /* ... */
   for (i = 0; i != 10; ++i) {
     ((short*)C)[0] = A[i];  /* Two byte store! */
@@ -103,7 +103,7 @@ accesses alias.
 
 The ``alias`` method
 --------------------
-  
+
 The ``alias`` method is the primary interface used to determine whether or not
 two memory objects alias each other.  It takes two memory objects as input and
 returns MustAlias, PartialAlias, MayAlias, or NoAlias as appropriate.
@@ -276,8 +276,7 @@ implementing, you just override the interfaces you can improve.
 ``AliasAnalysis`` chaining behavior
 -----------------------------------
 
-With only one special exception (the :ref:`-no-aa <aliasanalysis-no-aa>` pass)
-every alias analysis pass chains to another alias analysis implementation (for
+Every alias analysis pass chains to another alias analysis implementation (for
 example, the user can specify "``-basic-aa -ds-aa -licm``" to get the maximum
 benefit from both alias analyses).  The alias analysis class automatically
 takes care of most of this for methods that you don't override.  For methods
@@ -502,18 +501,8 @@ Available ``AliasAnalysis`` implementations
 -------------------------------------------
 
 This section lists the various implementations of the ``AliasAnalysis``
-interface.  With the exception of the :ref:`-no-aa <aliasanalysis-no-aa>`
-implementation, all of these :ref:`chain <aliasanalysis-chaining>` to other
+interface. All of these :ref:`chain <aliasanalysis-chaining>` to other
 alias analysis implementations.
-
-.. _aliasanalysis-no-aa:
-
-The ``-no-aa`` pass
-^^^^^^^^^^^^^^^^^^^
-
-The ``-no-aa`` pass is just like what it sounds: an alias analysis that never
-returns any useful information.  This pass can be useful if you think that alias
-analysis is doing something wrong and are trying to narrow down a problem.
 
 The ``-basic-aa`` pass
 ^^^^^^^^^^^^^^^^^^^^^^

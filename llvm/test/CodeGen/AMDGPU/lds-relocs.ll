@@ -1,5 +1,5 @@
-; RUN: llc -mtriple=amdgcn-mesa-mesa3d -mcpu=gfx900 -verify-machineinstrs -show-mc-encoding < %s | FileCheck -check-prefixes=GCN %s
-; RUN: llc -mtriple=amdgcn-mesa-mesa3d -mcpu=gfx900 -filetype=obj < %s | llvm-readobj -r -t - | FileCheck -check-prefixes=ELF %s
+; RUN: llc -mtriple=amdgcn-mesa-mesa3d -mcpu=gfx900 -amdgpu-enable-lower-module-lds=0 -verify-machineinstrs -show-mc-encoding < %s | FileCheck -check-prefixes=GCN %s
+; RUN: llc -mtriple=amdgcn-mesa-mesa3d -mcpu=gfx900 -amdgpu-enable-lower-module-lds=0 -filetype=obj < %s | llvm-readobj -r --syms - | FileCheck -check-prefixes=ELF %s
 
 @lds.external = external unnamed_addr addrspace(3) global [0 x i32]
 @lds.defined = unnamed_addr addrspace(3) global [8 x i32] undef, align 8
@@ -12,9 +12,9 @@
 ; ELF-NEXT: ]
 
 ; ELF:      Symbol {
-; ELF:        Name: lds.defined
-; ELF-NEXT:   Value: 0x8
-; ELF-NEXT:   Size: 32
+; ELF:        Name: lds.external
+; ELF-NEXT:   Value: 0x4
+; ELF-NEXT:   Size: 0
 ; ELF-NEXT:   Binding: Global (0x1)
 ; ELF-NEXT:   Type: Object (0x1)
 ; ELF-NEXT:   Other: 0
@@ -22,9 +22,9 @@
 ; ELF-NEXT: }
 
 ; ELF:      Symbol {
-; ELF:        Name: lds.external
-; ELF-NEXT:   Value: 0x4
-; ELF-NEXT:   Size: 0
+; ELF:        Name: lds.defined
+; ELF-NEXT:   Value: 0x8
+; ELF-NEXT:   Size: 32
 ; ELF-NEXT:   Binding: Global (0x1)
 ; ELF-NEXT:   Type: Object (0x1)
 ; ELF-NEXT:   Other: 0

@@ -365,16 +365,8 @@ llvm::ErrorOr<PrecompiledPreamble> PrecompiledPreamble::Build(
   Clang->setDiagnostics(&Diagnostics);
 
   // Create the target instance.
-  Clang->setTarget(TargetInfo::CreateTargetInfo(
-      Clang->getDiagnostics(), Clang->getInvocation().TargetOpts));
-  if (!Clang->hasTarget())
+  if (!Clang->createTarget())
     return BuildPreambleError::CouldntCreateTargetInfo;
-
-  // Inform the target of the language options.
-  //
-  // FIXME: We shouldn't need to do this, the target should be immutable once
-  // created. This complexity should be lifted elsewhere.
-  Clang->getTarget().adjust(Clang->getLangOpts());
 
   if (Clang->getFrontendOpts().Inputs.size() != 1 ||
       Clang->getFrontendOpts().Inputs[0].getKind().getFormat() !=
@@ -420,9 +412,12 @@ llvm::ErrorOr<PrecompiledPreamble> PrecompiledPreamble::Build(
   std::unique_ptr<PrecompilePreambleAction> Act;
   Act.reset(new PrecompilePreambleAction(
       StoreInMemory ? &Storage.asMemory().Data : nullptr, Callbacks));
-  Callbacks.BeforeExecute(*Clang);
   if (!Act->BeginSourceFile(*Clang.get(), Clang->getFrontendOpts().Inputs[0]))
     return BuildPreambleError::BeginSourceFileFailed;
+
+  // Performed after BeginSourceFile to ensure Clang->Preprocessor can be
+  // referenced in the callback.
+  Callbacks.BeforeExecute(*Clang);
 
   std::unique_ptr<PPCallbacks> DelegatedPPCallbacks =
       Callbacks.createPPCallbacks();

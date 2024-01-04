@@ -366,7 +366,7 @@ bool TargetInstrInfo::hasLoadFromStackSlot(
                                   oe = MI.memoperands_end();
        o != oe; ++o) {
     if ((*o)->isLoad() &&
-        dyn_cast_or_null<FixedStackPseudoSourceValue>((*o)->getPseudoValue()))
+        isa_and_nonnull<FixedStackPseudoSourceValue>((*o)->getPseudoValue()))
       Accesses.push_back(*o);
   }
   return Accesses.size() != StartSize;
@@ -380,7 +380,7 @@ bool TargetInstrInfo::hasStoreToStackSlot(
                                   oe = MI.memoperands_end();
        o != oe; ++o) {
     if ((*o)->isStore() &&
-        dyn_cast_or_null<FixedStackPseudoSourceValue>((*o)->getPseudoValue()))
+        isa_and_nonnull<FixedStackPseudoSourceValue>((*o)->getPseudoValue()))
       Accesses.push_back(*o);
   }
   return Accesses.size() != StartSize;
@@ -436,7 +436,7 @@ MachineInstr &TargetInstrInfo::duplicate(MachineBasicBlock &MBB,
     MachineBasicBlock::iterator InsertBefore, const MachineInstr &Orig) const {
   assert(!Orig.isNotDuplicable() && "Instruction cannot be duplicated");
   MachineFunction &MF = *MBB.getParent();
-  return MF.CloneMachineInstrBundle(MBB, InsertBefore, Orig);
+  return MF.cloneMachineInstrBundle(MBB, InsertBefore, Orig);
 }
 
 // If the COPY instruction in MI can be folded to a stack operation, return
@@ -472,8 +472,24 @@ static const TargetRegisterClass *canFoldCopy(const MachineInstr &MI,
   return nullptr;
 }
 
-void TargetInstrInfo::getNoop(MCInst &NopInst) const {
-  llvm_unreachable("Not implemented");
+MCInst TargetInstrInfo::getNop() const { llvm_unreachable("Not implemented"); }
+
+std::pair<unsigned, unsigned>
+TargetInstrInfo::getPatchpointUnfoldableRange(const MachineInstr &MI) const {
+  switch (MI.getOpcode()) {
+  case TargetOpcode::STACKMAP:
+    // StackMapLiveValues are foldable
+    return std::make_pair(0, StackMapOpers(&MI).getVarIdx());
+  case TargetOpcode::PATCHPOINT:
+    // For PatchPoint, the call args are not foldable (even if reported in the
+    // stackmap e.g. via anyregcc).
+    return std::make_pair(0, PatchPointOpers(&MI).getVarIdx());
+  case TargetOpcode::STATEPOINT:
+    // For statepoints, fold deopt and gc arguments, but not call arguments.
+    return std::make_pair(MI.getNumDefs(), StatepointOpers(&MI).getVarIdx());
+  default:
+    llvm_unreachable("unexpected stackmap opcode");
+  }
 }
 
 static MachineInstr *foldPatchpoint(MachineFunction &MF, MachineInstr &MI,
@@ -481,27 +497,8 @@ static MachineInstr *foldPatchpoint(MachineFunction &MF, MachineInstr &MI,
                                     const TargetInstrInfo &TII) {
   unsigned StartIdx = 0;
   unsigned NumDefs = 0;
-  switch (MI.getOpcode()) {
-  case TargetOpcode::STACKMAP: {
-    // StackMapLiveValues are foldable
-    StartIdx = StackMapOpers(&MI).getVarIdx();
-    break;
-  }
-  case TargetOpcode::PATCHPOINT: {
-    // For PatchPoint, the call args are not foldable (even if reported in the
-    // stackmap e.g. via anyregcc).
-    StartIdx = PatchPointOpers(&MI).getVarIdx();
-    break;
-  }
-  case TargetOpcode::STATEPOINT: {
-    // For statepoints, fold deopt and gc arguments, but not call arguments.
-    StartIdx = StatepointOpers(&MI).getVarIdx();
-    NumDefs = MI.getNumDefs();
-    break;
-  }
-  default:
-    llvm_unreachable("unexpected stackmap opcode");
-  }
+  // getPatchpointUnfoldableRange throws guarantee if MI is not a patchpoint.
+  std::tie(NumDefs, StartIdx) = TII.getPatchpointUnfoldableRange(MI);
 
   unsigned DefToFoldIdx = MI.getNumOperands();
 
@@ -960,8 +957,7 @@ bool TargetInstrInfo::isReallyTriviallyReMaterializableGeneric(
 
   // If any of the registers accessed are non-constant, conservatively assume
   // the instruction is not rematerializable.
-  for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
-    const MachineOperand &MO = MI.getOperand(i);
+  for (const MachineOperand &MO : MI.operands()) {
     if (!MO.isReg()) continue;
     Register Reg = MO.getReg();
     if (Reg == 0)
@@ -1267,22 +1263,6 @@ int TargetInstrInfo::getOperandLatency(const InstrItineraryData *ItinData,
   return ItinData->getOperandLatency(DefClass, DefIdx, UseClass, UseIdx);
 }
 
-/// If we can determine the operand latency from the def only, without itinerary
-/// lookup, do so. Otherwise return -1.
-int TargetInstrInfo::computeDefOperandLatency(
-    const InstrItineraryData *ItinData, const MachineInstr &DefMI) const {
-
-  // Let the target hook getInstrLatency handle missing itineraries.
-  if (!ItinData)
-    return getInstrLatency(ItinData, DefMI);
-
-  if(ItinData->isEmpty())
-    return defaultDefLatency(ItinData->SchedModel, DefMI);
-
-  // ...operand lookup required
-  return -1;
-}
-
 bool TargetInstrInfo::getRegSequenceInputs(
     const MachineInstr &MI, unsigned DefIdx,
     SmallVectorImpl<RegSubRegPairAndIdx> &InputRegs) const {
@@ -1420,3 +1400,34 @@ std::string TargetInstrInfo::createMIROperandComment(
 }
 
 TargetInstrInfo::PipelinerLoopInfo::~PipelinerLoopInfo() {}
+
+void TargetInstrInfo::mergeOutliningCandidateAttributes(
+    Function &F, std::vector<outliner::Candidate> &Candidates) const {
+  // Include target features from an arbitrary candidate for the outlined
+  // function. This makes sure the outlined function knows what kinds of
+  // instructions are going into it. This is fine, since all parent functions
+  // must necessarily support the instructions that are in the outlined region.
+  outliner::Candidate &FirstCand = Candidates.front();
+  const Function &ParentFn = FirstCand.getMF()->getFunction();
+  if (ParentFn.hasFnAttribute("target-features"))
+    F.addFnAttr(ParentFn.getFnAttribute("target-features"));
+
+  // Set nounwind, so we don't generate eh_frame.
+  if (llvm::all_of(Candidates, [](const outliner::Candidate &C) {
+        return C.getMF()->getFunction().hasFnAttribute(Attribute::NoUnwind);
+      }))
+    F.addFnAttr(Attribute::NoUnwind);
+}
+
+bool TargetInstrInfo::isMBBSafeToOutlineFrom(MachineBasicBlock &MBB,
+                                             unsigned &Flags) const {
+  // Some instrumentations create special TargetOpcode at the start which
+  // expands to special code sequences which must be present.
+  auto First = MBB.getFirstNonDebugInstr();
+  if (First != MBB.end() &&
+      (First->getOpcode() == TargetOpcode::FENTRY_CALL ||
+       First->getOpcode() == TargetOpcode::PATCHABLE_FUNCTION_ENTER))
+    return false;
+
+  return true;
+}

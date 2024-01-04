@@ -28,7 +28,7 @@ namespace llvm {
 class FileOutputBuffer {
 public:
   enum {
-    /// set the 'x' bit on the resulting file
+    /// Set the 'x' bit on the resulting file.
     F_executable = 1,
 
     /// Don't use mmap and instead write an in-memory buffer to a file when this
@@ -70,7 +70,7 @@ public:
   /// If this object was previously committed, the destructor just deletes
   /// this object.  If this object was not committed, the destructor
   /// deallocates the buffer and the target file is never written.
-  virtual ~FileOutputBuffer() {}
+  virtual ~FileOutputBuffer() = default;
 
   /// This removes the temporary file (unless it already was committed)
   /// but keeps the memory mapping alive.

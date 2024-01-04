@@ -185,13 +185,20 @@ Instruction *ConstantHoistingPass::findMatInsertPt(Instruction *Inst,
   // We can't insert directly before a phi node or an eh pad. Insert before
   // the terminator of the incoming or dominating block.
   assert(Entry != Inst->getParent() && "PHI or landing pad in entry block!");
-  if (Idx != ~0U && isa<PHINode>(Inst))
-    return cast<PHINode>(Inst)->getIncomingBlock(Idx)->getTerminator();
+  BasicBlock *InsertionBlock = nullptr;
+  if (Idx != ~0U && isa<PHINode>(Inst)) {
+    InsertionBlock = cast<PHINode>(Inst)->getIncomingBlock(Idx);
+    if (!InsertionBlock->isEHPad()) {
+      return InsertionBlock->getTerminator();
+    }
+  } else {
+    InsertionBlock = Inst->getParent();
+  }
 
   // This must be an EH pad. Iterate over immediate dominators until we find a
   // non-EH pad. We need to skip over catchswitch blocks, which are both EH pads
   // and terminators.
-  auto IDom = DT->getNode(Inst->getParent())->getIDom();
+  auto *IDom = DT->getNode(InsertionBlock)->getIDom();
   while (IDom->getBlock()->isEHPad()) {
     assert(Entry != IDom->getBlock() && "eh pad in entry block");
     IDom = IDom->getIDom();
@@ -264,8 +271,7 @@ static void findBestInsertionSet(DominatorTree &DT, BlockFrequencyInfo &BFI,
   // subtree of BB (subtree not including the BB itself).
   DenseMap<BasicBlock *, InsertPtsCostPair> InsertPtsMap;
   InsertPtsMap.reserve(Orders.size() + 1);
-  for (auto RIt = Orders.rbegin(); RIt != Orders.rend(); RIt++) {
-    BasicBlock *Node = *RIt;
+  for (BasicBlock *Node : llvm::reverse(Orders)) {
     bool NodeInBBs = BBs.count(Node);
     auto &InsertPts = InsertPtsMap[Node].first;
     BlockFrequency &InsertPtsFreq = InsertPtsMap[Node].second;
@@ -358,7 +364,7 @@ SetVector<Instruction *> ConstantHoistingPass::findConstantInsertionPoint(
 void ConstantHoistingPass::collectConstantCandidates(
     ConstCandMapType &ConstCandMap, Instruction *Inst, unsigned Idx,
     ConstantInt *ConstInt) {
-  unsigned Cost;
+  InstructionCost Cost;
   // Ask the target about the cost of materializing the constant for the given
   // instruction and operand index.
   if (auto IntrInst = dyn_cast<IntrinsicInst>(Inst))
@@ -380,7 +386,7 @@ void ConstantHoistingPass::collectConstantCandidates(
       ConstIntCandVec.push_back(ConstantCandidate(ConstInt));
       Itr->second = ConstIntCandVec.size() - 1;
     }
-    ConstIntCandVec[Itr->second].addUser(Inst, Idx, Cost);
+    ConstIntCandVec[Itr->second].addUser(Inst, Idx, *Cost.getValue());
     LLVM_DEBUG(if (isa<ConstantInt>(Inst->getOperand(Idx))) dbgs()
                    << "Collect constant " << *ConstInt << " from " << *Inst
                    << " with cost " << Cost << '\n';
@@ -408,6 +414,14 @@ void ConstantHoistingPass::collectConstantCandidates(
   IntegerType *PtrIntTy = DL->getIntPtrType(*Ctx, GVPtrTy->getAddressSpace());
   APInt Offset(DL->getTypeSizeInBits(PtrIntTy), /*val*/0, /*isSigned*/true);
   auto *GEPO = cast<GEPOperator>(ConstExpr);
+
+  // TODO: If we have a mix of inbounds and non-inbounds GEPs, then basing a
+  // non-inbounds GEP on an inbounds GEP is potentially incorrect. Restrict to
+  // inbounds GEP for now -- alternatively, we could drop inbounds from the
+  // constant expression,
+  if (!GEPO->isInBounds())
+    return;
+
   if (!GEPO->accumulateConstantOffset(*DL, Offset))
     return;
 
@@ -418,7 +432,7 @@ void ConstantHoistingPass::collectConstantCandidates(
   // usually lowered to a load from constant pool. Such operation is unlikely
   // to be cheaper than compute it by <Base + Offset>, which can be lowered to
   // an ADD instruction or folded into Load/Store instruction.
-  int Cost =
+  InstructionCost Cost =
       TTI->getIntImmCostInst(Instruction::Add, 1, Offset, PtrIntTy,
                              TargetTransformInfo::TCK_SizeAndLatency, Inst);
   ConstCandVecType &ExprCandVec = ConstGEPCandMap[BaseGV];
@@ -432,7 +446,7 @@ void ConstantHoistingPass::collectConstantCandidates(
         ConstExpr));
     Itr->second = ExprCandVec.size() - 1;
   }
-  ExprCandVec[Itr->second].addUser(Inst, Idx, Cost);
+  ExprCandVec[Itr->second].addUser(Inst, Idx, *Cost.getValue());
 }
 
 /// Check the operand for instruction Inst at index Idx.
@@ -464,7 +478,7 @@ void ConstantHoistingPass::collectConstantCandidates(
   // Visit constant expressions that have constant integers.
   if (auto ConstExpr = dyn_cast<ConstantExpr>(Opnd)) {
     // Handle constant gep expressions.
-    if (ConstHoistGEP && ConstExpr->isGEPWithNoNotionalOverIndexing())
+    if (ConstHoistGEP && isa<GEPOperator>(ConstExpr))
       collectConstantCandidates(ConstCandMap, Inst, Idx, ConstExpr);
 
     // Only visit constant cast expressions.
@@ -574,11 +588,11 @@ ConstantHoistingPass::maximizeConstantsInRange(ConstCandVecType::iterator S,
   }
 
   LLVM_DEBUG(dbgs() << "== Maximize constants in range ==\n");
-  int MaxCost = -1;
+  InstructionCost MaxCost = -1;
   for (auto ConstCand = S; ConstCand != E; ++ConstCand) {
     auto Value = ConstCand->ConstInt->getValue();
     Type *Ty = ConstCand->ConstInt->getType();
-    int Cost = 0;
+    InstructionCost Cost = 0;
     NumUses += ConstCand->Uses.size();
     LLVM_DEBUG(dbgs() << "= Constant: " << ConstCand->ConstInt->getValue()
                       << "\n");
@@ -595,8 +609,8 @@ ConstantHoistingPass::maximizeConstantsInRange(ConstCandVecType::iterator S,
                                    C2->ConstInt->getValue(),
                                    ConstCand->ConstInt->getValue());
         if (Diff) {
-          const int ImmCosts =
-            TTI->getIntImmCodeSizeCost(Opcode, OpndIdx, Diff.getValue(), Ty);
+          const InstructionCost ImmCosts =
+              TTI->getIntImmCodeSizeCost(Opcode, OpndIdx, Diff.getValue(), Ty);
           Cost -= ImmCosts;
           LLVM_DEBUG(dbgs() << "Offset " << Diff.getValue() << " "
                             << "has penalty: " << ImmCosts << "\n"
@@ -755,7 +769,7 @@ void ConstantHoistingPass::emitBaseConstants(Instruction *Base,
       PointerType *Int8PtrTy = Type::getInt8PtrTy(*Ctx,
           cast<PointerType>(Ty)->getAddressSpace());
       Base = new BitCastInst(Base, Int8PtrTy, "base_bitcast", InsertionPt);
-      Mat = GetElementPtrInst::Create(Int8PtrTy->getElementType(), Base,
+      Mat = GetElementPtrInst::Create(Type::getInt8Ty(*Ctx), Base,
           Offset, "mat_gep", InsertionPt);
       Mat = new BitCastInst(Mat, Ty, "mat_bitcast", InsertionPt);
     } else
@@ -804,7 +818,7 @@ void ConstantHoistingPass::emitBaseConstants(Instruction *Base,
 
   // Visit constant expression.
   if (auto ConstExpr = dyn_cast<ConstantExpr>(Opnd)) {
-    if (ConstExpr->isGEPWithNoNotionalOverIndexing()) {
+    if (isa<GEPOperator>(ConstExpr)) {
       // Operand is a ConstantGEP, replace it.
       updateOperand(ConstUser.Inst, ConstUser.OpndIdx, Mat);
       return;
@@ -812,10 +826,9 @@ void ConstantHoistingPass::emitBaseConstants(Instruction *Base,
 
     // Aside from constant GEPs, only constant cast expressions are collected.
     assert(ConstExpr->isCast() && "ConstExpr should be a cast");
-    Instruction *ConstExprInst = ConstExpr->getAsInstruction();
+    Instruction *ConstExprInst = ConstExpr->getAsInstruction(
+        findMatInsertPt(ConstUser.Inst, ConstUser.OpndIdx));
     ConstExprInst->setOperand(0, Mat);
-    ConstExprInst->insertBefore(findMatInsertPt(ConstUser.Inst,
-                                                ConstUser.OpndIdx));
 
     // Use the same debug location as the instruction we are about to update.
     ConstExprInst->setDebugLoc(ConstUser.Inst->getDebugLoc());

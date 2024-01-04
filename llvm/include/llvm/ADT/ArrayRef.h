@@ -40,10 +40,17 @@ namespace llvm {
   template<typename T>
   class LLVM_GSL_POINTER LLVM_NODISCARD ArrayRef {
   public:
-    using iterator = const T *;
-    using const_iterator = const T *;
-    using size_type = size_t;
+    using value_type = T;
+    using pointer = value_type *;
+    using const_pointer = const value_type *;
+    using reference = value_type &;
+    using const_reference = const value_type &;
+    using iterator = const_pointer;
+    using const_iterator = const_pointer;
     using reverse_iterator = std::reverse_iterator<iterator>;
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+    using size_type = size_t;
+    using difference_type = ptrdiff_t;
 
   private:
     /// The start of the array, in an external buffer.
@@ -134,7 +141,7 @@ namespace llvm {
     template <typename U, typename A>
     ArrayRef(const std::vector<U *, A> &Vec,
              std::enable_if_t<std::is_convertible<U *const *, T const *>::value>
-                 * = 0)
+                 * = nullptr)
         : Data(Vec.data()), Length(Vec.size()) {}
 
     /// @}
@@ -297,8 +304,17 @@ namespace llvm {
   template<typename T>
   class LLVM_NODISCARD MutableArrayRef : public ArrayRef<T> {
   public:
-    using iterator = T *;
+    using value_type = T;
+    using pointer = value_type *;
+    using const_pointer = const value_type *;
+    using reference = value_type &;
+    using const_reference = const value_type &;
+    using iterator = pointer;
+    using const_iterator = const_pointer;
     using reverse_iterator = std::reverse_iterator<iterator>;
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+    using size_type = size_t;
+    using difference_type = ptrdiff_t;
 
     /// Construct an empty MutableArrayRef.
     /*implicit*/ MutableArrayRef() = default;
@@ -552,6 +568,35 @@ namespace llvm {
   template <typename T> hash_code hash_value(ArrayRef<T> S) {
     return hash_combine_range(S.begin(), S.end());
   }
+
+  // Provide DenseMapInfo for ArrayRefs.
+  template <typename T> struct DenseMapInfo<ArrayRef<T>, void> {
+    static inline ArrayRef<T> getEmptyKey() {
+      return ArrayRef<T>(
+          reinterpret_cast<const T *>(~static_cast<uintptr_t>(0)), size_t(0));
+    }
+
+    static inline ArrayRef<T> getTombstoneKey() {
+      return ArrayRef<T>(
+          reinterpret_cast<const T *>(~static_cast<uintptr_t>(1)), size_t(0));
+    }
+
+    static unsigned getHashValue(ArrayRef<T> Val) {
+      assert(Val.data() != getEmptyKey().data() &&
+             "Cannot hash the empty key!");
+      assert(Val.data() != getTombstoneKey().data() &&
+             "Cannot hash the tombstone key!");
+      return (unsigned)(hash_value(Val));
+    }
+
+    static bool isEqual(ArrayRef<T> LHS, ArrayRef<T> RHS) {
+      if (RHS.data() == getEmptyKey().data())
+        return LHS.data() == getEmptyKey().data();
+      if (RHS.data() == getTombstoneKey().data())
+        return LHS.data() == getTombstoneKey().data();
+      return LHS == RHS;
+    }
+  };
 
 } // end namespace llvm
 

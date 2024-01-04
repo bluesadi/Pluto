@@ -115,6 +115,7 @@ namespace X86 {
     Cmp,
     // AND
     And,
+    // FIXME: Zen 3 support branch fusion for OR/XOR.
     // ADD, SUB
     AddSub,
     // INC, DEC
@@ -183,6 +184,7 @@ namespace X86 {
     case X86::AND8rr:
     case X86::AND8rr_REV:
       return FirstMacroFusionInstKind::And;
+    // FIXME: Zen 3 support branch fusion for OR/XOR.
     // CMP
     case X86::CMP16i16:
     case X86::CMP16mr:
@@ -438,6 +440,11 @@ namespace X86II {
     /// See the X86-64 ELF ABI supplement for more details.
     ///    SYMBOL_LABEL @GOTPCREL
     MO_GOTPCREL,
+
+    /// MO_GOTPCREL_NORELAX - Same as MO_GOTPCREL except that R_X86_64_GOTPCREL
+    /// relocations are guaranteed to be emitted by the integrated assembler
+    /// instead of the relaxable R_X86_64[_REX]_GOTPCRELX relocations.
+    MO_GOTPCREL_NORELAX,
 
     /// MO_PLT - On a symbol operand this indicates that the immediate is
     /// offset to the PLT entry of symbol name from the current code location.
@@ -788,7 +795,7 @@ namespace X86II {
     // belongs to. i.e. one-byte, two-byte, 0x0f 0x38, 0x0f 0x3a, etc.
     //
     OpMapShift = OpPrefixShift + 2,
-    OpMapMask  = 0x7 << OpMapShift,
+    OpMapMask  = 0xF << OpMapShift,
 
     // OB - OneByte - Set if this instruction has a one byte opcode.
     OB = 0 << OpMapShift,
@@ -817,13 +824,17 @@ namespace X86II {
     /// this flag to indicate that the encoder should do the wacky 3DNow! thing.
     ThreeDNow = 7 << OpMapShift,
 
+    // MAP5, MAP6 - Prefix after the 0x0F prefix.
+    T_MAP5 = 8 << OpMapShift,
+    T_MAP6 = 9 << OpMapShift,
+
     //===------------------------------------------------------------------===//
     // REX_W - REX prefixes are instruction prefixes used in 64-bit mode.
     // They are used to specify GPRs and SSE registers, 64-bit operand size,
     // etc. We only cares about REX.W and REX.R bits and only the former is
     // statically determined.
     //
-    REXShift    = OpMapShift + 3,
+    REXShift    = OpMapShift + 4,
     REX_W       = 1 << REXShift,
 
     //===------------------------------------------------------------------===//

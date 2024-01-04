@@ -52,6 +52,7 @@
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/Win64EH.h"
 #include "llvm/Support/raw_ostream.h"
+#include <ctime>
 
 using namespace llvm;
 using namespace llvm::object;
@@ -71,6 +72,8 @@ struct LoadConfigTables {
   uint64_t GuardIatTableCount = 0;
   uint64_t GuardLJmpTableVA = 0;
   uint64_t GuardLJmpTableCount = 0;
+  uint64_t GuardEHContTableVA = 0;
+  uint64_t GuardEHContTableCount = 0;
 };
 
 class COFFDumper : public ObjDumper {
@@ -124,7 +127,7 @@ private:
   void printCOFFTLSDirectory(const coff_tls_directory<IntTy> *TlsTable);
   typedef void (*PrintExtraCB)(raw_ostream &, const uint8_t *);
   void printRVATable(uint64_t TableVA, uint64_t Count, uint64_t EntrySize,
-                     PrintExtraCB PrintExtra = 0);
+                     PrintExtraCB PrintExtra = nullptr);
 
   void printCodeViewSymbolSection(StringRef SectionName, const SectionRef &Section);
   void printCodeViewTypeSection(StringRef SectionName, const SectionRef &Section);
@@ -335,7 +338,7 @@ void COFFDumper::printBinaryBlockWithRelocs(StringRef Label,
   }
 }
 
-static const EnumEntry<COFF::MachineTypes> ImageFileMachineType[] = {
+const EnumEntry<COFF::MachineTypes> ImageFileMachineType[] = {
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_FILE_MACHINE_UNKNOWN  ),
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_FILE_MACHINE_AM33     ),
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_FILE_MACHINE_AMD64    ),
@@ -360,7 +363,7 @@ static const EnumEntry<COFF::MachineTypes> ImageFileMachineType[] = {
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_FILE_MACHINE_WCEMIPSV2)
 };
 
-static const EnumEntry<COFF::Characteristics> ImageFileCharacteristics[] = {
+const EnumEntry<COFF::Characteristics> ImageFileCharacteristics[] = {
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_FILE_RELOCS_STRIPPED        ),
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_FILE_EXECUTABLE_IMAGE       ),
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_FILE_LINE_NUMS_STRIPPED     ),
@@ -378,7 +381,7 @@ static const EnumEntry<COFF::Characteristics> ImageFileCharacteristics[] = {
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_FILE_BYTES_REVERSED_HI      )
 };
 
-static const EnumEntry<COFF::WindowsSubsystem> PEWindowsSubsystem[] = {
+const EnumEntry<COFF::WindowsSubsystem> PEWindowsSubsystem[] = {
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_SUBSYSTEM_UNKNOWN                ),
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_SUBSYSTEM_NATIVE                 ),
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_SUBSYSTEM_WINDOWS_GUI            ),
@@ -392,7 +395,7 @@ static const EnumEntry<COFF::WindowsSubsystem> PEWindowsSubsystem[] = {
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_SUBSYSTEM_XBOX                   ),
 };
 
-static const EnumEntry<COFF::DLLCharacteristics> PEDLLCharacteristics[] = {
+const EnumEntry<COFF::DLLCharacteristics> PEDLLCharacteristics[] = {
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_DLL_CHARACTERISTICS_HIGH_ENTROPY_VA      ),
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_DLL_CHARACTERISTICS_DYNAMIC_BASE         ),
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_DLL_CHARACTERISTICS_FORCE_INTEGRITY      ),
@@ -451,7 +454,7 @@ ImageSectionCharacteristics[] = {
   LLVM_READOBJ_ENUM_ENT(COFF, IMAGE_SCN_MEM_WRITE             )
 };
 
-static const EnumEntry<COFF::SymbolBaseType> ImageSymType[] = {
+const EnumEntry<COFF::SymbolBaseType> ImageSymType[] = {
   { "Null"  , COFF::IMAGE_SYM_TYPE_NULL   },
   { "Void"  , COFF::IMAGE_SYM_TYPE_VOID   },
   { "Char"  , COFF::IMAGE_SYM_TYPE_CHAR   },
@@ -470,14 +473,14 @@ static const EnumEntry<COFF::SymbolBaseType> ImageSymType[] = {
   { "DWord" , COFF::IMAGE_SYM_TYPE_DWORD  }
 };
 
-static const EnumEntry<COFF::SymbolComplexType> ImageSymDType[] = {
+const EnumEntry<COFF::SymbolComplexType> ImageSymDType[] = {
   { "Null"    , COFF::IMAGE_SYM_DTYPE_NULL     },
   { "Pointer" , COFF::IMAGE_SYM_DTYPE_POINTER  },
   { "Function", COFF::IMAGE_SYM_DTYPE_FUNCTION },
   { "Array"   , COFF::IMAGE_SYM_DTYPE_ARRAY    }
 };
 
-static const EnumEntry<COFF::SymbolStorageClass> ImageSymClass[] = {
+const EnumEntry<COFF::SymbolStorageClass> ImageSymClass[] = {
   { "EndOfFunction"  , COFF::IMAGE_SYM_CLASS_END_OF_FUNCTION  },
   { "Null"           , COFF::IMAGE_SYM_CLASS_NULL             },
   { "Automatic"      , COFF::IMAGE_SYM_CLASS_AUTOMATIC        },
@@ -507,7 +510,7 @@ static const EnumEntry<COFF::SymbolStorageClass> ImageSymClass[] = {
   { "CLRToken"       , COFF::IMAGE_SYM_CLASS_CLR_TOKEN        }
 };
 
-static const EnumEntry<COFF::COMDATType> ImageCOMDATSelect[] = {
+const EnumEntry<COFF::COMDATType> ImageCOMDATSelect[] = {
   { "NoDuplicates", COFF::IMAGE_COMDAT_SELECT_NODUPLICATES },
   { "Any"         , COFF::IMAGE_COMDAT_SELECT_ANY          },
   { "SameSize"    , COFF::IMAGE_COMDAT_SELECT_SAME_SIZE    },
@@ -517,7 +520,7 @@ static const EnumEntry<COFF::COMDATType> ImageCOMDATSelect[] = {
   { "Newest"      , COFF::IMAGE_COMDAT_SELECT_NEWEST       }
 };
 
-static const EnumEntry<COFF::DebugType> ImageDebugType[] = {
+const EnumEntry<COFF::DebugType> ImageDebugType[] = {
     {"Unknown", COFF::IMAGE_DEBUG_TYPE_UNKNOWN},
     {"COFF", COFF::IMAGE_DEBUG_TYPE_COFF},
     {"CodeView", COFF::IMAGE_DEBUG_TYPE_CODEVIEW},
@@ -546,7 +549,7 @@ WeakExternalCharacteristics[] = {
   { "Alias"    , COFF::IMAGE_WEAK_EXTERN_SEARCH_ALIAS     }
 };
 
-static const EnumEntry<uint32_t> SubSectionTypes[] = {
+const EnumEntry<uint32_t> SubSectionTypes[] = {
     LLVM_READOBJ_ENUM_CLASS_ENT(DebugSubsectionKind, Symbols),
     LLVM_READOBJ_ENUM_CLASS_ENT(DebugSubsectionKind, Lines),
     LLVM_READOBJ_ENUM_CLASS_ENT(DebugSubsectionKind, StringTable),
@@ -562,13 +565,13 @@ static const EnumEntry<uint32_t> SubSectionTypes[] = {
     LLVM_READOBJ_ENUM_CLASS_ENT(DebugSubsectionKind, CoffSymbolRVA),
 };
 
-static const EnumEntry<uint32_t> FrameDataFlags[] = {
+const EnumEntry<uint32_t> FrameDataFlags[] = {
     LLVM_READOBJ_ENUM_ENT(FrameData, HasSEH),
     LLVM_READOBJ_ENUM_ENT(FrameData, HasEH),
     LLVM_READOBJ_ENUM_ENT(FrameData, IsFunctionStart),
 };
 
-static const EnumEntry<uint8_t> FileChecksumKindNames[] = {
+const EnumEntry<uint8_t> FileChecksumKindNames[] = {
   LLVM_READOBJ_ENUM_CLASS_ENT(FileChecksumKind, None),
   LLVM_READOBJ_ENUM_CLASS_ENT(FileChecksumKind, MD5),
   LLVM_READOBJ_ENUM_CLASS_ENT(FileChecksumKind, SHA1),
@@ -593,8 +596,7 @@ void COFFDumper::cacheRelocations() {
   for (const SectionRef &S : Obj->sections()) {
     const coff_section *Section = Obj->getCOFFSection(S);
 
-    for (const RelocationRef &Reloc : S.relocations())
-      RelocMap[Section].push_back(Reloc);
+    append_range(RelocMap[Section], S.relocations());
 
     // Sort relocations by address.
     llvm::sort(RelocMap[Section], [](RelocationRef L, RelocationRef R) {
@@ -708,7 +710,10 @@ void COFFDumper::printPEHeader(const PEHeader *Hdr) {
     };
 
     for (uint32_t i = 0; i < Hdr->NumberOfRvaAndSize; ++i)
-      printDataDirectory(i, directory[i]);
+      if (i < sizeof(directory) / sizeof(char *))
+        printDataDirectory(i, directory[i]);
+      else
+        printDataDirectory(i, "Unknown");
   }
 }
 
@@ -794,19 +799,19 @@ void COFFDumper::printCOFFLoadConfig() {
     printRVATable(Tables.SEHTableVA, Tables.SEHTableCount, 4);
   }
 
+  auto PrintGuardFlags = [](raw_ostream &OS, const uint8_t *Entry) {
+    uint8_t Flags = *reinterpret_cast<const uint8_t *>(Entry + 4);
+    if (Flags)
+      OS << " flags " << utohexstr(Flags);
+  };
+
   if (Tables.GuardFidTableVA) {
     ListScope LS(W, "GuardFidTable");
-    if (Tables.GuardFlags & uint32_t(coff_guard_flags::FidTableHasFlags)) {
-      auto PrintGuardFlags = [](raw_ostream &OS, const uint8_t *Entry) {
-        uint8_t Flags = *reinterpret_cast<const uint8_t *>(Entry + 4);
-        if (Flags)
-          OS << " flags " << utohexstr(Flags);
-      };
+    if (Tables.GuardFlags & uint32_t(coff_guard_flags::FidTableHasFlags))
       printRVATable(Tables.GuardFidTableVA, Tables.GuardFidTableCount, 5,
                     PrintGuardFlags);
-    } else {
+    else
       printRVATable(Tables.GuardFidTableVA, Tables.GuardFidTableCount, 4);
-    }
   }
 
   if (Tables.GuardIatTableVA) {
@@ -817,6 +822,12 @@ void COFFDumper::printCOFFLoadConfig() {
   if (Tables.GuardLJmpTableVA) {
     ListScope LS(W, "GuardLJmpTable");
     printRVATable(Tables.GuardLJmpTableVA, Tables.GuardLJmpTableCount, 4);
+  }
+
+  if (Tables.GuardEHContTableVA) {
+    ListScope LS(W, "GuardEHContTable");
+    printRVATable(Tables.GuardEHContTableVA, Tables.GuardEHContTableCount, 5,
+                  PrintGuardFlags);
   }
 }
 
@@ -876,8 +887,8 @@ void COFFDumper::printCOFFLoadConfig(const T *Conf, LoadConfigTables &Tables) {
   Tables.GuardFidTableCount = Conf->GuardCFFunctionCount;
   Tables.GuardFlags = Conf->GuardFlags;
 
-  // Print the rest. (2017)
-  if (Conf->Size < sizeof(T))
+  // Print everything before Reserved3. (2017)
+  if (Conf->Size < offsetof(T, Reserved3))
     return;
   W.printHex("GuardAddressTakenIatEntryTable",
              Conf->GuardAddressTakenIatEntryTable);
@@ -903,6 +914,17 @@ void COFFDumper::printCOFFLoadConfig(const T *Conf, LoadConfigTables &Tables) {
 
   Tables.GuardLJmpTableVA = Conf->GuardLongJumpTargetTable;
   Tables.GuardLJmpTableCount = Conf->GuardLongJumpTargetCount;
+
+  // Print the rest. (2019)
+  if (Conf->Size < sizeof(T))
+    return;
+  W.printHex("EnclaveConfigurationPointer", Conf->EnclaveConfigurationPointer);
+  W.printHex("VolatileMetadataPointer", Conf->VolatileMetadataPointer);
+  W.printHex("GuardEHContinuationTable", Conf->GuardEHContinuationTable);
+  W.printNumber("GuardEHContinuationCount", Conf->GuardEHContinuationCount);
+
+  Tables.GuardEHContTableVA = Conf->GuardEHContinuationTable;
+  Tables.GuardEHContTableCount = Conf->GuardEHContinuationCount;
 }
 
 void COFFDumper::printBaseOfDataField(const pe32_header *Hdr) {
@@ -1856,7 +1878,7 @@ void COFFDumper::printResourceDirectoryTable(
         OS << ": (ID " << Entry.Identifier.ID << ")";
       }
     }
-    Name = StringRef(IDStr);
+    Name = IDStr;
     ListScope ResourceType(W, Level.str() + Name.str());
     if (Entry.Offset.isSubDir()) {
       W.printHex("Table Offset", Entry.Offset.value());

@@ -14,9 +14,10 @@
 
 #include "llvm/Transforms/Utils/LoopVersioning.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/InstSimplifyFolder.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Dominators.h"
@@ -44,41 +45,40 @@ LoopVersioning::LoopVersioning(const LoopAccessInfo &LAI,
       AliasChecks(Checks.begin(), Checks.end()),
       Preds(LAI.getPSE().getUnionPredicate()), LAI(LAI), LI(LI), DT(DT),
       SE(SE) {
-  assert(L->getUniqueExitBlock() && "No single exit block");
 }
 
 void LoopVersioning::versionLoop(
     const SmallVectorImpl<Instruction *> &DefsUsedOutside) {
+  assert(VersionedLoop->getUniqueExitBlock() && "No single exit block");
   assert(VersionedLoop->isLoopSimplifyForm() &&
          "Loop is not in loop-simplify form");
 
-  Instruction *FirstCheckInst;
-  Instruction *MemRuntimeCheck;
+  Value *MemRuntimeCheck;
   Value *SCEVRuntimeCheck;
   Value *RuntimeCheck = nullptr;
 
   // Add the memcheck in the original preheader (this is empty initially).
   BasicBlock *RuntimeCheckBB = VersionedLoop->getLoopPreheader();
   const auto &RtPtrChecking = *LAI.getRuntimePointerChecking();
-  std::tie(FirstCheckInst, MemRuntimeCheck) =
-      addRuntimeChecks(RuntimeCheckBB->getTerminator(), VersionedLoop,
-                       AliasChecks, RtPtrChecking.getSE());
+
+  SCEVExpander Exp2(*RtPtrChecking.getSE(),
+                    VersionedLoop->getHeader()->getModule()->getDataLayout(),
+                    "induction");
+  MemRuntimeCheck = addRuntimeChecks(RuntimeCheckBB->getTerminator(),
+                                     VersionedLoop, AliasChecks, Exp2);
 
   SCEVExpander Exp(*SE, RuntimeCheckBB->getModule()->getDataLayout(),
                    "scev.check");
   SCEVRuntimeCheck =
       Exp.expandCodeForPredicate(&Preds, RuntimeCheckBB->getTerminator());
-  auto *CI = dyn_cast<ConstantInt>(SCEVRuntimeCheck);
 
-  // Discard the SCEV runtime check if it is always true.
-  if (CI && CI->isZero())
-    SCEVRuntimeCheck = nullptr;
-
+  IRBuilder<InstSimplifyFolder> Builder(
+      RuntimeCheckBB->getContext(),
+      InstSimplifyFolder(RuntimeCheckBB->getModule()->getDataLayout()));
   if (MemRuntimeCheck && SCEVRuntimeCheck) {
-    RuntimeCheck = BinaryOperator::Create(Instruction::Or, MemRuntimeCheck,
-                                          SCEVRuntimeCheck, "lver.safe");
-    if (auto *I = dyn_cast<Instruction>(RuntimeCheck))
-      I->insertBefore(RuntimeCheckBB->getTerminator());
+    Builder.SetInsertPoint(RuntimeCheckBB->getTerminator());
+    RuntimeCheck =
+        Builder.CreateOr(MemRuntimeCheck, SCEVRuntimeCheck, "lver.safe");
   } else
     RuntimeCheck = MemRuntimeCheck ? MemRuntimeCheck : SCEVRuntimeCheck;
 
@@ -107,8 +107,9 @@ void LoopVersioning::versionLoop(
 
   // Insert the conditional branch based on the result of the memchecks.
   Instruction *OrigTerm = RuntimeCheckBB->getTerminator();
-  BranchInst::Create(NonVersionedLoop->getLoopPreheader(),
-                     VersionedLoop->getLoopPreheader(), RuntimeCheck, OrigTerm);
+  Builder.SetInsertPoint(OrigTerm);
+  Builder.CreateCondBr(RuntimeCheck, NonVersionedLoop->getLoopPreheader(),
+                       VersionedLoop->getLoopPreheader());
   OrigTerm->eraseFromParent();
 
   // The loops merge in the original exit block.  This is now dominated by the
@@ -351,14 +352,11 @@ PreservedAnalyses LoopVersioningPass::run(Function &F,
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
-  MemorySSA *MSSA = EnableMSSALoopDependency
-                        ? &AM.getResult<MemorySSAAnalysis>(F).getMSSA()
-                        : nullptr;
 
   auto &LAM = AM.getResult<LoopAnalysisManagerFunctionProxy>(F).getManager();
   auto GetLAA = [&](Loop &L) -> const LoopAccessInfo & {
-    LoopStandardAnalysisResults AR = {AA,  AC,  DT,      LI,  SE,
-                                      TLI, TTI, nullptr, MSSA};
+    LoopStandardAnalysisResults AR = {AA,  AC,  DT,      LI,      SE,
+                                      TLI, TTI, nullptr, nullptr, nullptr};
     return LAM.getResult<LoopAccessAnalysis>(L, AR);
   };
 

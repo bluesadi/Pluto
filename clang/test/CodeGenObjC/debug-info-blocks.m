@@ -13,7 +13,7 @@
 // Test that we do emit scope info for the helper functions, and that the
 // parameters to these functions are marked as artificial (so the debugger
 // doesn't accidentally step into the function).
-// CHECK: define {{.*}} @__copy_helper_block_{{.*}}(i8* %0, i8* %1)
+// CHECK: define {{.*}} @__copy_helper_block_{{.*}}(i8* noundef %0, i8* noundef %1)
 // CHECK-NOT: ret
 // CHECK: call {{.*}}, !dbg ![[DBG_LINE:[0-9]+]]
 // CHECK-NOT: ret
@@ -25,9 +25,9 @@
 // CHECK: ret {{.*}}, !dbg ![[DESTROY_LINE]]
 
 // CHECK-DAG: [[DBG_LINE]] = !DILocation(line: 0, scope: ![[COPY_SP:[0-9]+]])
-// CHECK-DAG: [[COPY_SP]] = distinct !DISubprogram(name: "__copy_helper_block_
+// CHECK-DAG: [[COPY_SP]] = distinct !DISubprogram(linkageName: "__copy_helper_block_
 // CHECK-DAG: [[DESTROY_LINE]] = !DILocation(line: 0, scope: ![[DESTROY_SP:[0-9]+]])
-// CHECK-DAG: [[DESTROY_SP]] = distinct !DISubprogram(name: "__destroy_helper_block_
+// CHECK-DAG: [[DESTROY_SP]] = distinct !DISubprogram(linkageName: "__destroy_helper_block_
 typedef unsigned int NSUInteger;
 
 @protocol NSObject

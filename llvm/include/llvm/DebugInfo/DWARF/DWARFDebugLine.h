@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_DEBUGINFO_DWARFDEBUGLINE_H
-#define LLVM_DEBUGINFO_DWARFDEBUGLINE_H
+#ifndef LLVM_DEBUGINFO_DWARF_DWARFDEBUGLINE_H
+#define LLVM_DEBUGINFO_DWARF_DWARFDEBUGLINE_H
 
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
@@ -109,10 +109,6 @@ public:
 
     /// Length of the prologue in bytes.
     uint64_t getLength() const;
-
-    int32_t getMaxLineIncrementForSpecialOpcode() const {
-      return LineBase + (int8_t)LineRange - 1;
-    }
 
     /// Get DWARF-version aware access to the file name entry at the provided
     /// index.
@@ -420,4 +416,4 @@ private:
 
 } // end namespace llvm
 
-#endif // LLVM_DEBUGINFO_DWARFDEBUGLINE_H
+#endif // LLVM_DEBUGINFO_DWARF_DWARFDEBUGLINE_H

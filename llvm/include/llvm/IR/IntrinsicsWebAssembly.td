@@ -11,6 +11,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
+// Type definition for a table in an intrinsic
+def llvm_table_ty : LLVMQualPointerType<llvm_i8_ty, 1>;
+
 let TargetPrefix = "wasm" in {  // All intrinsics start with "llvm.wasm.".
 
 // Query the current memory size, and increase the current memory size.
@@ -22,6 +25,35 @@ def int_wasm_memory_size : Intrinsic<[llvm_anyint_ty],
 def int_wasm_memory_grow : Intrinsic<[llvm_anyint_ty],
                                      [llvm_i32_ty, LLVMMatchType<0>],
                                      []>;
+
+//===----------------------------------------------------------------------===//
+// ref.null intrinsics
+//===----------------------------------------------------------------------===//
+def int_wasm_ref_null_extern : Intrinsic<[llvm_externref_ty], [], [IntrNoMem]>;
+def int_wasm_ref_null_func : Intrinsic<[llvm_funcref_ty], [], [IntrNoMem]>;
+
+//===----------------------------------------------------------------------===//
+// Table intrinsics
+//===----------------------------------------------------------------------===//
+// Query the current table size, and increase the current table size.
+def int_wasm_table_size : Intrinsic<[llvm_i32_ty],
+                                    [llvm_table_ty],
+                                    [IntrReadMem]>;
+def int_wasm_table_copy : Intrinsic<[],
+                                    [llvm_table_ty, llvm_table_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
+                                    []>;
+def int_wasm_table_grow_externref : Intrinsic<[llvm_i32_ty],
+                                              [llvm_table_ty, llvm_externref_ty, llvm_i32_ty],
+                                              []>;
+def int_wasm_table_grow_funcref : Intrinsic<[llvm_i32_ty],
+                                            [llvm_table_ty, llvm_funcref_ty, llvm_i32_ty],
+                                            []>;
+def int_wasm_table_fill_externref : Intrinsic<[],
+                                              [llvm_table_ty, llvm_i32_ty, llvm_externref_ty, llvm_i32_ty],
+                                              []>;
+def int_wasm_table_fill_funcref : Intrinsic<[],
+                                            [llvm_table_ty, llvm_i32_ty, llvm_funcref_ty, llvm_i32_ty],
+                                            []>;
 
 //===----------------------------------------------------------------------===//
 // Trapping float-to-int conversions
@@ -50,7 +82,8 @@ def int_wasm_trunc_saturate_unsigned : Intrinsic<[llvm_anyint_ty],
 //===----------------------------------------------------------------------===//
 
 // throw / rethrow
-// The immediate argument is an index to a tag, which is 0 for C++.
+// The first immediate argument is an index to a tag, which is 0 for C++
+// exception. The second argument is the thrown exception pointer.
 def int_wasm_throw : Intrinsic<[], [llvm_i32_ty, llvm_ptr_ty],
                                [Throws, IntrNoReturn, ImmArg<ArgIndex<0>>]>;
 def int_wasm_rethrow : Intrinsic<[], [], [Throws, IntrNoReturn]>;
@@ -63,8 +96,9 @@ def int_wasm_get_ehselector : Intrinsic<[llvm_i32_ty], [llvm_token_ty],
                                         [IntrHasSideEffects]>;
 
 // wasm.catch returns the pointer to the exception object caught by wasm 'catch'
-// instruction. This returns a single pointer, which is sufficient for C++
-// support. The immediate argument is an index to for a tag, which is 0 for C++.
+// instruction. This returns a single pointer, which is the case for C++
+// exceptions. The immediate argument is an index to for a tag, which is 0 for
+// C++ exceptions.
 def int_wasm_catch : Intrinsic<[llvm_ptr_ty], [llvm_i32_ty],
                                [IntrHasSideEffects, ImmArg<ArgIndex<0>>]>;
 
@@ -115,11 +149,11 @@ def int_wasm_shuffle :
              llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty,
              llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
             [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_sub_saturate_signed :
+def int_wasm_sub_sat_signed :
   Intrinsic<[llvm_anyvector_ty],
             [LLVMMatchType<0>, LLVMMatchType<0>],
             [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_sub_saturate_unsigned :
+def int_wasm_sub_sat_unsigned :
   Intrinsic<[llvm_anyvector_ty],
             [LLVMMatchType<0>, LLVMMatchType<0>],
             [IntrNoMem, IntrSpeculatable]>;
@@ -143,14 +177,6 @@ def int_wasm_bitmask :
   Intrinsic<[llvm_i32_ty],
             [llvm_anyvector_ty],
             [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_qfma :
-  Intrinsic<[llvm_anyvector_ty],
-            [LLVMMatchType<0>, LLVMMatchType<0>, LLVMMatchType<0>],
-            [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_qfms :
-  Intrinsic<[llvm_anyvector_ty],
-            [LLVMMatchType<0>, LLVMMatchType<0>, LLVMMatchType<0>],
-            [IntrNoMem, IntrSpeculatable]>;
 def int_wasm_dot :
   Intrinsic<[llvm_v4i32_ty],
             [llvm_v8i16_ty, llvm_v8i16_ty],
@@ -165,23 +191,11 @@ def int_wasm_narrow_unsigned :
             [llvm_anyvector_ty, LLVMMatchType<1>],
             [IntrNoMem, IntrSpeculatable]>;
 
-// TODO: Replace these intrinsics with normal ISel patterns once i32x4 to i64x2
-// widening is merged to the proposal.
-def int_wasm_widen_low_signed :
-  Intrinsic<[llvm_v2i64_ty], [llvm_v4i32_ty], [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_widen_high_signed :
-  Intrinsic<[llvm_v2i64_ty], [llvm_v4i32_ty], [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_widen_low_unsigned :
-  Intrinsic<[llvm_v2i64_ty], [llvm_v4i32_ty], [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_widen_high_unsigned :
-  Intrinsic<[llvm_v2i64_ty], [llvm_v4i32_ty], [IntrNoMem, IntrSpeculatable]>;
-
-def int_wasm_q15mulr_saturate_signed :
+def int_wasm_q15mulr_sat_signed :
   Intrinsic<[llvm_v8i16_ty],
             [llvm_v8i16_ty, llvm_v8i16_ty],
             [IntrNoMem, IntrSpeculatable]>;
 
-// TODO: Replace these intrinsics with normal ISel patterns
 def int_wasm_pmin :
   Intrinsic<[llvm_anyvector_ty],
             [LLVMMatchType<0>, LLVMMatchType<0>],
@@ -189,108 +203,6 @@ def int_wasm_pmin :
 def int_wasm_pmax :
   Intrinsic<[llvm_anyvector_ty],
             [LLVMMatchType<0>, LLVMMatchType<0>],
-            [IntrNoMem, IntrSpeculatable]>;
-
-// TODO: Replace these instrinsics with normal ISel patterns once the
-// rounding instructions are merged to the proposal
-// (https://github.com/WebAssembly/simd/pull/232).
-def int_wasm_ceil :
-  Intrinsic<[llvm_anyvector_ty],
-            [LLVMMatchType<0>],
-            [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_floor :
-  Intrinsic<[llvm_anyvector_ty],
-            [LLVMMatchType<0>],
-            [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_trunc :
-  Intrinsic<[llvm_anyvector_ty],
-            [LLVMMatchType<0>],
-            [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_nearest :
-  Intrinsic<[llvm_anyvector_ty],
-            [LLVMMatchType<0>],
-            [IntrNoMem, IntrSpeculatable]>;
-
-// TODO: Replace these intrinsic with normal ISel patterns once the
-// load_zero instructions are merged to the proposal.
-def int_wasm_load32_zero :
-  Intrinsic<[llvm_v4i32_ty],
-            [LLVMPointerType<llvm_i32_ty>],
-            [IntrReadMem, IntrArgMemOnly],
-             "", [SDNPMemOperand]>;
-
-def int_wasm_load64_zero :
-  Intrinsic<[llvm_v2i64_ty],
-            [LLVMPointerType<llvm_i64_ty>],
-            [IntrReadMem, IntrArgMemOnly],
-             "", [SDNPMemOperand]>;
-
-// These intrinsics do not mark their lane index arguments as immediate because
-// that changes the corresponding SDNode from ISD::Constant to
-// ISD::TargetConstant, which would require extra complications in the ISel
-// tablegen patterns. TODO: Replace these intrinsic with normal ISel patterns
-// once the load_lane instructions are merged to the proposal.
-def int_wasm_load8_lane :
-  Intrinsic<[llvm_v16i8_ty],
-            [LLVMPointerType<llvm_i8_ty>, llvm_v16i8_ty, llvm_i32_ty],
-            [IntrReadMem, IntrArgMemOnly],
-            "", [SDNPMemOperand]>;
-def int_wasm_load16_lane :
-  Intrinsic<[llvm_v8i16_ty],
-            [LLVMPointerType<llvm_i16_ty>, llvm_v8i16_ty, llvm_i32_ty],
-            [IntrReadMem, IntrArgMemOnly],
-            "", [SDNPMemOperand]>;
-def int_wasm_load32_lane :
-  Intrinsic<[llvm_v4i32_ty],
-            [LLVMPointerType<llvm_i32_ty>, llvm_v4i32_ty, llvm_i32_ty],
-            [IntrReadMem, IntrArgMemOnly],
-            "", [SDNPMemOperand]>;
-def int_wasm_load64_lane :
-  Intrinsic<[llvm_v2i64_ty],
-            [LLVMPointerType<llvm_i64_ty>, llvm_v2i64_ty, llvm_i32_ty],
-            [IntrReadMem, IntrArgMemOnly],
-            "", [SDNPMemOperand]>;
-def int_wasm_store8_lane :
-  Intrinsic<[],
-            [LLVMPointerType<llvm_i8_ty>, llvm_v16i8_ty, llvm_i32_ty],
-            [IntrWriteMem, IntrArgMemOnly],
-            "", [SDNPMemOperand]>;
-def int_wasm_store16_lane :
-  Intrinsic<[],
-            [LLVMPointerType<llvm_i16_ty>, llvm_v8i16_ty, llvm_i32_ty],
-            [IntrWriteMem, IntrArgMemOnly],
-            "", [SDNPMemOperand]>;
-def int_wasm_store32_lane :
-  Intrinsic<[],
-            [LLVMPointerType<llvm_i32_ty>, llvm_v4i32_ty, llvm_i32_ty],
-            [IntrWriteMem, IntrArgMemOnly],
-            "", [SDNPMemOperand]>;
-def int_wasm_store64_lane :
-  Intrinsic<[],
-            [LLVMPointerType<llvm_i64_ty>, llvm_v2i64_ty, llvm_i32_ty],
-            [IntrWriteMem, IntrArgMemOnly],
-            "", [SDNPMemOperand]>;
-
-// TODO: Replace this intrinsic with normal ISel patterns once popcnt is merged
-// to the proposal.
-def int_wasm_popcnt :
-  Intrinsic<[llvm_v16i8_ty], [llvm_v16i8_ty], [IntrNoMem, IntrSpeculatable]>;
-
-def int_wasm_extmul_low_signed :
-  Intrinsic<[llvm_anyvector_ty],
-            [LLVMSubdivide2VectorType<0>, LLVMSubdivide2VectorType<0>],
-            [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_extmul_high_signed :
-  Intrinsic<[llvm_anyvector_ty],
-            [LLVMSubdivide2VectorType<0>, LLVMSubdivide2VectorType<0>],
-            [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_extmul_low_unsigned :
-  Intrinsic<[llvm_anyvector_ty],
-            [LLVMSubdivide2VectorType<0>, LLVMSubdivide2VectorType<0>],
-            [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_extmul_high_unsigned :
-  Intrinsic<[llvm_anyvector_ty],
-            [LLVMSubdivide2VectorType<0>, LLVMSubdivide2VectorType<0>],
             [IntrNoMem, IntrSpeculatable]>;
 
 def int_wasm_extadd_pairwise_signed :
@@ -302,51 +214,58 @@ def int_wasm_extadd_pairwise_unsigned :
             [LLVMSubdivide2VectorType<0>],
             [IntrNoMem, IntrSpeculatable]>;
 
-def int_wasm_signselect :
+//===----------------------------------------------------------------------===//
+// Relaxed SIMD intrinsics (experimental)
+//===----------------------------------------------------------------------===//
+
+def int_wasm_fma :
+  Intrinsic<[llvm_anyvector_ty],
+            [LLVMMatchType<0>, LLVMMatchType<0>, LLVMMatchType<0>],
+            [IntrNoMem, IntrSpeculatable]>;
+def int_wasm_fms :
   Intrinsic<[llvm_anyvector_ty],
             [LLVMMatchType<0>, LLVMMatchType<0>, LLVMMatchType<0>],
             [IntrNoMem, IntrSpeculatable]>;
 
-// TODO: Remove this intrinsic and the associated builtin if i64x2.eq gets
-// merged to the proposal.
-def int_wasm_eq :
-  Intrinsic<[llvm_v2i64_ty],
-            [llvm_v2i64_ty, llvm_v2i64_ty],
+def int_wasm_laneselect :
+  Intrinsic<[llvm_anyvector_ty],
+            [LLVMMatchType<0>, LLVMMatchType<0>, LLVMMatchType<0>],
             [IntrNoMem, IntrSpeculatable]>;
 
-// TODO: Remove this after experiments have been run. Use the target-agnostic
-// int_prefetch if this becomes specified at some point.
-def int_wasm_prefetch_t :
-  Intrinsic<[], [llvm_ptr_ty],
-            [IntrInaccessibleMemOrArgMemOnly, IntrWillReturn,
-             ReadOnly<ArgIndex<0>>, NoCapture<ArgIndex<0>>],
-            "", [SDNPMemOperand]>;
+def int_wasm_relaxed_swizzle :
+  Intrinsic<[llvm_v16i8_ty],
+            [llvm_v16i8_ty, llvm_v16i8_ty],
+            [IntrNoMem, IntrSpeculatable]>;
 
-def int_wasm_prefetch_nt :
-  Intrinsic<[], [llvm_ptr_ty],
-            [IntrInaccessibleMemOrArgMemOnly, IntrWillReturn,
-             ReadOnly<ArgIndex<0>>, NoCapture<ArgIndex<0>>],
-            "", [SDNPMemOperand]>;
+def int_wasm_relaxed_min :
+  Intrinsic<[llvm_anyvector_ty],
+            [LLVMMatchType<0>, LLVMMatchType<0>],
+            [IntrNoMem, IntrSpeculatable]>;
+def int_wasm_relaxed_max :
+  Intrinsic<[llvm_anyvector_ty],
+            [LLVMMatchType<0>, LLVMMatchType<0>],
+            [IntrNoMem, IntrSpeculatable]>;
 
-// TODO: Remove these if possible if they are merged to the spec.
-def int_wasm_convert_low_signed :
-  Intrinsic<[llvm_v2f64_ty], [llvm_v4i32_ty],
+def int_wasm_relaxed_trunc_signed:
+  Intrinsic<[llvm_v4i32_ty],
+            [llvm_v4f32_ty],
             [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_convert_low_unsigned :
-  Intrinsic<[llvm_v2f64_ty], [llvm_v4i32_ty],
+
+def int_wasm_relaxed_trunc_unsigned:
+  Intrinsic<[llvm_v4i32_ty],
+            [llvm_v4f32_ty],
             [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_trunc_saturate_zero_signed :
-  Intrinsic<[llvm_v4i32_ty], [llvm_v2f64_ty],
+
+def int_wasm_relaxed_trunc_zero_signed:
+  Intrinsic<[llvm_v4i32_ty],
+            [llvm_v2f64_ty],
             [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_trunc_saturate_zero_unsigned :
-  Intrinsic<[llvm_v4i32_ty], [llvm_v2f64_ty],
+
+def int_wasm_relaxed_trunc_zero_unsigned:
+  Intrinsic<[llvm_v4i32_ty],
+            [llvm_v2f64_ty],
             [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_demote_zero :
-  Intrinsic<[llvm_v4f32_ty], [llvm_v2f64_ty],
-            [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_promote_low :
-  Intrinsic<[llvm_v2f64_ty], [llvm_v4f32_ty],
-            [IntrNoMem, IntrSpeculatable]>;
+
 
 //===----------------------------------------------------------------------===//
 // Thread-local storage intrinsics

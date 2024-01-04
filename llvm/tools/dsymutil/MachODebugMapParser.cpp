@@ -215,7 +215,7 @@ struct DarwinStabName {
   const char *Name;
 };
 
-static const struct DarwinStabName DarwinStabNames[] = {
+const struct DarwinStabName DarwinStabNames[] = {
     {MachO::N_GSYM, "N_GSYM"},    {MachO::N_FNAME, "N_FNAME"},
     {MachO::N_FUN, "N_FUN"},      {MachO::N_STSYM, "N_STSYM"},
     {MachO::N_LCSYM, "N_LCSYM"},  {MachO::N_BNSYM, "N_BNSYM"},
@@ -459,6 +459,19 @@ void MachODebugMapParser::handleStabSymbolTableEntry(uint32_t StringIndex,
       ObjectSymIt = CurrentObjectAddresses.find(Alias);
       if (ObjectSymIt != CurrentObjectAddresses.end())
         break;
+    }
+  }
+
+  // ThinLTO adds a unique suffix to exported private symbols.
+  if (ObjectSymIt == CurrentObjectAddresses.end()) {
+    for (auto Iter = CurrentObjectAddresses.begin();
+         Iter != CurrentObjectAddresses.end(); ++Iter) {
+      llvm::StringRef SymbolName = Iter->getKey();
+      auto Pos = SymbolName.rfind(".llvm.");
+      if (Pos != llvm::StringRef::npos && SymbolName.substr(0, Pos) == Name) {
+        ObjectSymIt = Iter;
+        break;
+      }
     }
   }
 

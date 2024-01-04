@@ -13,6 +13,8 @@
 
 #include "WhitespaceManager.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallVector.h"
+#include <algorithm>
 
 namespace clang {
 namespace format {
@@ -72,6 +74,12 @@ WhitespaceManager::addReplacement(const tooling::Replacement &Replacement) {
   return Replaces.add(Replacement);
 }
 
+bool WhitespaceManager::inputUsesCRLF(StringRef Text, bool DefaultToCRLF) {
+  size_t LF = Text.count('\n');
+  size_t CR = Text.count('\r') * 2;
+  return LF == CR ? DefaultToCRLF : CR > LF;
+}
+
 void WhitespaceManager::replaceWhitespaceInToken(
     const FormatToken &Tok, unsigned Offset, unsigned ReplaceChars,
     StringRef PreviousPostfix, StringRef CurrentPrefix, bool InPPDirective,
@@ -100,6 +108,7 @@ const tooling::Replacements &WhitespaceManager::generateReplacements() {
   alignChainedConditionals();
   alignTrailingComments();
   alignEscapedNewlines();
+  alignArrayInitializers();
   generateChanges();
 
   return Replaces;
@@ -262,7 +271,8 @@ void WhitespaceManager::calculateLineBreakInformation() {
 // Align a single sequence of tokens, see AlignTokens below.
 template <typename F>
 static void
-AlignTokenSequence(unsigned Start, unsigned End, unsigned Column, F &&Matches,
+AlignTokenSequence(const FormatStyle &Style, unsigned Start, unsigned End,
+                   unsigned Column, F &&Matches,
                    SmallVector<WhitespaceManager::Change, 16> &Changes) {
   bool FoundMatchOnLine = false;
   int Shift = 0;
@@ -278,6 +288,14 @@ AlignTokenSequence(unsigned Start, unsigned End, unsigned Column, F &&Matches,
   //          double z);
   // In the above example, we need to take special care to ensure that
   // 'double z' is indented along with it's owning function 'b'.
+  // The same holds for calling a function:
+  //   double a = foo(x);
+  //   int    b = bar(foo(y),
+  //            foor(z));
+  // Similar for broken string literals:
+  //   double x = 3.14;
+  //   auto s   = "Hello"
+  //          "World";
   // Special handling is required for 'nested' ternary operators.
   SmallVector<unsigned, 16> ScopeStack;
 
@@ -292,14 +310,18 @@ AlignTokenSequence(unsigned Start, unsigned End, unsigned Column, F &&Matches,
     unsigned PreviousNonComment = i - 1;
     while (PreviousNonComment > Start &&
            Changes[PreviousNonComment].Tok->is(tok::comment))
-      PreviousNonComment--;
+      --PreviousNonComment;
     if (i != Start && Changes[i].indentAndNestingLevel() >
                           Changes[PreviousNonComment].indentAndNestingLevel())
       ScopeStack.push_back(i);
 
     bool InsideNestedScope = ScopeStack.size() != 0;
+    bool ContinuedStringLiteral = i > Start &&
+                                  Changes[i].Tok->is(tok::string_literal) &&
+                                  Changes[i - 1].Tok->is(tok::string_literal);
+    bool SkipMatchCheck = InsideNestedScope || ContinuedStringLiteral;
 
-    if (Changes[i].NewlinesBefore > 0 && !InsideNestedScope) {
+    if (Changes[i].NewlinesBefore > 0 && !SkipMatchCheck) {
       Shift = 0;
       FoundMatchOnLine = false;
     }
@@ -307,7 +329,7 @@ AlignTokenSequence(unsigned Start, unsigned End, unsigned Column, F &&Matches,
     // If this is the first matching token to be aligned, remember by how many
     // spaces it has to be shifted, so the rest of the changes on the line are
     // shifted by the same amount
-    if (!FoundMatchOnLine && !InsideNestedScope && Matches(Changes[i])) {
+    if (!FoundMatchOnLine && !SkipMatchCheck && Matches(Changes[i])) {
       FoundMatchOnLine = true;
       Shift = Column - Changes[i].StartOfTokenColumn;
       Changes[i].Spaces += Shift;
@@ -317,19 +339,84 @@ AlignTokenSequence(unsigned Start, unsigned End, unsigned Column, F &&Matches,
     // as mentioned in the ScopeStack comment.
     if (InsideNestedScope && Changes[i].NewlinesBefore > 0) {
       unsigned ScopeStart = ScopeStack.back();
-      if (Changes[ScopeStart - 1].Tok->is(TT_FunctionDeclarationName) ||
-          (ScopeStart > Start + 1 &&
-           Changes[ScopeStart - 2].Tok->is(TT_FunctionDeclarationName)) ||
-          Changes[i].Tok->is(TT_ConditionalExpr) ||
-          (Changes[i].Tok->Previous &&
-           Changes[i].Tok->Previous->is(TT_ConditionalExpr)))
+      auto ShouldShiftBeAdded = [&] {
+        // Function declaration
+        if (Changes[ScopeStart - 1].Tok->is(TT_FunctionDeclarationName))
+          return true;
+
+        // Lambda.
+        if (Changes[ScopeStart - 1].Tok->is(TT_LambdaLBrace))
+          return false;
+
+        // Continued function declaration
+        if (ScopeStart > Start + 1 &&
+            Changes[ScopeStart - 2].Tok->is(TT_FunctionDeclarationName))
+          return true;
+
+        // Continued function call
+        if (ScopeStart > Start + 1 &&
+            Changes[ScopeStart - 2].Tok->is(tok::identifier) &&
+            Changes[ScopeStart - 1].Tok->is(tok::l_paren) &&
+            Changes[ScopeStart].Tok->isNot(TT_LambdaLSquare)) {
+          if (Changes[i].Tok->MatchingParen &&
+              Changes[i].Tok->MatchingParen->is(TT_LambdaLBrace))
+            return false;
+          return Style.BinPackArguments;
+        }
+
+        // Ternary operator
+        if (Changes[i].Tok->is(TT_ConditionalExpr))
+          return true;
+
+        // Period Initializer .XXX = 1.
+        if (Changes[i].Tok->is(TT_DesignatedInitializerPeriod))
+          return true;
+
+        // Continued ternary operator
+        if (Changes[i].Tok->Previous &&
+            Changes[i].Tok->Previous->is(TT_ConditionalExpr))
+          return true;
+
+        // Continued braced list.
+        if (ScopeStart > Start + 1 &&
+            Changes[ScopeStart - 2].Tok->isNot(tok::identifier) &&
+            Changes[ScopeStart - 1].Tok->is(tok::l_brace) &&
+            Changes[i].Tok->isNot(tok::r_brace)) {
+          for (unsigned OuterScopeStart : llvm::reverse(ScopeStack)) {
+            // Lambda.
+            if (OuterScopeStart > Start &&
+                Changes[OuterScopeStart - 1].Tok->is(TT_LambdaLBrace))
+              return false;
+          }
+          return true;
+        }
+
+        return false;
+      };
+
+      if (ShouldShiftBeAdded())
         Changes[i].Spaces += Shift;
     }
 
-    assert(Shift >= 0);
+    if (ContinuedStringLiteral)
+      Changes[i].Spaces += Shift;
+
     Changes[i].StartOfTokenColumn += Shift;
     if (i + 1 != Changes.size())
       Changes[i + 1].PreviousEndOfTokenColumn += Shift;
+
+    // If PointerAlignment is PAS_Right, keep *s or &s next to the token
+    if (Style.PointerAlignment == FormatStyle::PAS_Right &&
+        Changes[i].Spaces != 0) {
+      for (int Previous = i - 1;
+           Previous >= 0 &&
+           Changes[Previous].Tok->getType() == TT_PointerOrReference;
+           --Previous) {
+        Changes[Previous + 1].Spaces -= Shift;
+        Changes[Previous].Spaces += Shift;
+        Changes[Previous].StartOfTokenColumn += Shift;
+      }
+    }
   }
 }
 
@@ -399,8 +486,8 @@ static unsigned AlignTokens(
   // containing any matching token to be aligned and located after such token.
   auto AlignCurrentSequence = [&] {
     if (StartOfSequence > 0 && StartOfSequence < EndOfSequence)
-      AlignTokenSequence(StartOfSequence, EndOfSequence, MinColumn, Matches,
-                         Changes);
+      AlignTokenSequence(Style, StartOfSequence, EndOfSequence, MinColumn,
+                         Matches, Changes);
     MinColumn = 0;
     MaxColumn = UINT_MAX;
     StartOfSequence = 0;
@@ -434,7 +521,10 @@ static unsigned AlignTokens(
         AlignCurrentSequence();
 
       // A new line starts, re-initialize line status tracking bools.
-      FoundMatchOnLine = false;
+      // Keep the match state if a string literal is continued on this line.
+      if (i == 0 || !Changes[i].Tok->is(tok::string_literal) ||
+          !Changes[i - 1].Tok->is(tok::string_literal))
+        FoundMatchOnLine = false;
       LineIsComment = true;
     }
 
@@ -658,6 +748,11 @@ void WhitespaceManager::alignConsecutiveAssignments() {
         if (&C != &Changes.back() && (&C + 1)->NewlinesBefore > 0)
           return false;
 
+        // Do not align operator= overloads.
+        FormatToken *Previous = C.Tok->getPreviousNonComment();
+        if (Previous && Previous->is(tok::kw_operator))
+          return false;
+
         return C.Tok->is(tok::equal);
       },
       Changes, /*StartAt=*/0, Style.AlignConsecutiveAssignments);
@@ -687,12 +782,6 @@ void WhitespaceManager::alignConsecutiveDeclarations() {
   if (Style.AlignConsecutiveDeclarations == FormatStyle::ACS_None)
     return;
 
-  // FIXME: Currently we don't handle properly the PointerAlignment: Right
-  // The * and & are not aligned and are left dangling. Something has to be done
-  // about it, but it raises the question of alignment of code like:
-  //   const char* const* v1;
-  //   float const* v2;
-  //   SomeVeryLongType const& v3;
   AlignTokens(
       Style,
       [](Change const &C) {
@@ -709,6 +798,8 @@ void WhitespaceManager::alignConsecutiveDeclarations() {
         for (FormatToken *Next = C.Tok->Next; Next; Next = Next->Next) {
           if (Next->is(tok::comment))
             continue;
+          if (Next->is(TT_PointerOrReference))
+            return false;
           if (!Next->Tok.getIdentifierInfo())
             break;
           if (Next->isOneOf(TT_StartOfName, TT_FunctionDeclarationName,
@@ -735,12 +826,11 @@ void WhitespaceManager::alignChainedConditionals() {
         Changes, /*StartAt=*/0);
   } else {
     static auto AlignWrappedOperand = [](Change const &C) {
-      auto Previous = C.Tok->getPreviousNonComment(); // Previous;
+      FormatToken *Previous = C.Tok->getPreviousNonComment();
       return C.NewlinesBefore && Previous && Previous->is(TT_ConditionalExpr) &&
-             (Previous->is(tok::question) ||
-              (Previous->is(tok::colon) &&
-               (C.Tok->FakeLParens.size() == 0 ||
-                C.Tok->FakeLParens.back() != prec::Conditional)));
+             (Previous->is(tok::colon) &&
+              (C.Tok->FakeLParens.size() == 0 ||
+               C.Tok->FakeLParens.back() != prec::Conditional));
     };
     // Ensure we keep alignment of wrapped operands with non-wrapped operands
     // Since we actually align the operators, the wrapped operands need the
@@ -858,7 +948,8 @@ void WhitespaceManager::alignTrailingComments(unsigned Start, unsigned End,
               Changes[i].StartOfBlockComment->StartOfTokenColumn -
               Changes[i].StartOfTokenColumn;
     }
-    assert(Shift >= 0);
+    if (Shift < 0)
+      continue;
     Changes[i].Spaces += Shift;
     if (i + 1 != Changes.size())
       Changes[i + 1].PreviousEndOfTokenColumn += Shift;
@@ -902,13 +993,321 @@ void WhitespaceManager::alignEscapedNewlines(unsigned Start, unsigned End,
   }
 }
 
+void WhitespaceManager::alignArrayInitializers() {
+  if (Style.AlignArrayOfStructures == FormatStyle::AIAS_None)
+    return;
+
+  for (unsigned ChangeIndex = 1U, ChangeEnd = Changes.size();
+       ChangeIndex < ChangeEnd; ++ChangeIndex) {
+    auto &C = Changes[ChangeIndex];
+    if (C.Tok->IsArrayInitializer) {
+      bool FoundComplete = false;
+      for (unsigned InsideIndex = ChangeIndex + 1; InsideIndex < ChangeEnd;
+           ++InsideIndex) {
+        if (Changes[InsideIndex].Tok == C.Tok->MatchingParen) {
+          alignArrayInitializers(ChangeIndex, InsideIndex + 1);
+          ChangeIndex = InsideIndex + 1;
+          FoundComplete = true;
+          break;
+        }
+      }
+      if (!FoundComplete)
+        ChangeIndex = ChangeEnd;
+    }
+  }
+}
+
+void WhitespaceManager::alignArrayInitializers(unsigned Start, unsigned End) {
+
+  if (Style.AlignArrayOfStructures == FormatStyle::AIAS_Right)
+    alignArrayInitializersRightJustified(getCells(Start, End));
+  else if (Style.AlignArrayOfStructures == FormatStyle::AIAS_Left)
+    alignArrayInitializersLeftJustified(getCells(Start, End));
+}
+
+void WhitespaceManager::alignArrayInitializersRightJustified(
+    CellDescriptions &&CellDescs) {
+  auto &Cells = CellDescs.Cells;
+
+  // Now go through and fixup the spaces.
+  auto *CellIter = Cells.begin();
+  for (auto i = 0U; i < CellDescs.CellCount; ++i, ++CellIter) {
+    unsigned NetWidth = 0U;
+    if (isSplitCell(*CellIter))
+      NetWidth = getNetWidth(Cells.begin(), CellIter, CellDescs.InitialSpaces);
+    auto CellWidth = getMaximumCellWidth(CellIter, NetWidth);
+
+    if (Changes[CellIter->Index].Tok->is(tok::r_brace)) {
+      // So in here we want to see if there is a brace that falls
+      // on a line that was split. If so on that line we make sure that
+      // the spaces in front of the brace are enough.
+      Changes[CellIter->Index].NewlinesBefore = 0;
+      Changes[CellIter->Index].Spaces = 0;
+      for (const auto *Next = CellIter->NextColumnElement; Next != nullptr;
+           Next = Next->NextColumnElement) {
+        Changes[Next->Index].Spaces = 0;
+        Changes[Next->Index].NewlinesBefore = 0;
+      }
+      // Unless the array is empty, we need the position of all the
+      // immediately adjacent cells
+      if (CellIter != Cells.begin()) {
+        auto ThisNetWidth =
+            getNetWidth(Cells.begin(), CellIter, CellDescs.InitialSpaces);
+        auto MaxNetWidth =
+            getMaximumNetWidth(Cells.begin(), CellIter, CellDescs.InitialSpaces,
+                               CellDescs.CellCount);
+        if (ThisNetWidth < MaxNetWidth)
+          Changes[CellIter->Index].Spaces = (MaxNetWidth - ThisNetWidth);
+        auto RowCount = 1U;
+        auto Offset = std::distance(Cells.begin(), CellIter);
+        for (const auto *Next = CellIter->NextColumnElement; Next != nullptr;
+             Next = Next->NextColumnElement) {
+          auto *Start = (Cells.begin() + RowCount * CellDescs.CellCount);
+          auto *End = Start + Offset;
+          ThisNetWidth = getNetWidth(Start, End, CellDescs.InitialSpaces);
+          if (ThisNetWidth < MaxNetWidth)
+            Changes[Next->Index].Spaces = (MaxNetWidth - ThisNetWidth);
+          ++RowCount;
+        }
+      }
+    } else {
+      auto ThisWidth =
+          calculateCellWidth(CellIter->Index, CellIter->EndIndex, true) +
+          NetWidth;
+      if (Changes[CellIter->Index].NewlinesBefore == 0) {
+        Changes[CellIter->Index].Spaces = (CellWidth - (ThisWidth + NetWidth));
+        Changes[CellIter->Index].Spaces += (i > 0) ? 1 : 0;
+      }
+      alignToStartOfCell(CellIter->Index, CellIter->EndIndex);
+      for (const auto *Next = CellIter->NextColumnElement; Next != nullptr;
+           Next = Next->NextColumnElement) {
+        ThisWidth =
+            calculateCellWidth(Next->Index, Next->EndIndex, true) + NetWidth;
+        if (Changes[Next->Index].NewlinesBefore == 0) {
+          Changes[Next->Index].Spaces = (CellWidth - ThisWidth);
+          Changes[Next->Index].Spaces += (i > 0) ? 1 : 0;
+        }
+        alignToStartOfCell(Next->Index, Next->EndIndex);
+      }
+    }
+  }
+}
+
+void WhitespaceManager::alignArrayInitializersLeftJustified(
+    CellDescriptions &&CellDescs) {
+  auto &Cells = CellDescs.Cells;
+
+  // Now go through and fixup the spaces.
+  auto *CellIter = Cells.begin();
+  // The first cell needs to be against the left brace.
+  if (Changes[CellIter->Index].NewlinesBefore == 0)
+    Changes[CellIter->Index].Spaces = 0;
+  else
+    Changes[CellIter->Index].Spaces = CellDescs.InitialSpaces;
+  ++CellIter;
+  for (auto i = 1U; i < CellDescs.CellCount; i++, ++CellIter) {
+    auto MaxNetWidth = getMaximumNetWidth(
+        Cells.begin(), CellIter, CellDescs.InitialSpaces, CellDescs.CellCount);
+    auto ThisNetWidth =
+        getNetWidth(Cells.begin(), CellIter, CellDescs.InitialSpaces);
+    if (Changes[CellIter->Index].NewlinesBefore == 0) {
+      Changes[CellIter->Index].Spaces =
+          MaxNetWidth - ThisNetWidth +
+          (Changes[CellIter->Index].Tok->isNot(tok::r_brace) ? 1 : 0);
+    }
+    auto RowCount = 1U;
+    auto Offset = std::distance(Cells.begin(), CellIter);
+    for (const auto *Next = CellIter->NextColumnElement; Next != nullptr;
+         Next = Next->NextColumnElement) {
+      auto *Start = (Cells.begin() + RowCount * CellDescs.CellCount);
+      auto *End = Start + Offset;
+      auto ThisNetWidth = getNetWidth(Start, End, CellDescs.InitialSpaces);
+      if (Changes[Next->Index].NewlinesBefore == 0) {
+        Changes[Next->Index].Spaces =
+            MaxNetWidth - ThisNetWidth +
+            (Changes[Next->Index].Tok->isNot(tok::r_brace) ? 1 : 0);
+      }
+      ++RowCount;
+    }
+  }
+}
+
+bool WhitespaceManager::isSplitCell(const CellDescription &Cell) {
+  if (Cell.HasSplit)
+    return true;
+  for (const auto *Next = Cell.NextColumnElement; Next != nullptr;
+       Next = Next->NextColumnElement) {
+    if (Next->HasSplit)
+      return true;
+  }
+  return false;
+}
+
+WhitespaceManager::CellDescriptions WhitespaceManager::getCells(unsigned Start,
+                                                                unsigned End) {
+
+  unsigned Depth = 0;
+  unsigned Cell = 0;
+  unsigned CellCount = 0;
+  unsigned InitialSpaces = 0;
+  unsigned InitialTokenLength = 0;
+  unsigned EndSpaces = 0;
+  SmallVector<CellDescription> Cells;
+  const FormatToken *MatchingParen = nullptr;
+  for (unsigned i = Start; i < End; ++i) {
+    auto &C = Changes[i];
+    if (C.Tok->is(tok::l_brace))
+      ++Depth;
+    else if (C.Tok->is(tok::r_brace))
+      --Depth;
+    if (Depth == 2) {
+      if (C.Tok->is(tok::l_brace)) {
+        Cell = 0;
+        MatchingParen = C.Tok->MatchingParen;
+        if (InitialSpaces == 0) {
+          InitialSpaces = C.Spaces + C.TokenLength;
+          InitialTokenLength = C.TokenLength;
+          auto j = i - 1;
+          for (; Changes[j].NewlinesBefore == 0 && j > Start; --j) {
+            InitialSpaces += Changes[j].Spaces + Changes[j].TokenLength;
+            InitialTokenLength += Changes[j].TokenLength;
+          }
+          if (C.NewlinesBefore == 0) {
+            InitialSpaces += Changes[j].Spaces + Changes[j].TokenLength;
+            InitialTokenLength += Changes[j].TokenLength;
+          }
+        }
+      } else if (C.Tok->is(tok::comma)) {
+        if (!Cells.empty())
+          Cells.back().EndIndex = i;
+        if (C.Tok->getNextNonComment()->isNot(tok::r_brace)) // dangling comma
+          ++Cell;
+      }
+    } else if (Depth == 1) {
+      if (C.Tok == MatchingParen) {
+        if (!Cells.empty())
+          Cells.back().EndIndex = i;
+        Cells.push_back(CellDescription{i, ++Cell, i + 1, false, nullptr});
+        CellCount = C.Tok->Previous->isNot(tok::comma) ? Cell + 1 : Cell;
+        // Go to the next non-comment and ensure there is a break in front
+        const auto *NextNonComment = C.Tok->getNextNonComment();
+        while (NextNonComment->is(tok::comma))
+          NextNonComment = NextNonComment->getNextNonComment();
+        auto j = i;
+        while (Changes[j].Tok != NextNonComment && j < End)
+          ++j;
+        if (j < End && Changes[j].NewlinesBefore == 0 &&
+            Changes[j].Tok->isNot(tok::r_brace)) {
+          Changes[j].NewlinesBefore = 1;
+          // Account for the added token lengths
+          Changes[j].Spaces = InitialSpaces - InitialTokenLength;
+        }
+      } else if (C.Tok->is(tok::comment)) {
+        // Trailing comments stay at a space past the last token
+        C.Spaces = Changes[i - 1].Tok->is(tok::comma) ? 1 : 2;
+      } else if (C.Tok->is(tok::l_brace)) {
+        // We need to make sure that the ending braces is aligned to the
+        // start of our initializer
+        auto j = i - 1;
+        for (; j > 0 && !Changes[j].Tok->ArrayInitializerLineStart; --j)
+          ; // Nothing the loop does the work
+        EndSpaces = Changes[j].Spaces;
+      }
+    } else if (Depth == 0 && C.Tok->is(tok::r_brace)) {
+      C.NewlinesBefore = 1;
+      C.Spaces = EndSpaces;
+    }
+    if (C.Tok->StartsColumn) {
+      // This gets us past tokens that have been split over multiple
+      // lines
+      bool HasSplit = false;
+      if (Changes[i].NewlinesBefore > 0) {
+        // So if we split a line previously and the tail line + this token is
+        // less then the column limit we remove the split here and just put
+        // the column start at a space past the comma
+        //
+        // FIXME This if branch covers the cases where the column is not
+        // the first column. This leads to weird pathologies like the formatting
+        // auto foo = Items{
+        //     Section{
+        //             0, bar(),
+        //     }
+        // };
+        // Well if it doesn't lead to that it's indicative that the line
+        // breaking should be revisited. Unfortunately alot of other options
+        // interact with this
+        auto j = i - 1;
+        if ((j - 1) > Start && Changes[j].Tok->is(tok::comma) &&
+            Changes[j - 1].NewlinesBefore > 0) {
+          --j;
+          auto LineLimit = Changes[j].Spaces + Changes[j].TokenLength;
+          if (LineLimit < Style.ColumnLimit) {
+            Changes[i].NewlinesBefore = 0;
+            Changes[i].Spaces = 1;
+          }
+        }
+      }
+      while (Changes[i].NewlinesBefore > 0 && Changes[i].Tok == C.Tok) {
+        Changes[i].Spaces = InitialSpaces;
+        ++i;
+        HasSplit = true;
+      }
+      if (Changes[i].Tok != C.Tok)
+        --i;
+      Cells.push_back(CellDescription{i, Cell, i, HasSplit, nullptr});
+    }
+  }
+
+  return linkCells({Cells, CellCount, InitialSpaces});
+}
+
+unsigned WhitespaceManager::calculateCellWidth(unsigned Start, unsigned End,
+                                               bool WithSpaces) const {
+  unsigned CellWidth = 0;
+  for (auto i = Start; i < End; i++) {
+    if (Changes[i].NewlinesBefore > 0)
+      CellWidth = 0;
+    CellWidth += Changes[i].TokenLength;
+    CellWidth += (WithSpaces ? Changes[i].Spaces : 0);
+  }
+  return CellWidth;
+}
+
+void WhitespaceManager::alignToStartOfCell(unsigned Start, unsigned End) {
+  if ((End - Start) <= 1)
+    return;
+  // If the line is broken anywhere in there make sure everything
+  // is aligned to the parent
+  for (auto i = Start + 1; i < End; i++) {
+    if (Changes[i].NewlinesBefore > 0)
+      Changes[i].Spaces = Changes[Start].Spaces;
+  }
+}
+
+WhitespaceManager::CellDescriptions
+WhitespaceManager::linkCells(CellDescriptions &&CellDesc) {
+  auto &Cells = CellDesc.Cells;
+  for (auto *CellIter = Cells.begin(); CellIter != Cells.end(); ++CellIter) {
+    if (CellIter->NextColumnElement == nullptr &&
+        ((CellIter + 1) != Cells.end())) {
+      for (auto *NextIter = CellIter + 1; NextIter != Cells.end(); ++NextIter) {
+        if (NextIter->Cell == CellIter->Cell) {
+          CellIter->NextColumnElement = &(*NextIter);
+          break;
+        }
+      }
+    }
+  }
+  return std::move(CellDesc);
+}
+
 void WhitespaceManager::generateChanges() {
   for (unsigned i = 0, e = Changes.size(); i != e; ++i) {
     const Change &C = Changes[i];
-    if (i > 0) {
-      assert(Changes[i - 1].OriginalWhitespaceRange.getBegin() !=
-                 C.OriginalWhitespaceRange.getBegin() &&
-             "Generating two replacements for the same location");
+    if (i > 0 && Changes[i - 1].OriginalWhitespaceRange.getBegin() ==
+                     C.OriginalWhitespaceRange.getBegin()) {
+      // Do not generate two replacements for the same location.
+      continue;
     }
     if (C.CreateReplacement) {
       std::string ReplacementText = C.PreviousLinePostfix;
@@ -918,9 +1317,12 @@ void WhitespaceManager::generateChanges() {
                                  C.EscapedNewlineColumn);
       else
         appendNewlineText(ReplacementText, C.NewlinesBefore);
+      // FIXME: This assert should hold if we computed the column correctly.
+      // assert((int)C.StartOfTokenColumn >= C.Spaces);
       appendIndentText(
           ReplacementText, C.Tok->IndentLevel, std::max(0, C.Spaces),
-          C.StartOfTokenColumn - std::max(0, C.Spaces), C.IsAligned);
+          std::max((int)C.StartOfTokenColumn, C.Spaces) - std::max(0, C.Spaces),
+          C.IsAligned);
       ReplacementText.append(C.CurrentLinePrefix);
       storeReplacement(C.OriginalWhitespaceRange, ReplacementText);
     }
@@ -946,8 +1348,13 @@ void WhitespaceManager::storeReplacement(SourceRange Range, StringRef Text) {
 
 void WhitespaceManager::appendNewlineText(std::string &Text,
                                           unsigned Newlines) {
-  for (unsigned i = 0; i < Newlines; ++i)
-    Text.append(UseCRLF ? "\r\n" : "\n");
+  if (UseCRLF) {
+    Text.reserve(Text.size() + 2 * Newlines);
+    for (unsigned i = 0; i < Newlines; ++i)
+      Text.append("\r\n");
+  } else {
+    Text.append(Newlines, '\n');
+  }
 }
 
 void WhitespaceManager::appendEscapedNewlineText(

@@ -17,7 +17,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Support/WithColor.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <algorithm>
 #include <array>
@@ -26,6 +26,10 @@
 #include <type_traits>
 
 namespace llvm {
+
+/// Reports a diagnostic message to indicate an invalid size request has been
+/// done on a scalable vector. This function may not return.
+void reportInvalidSizeRequest(const char *Msg);
 
 template <typename LeafTy> struct LinearPolyBaseTypeTraits {};
 
@@ -225,19 +229,18 @@ public:
   bool isZero() const { return !Value; }
   bool isNonZero() const { return !isZero(); }
   explicit operator bool() const { return isNonZero(); }
-  ScalarTy getValue() const { return Value; }
   ScalarTy getValue(unsigned Dim) const {
     return Dim == UnivariateDim ? Value : 0;
   }
 
   /// Add \p RHS to the value at the univariate dimension.
-  LeafTy getWithIncrement(ScalarTy RHS) {
+  LeafTy getWithIncrement(ScalarTy RHS) const {
     return static_cast<LeafTy>(
         UnivariateLinearPolyBase(Value + RHS, UnivariateDim));
   }
 
   /// Subtract \p RHS from the value at the univariate dimension.
-  LeafTy getWithDecrement(ScalarTy RHS) {
+  LeafTy getWithDecrement(ScalarTy RHS) const {
     return static_cast<LeafTy>(
         UnivariateLinearPolyBase(Value - RHS, UnivariateDim));
   }
@@ -246,7 +249,7 @@ public:
 
 //===----------------------------------------------------------------------===//
 // LinearPolySize - base class for fixed- or scalable sizes.
-//  ^  ^ 
+//  ^  ^
 //  |  |
 //  |  +----- ElementCount - Leaf class to represent an element count
 //  |                        (vscale x unsigned)
@@ -290,7 +293,7 @@ public:
   static LeafTy getNull() { return get(0, false); }
 
   /// Returns the minimum value this size can represent.
-  ScalarTy getKnownMinValue() const { return this->getValue(); }
+  ScalarTy getKnownMinValue() const { return this->Value; }
   /// Returns whether the size is scaled by a runtime quantity (vscale).
   bool isScalable() const { return this->UnivariateDim == ScalableDim; }
   /// A return value of true indicates we know at compile time that the number
@@ -381,6 +384,7 @@ template <> struct LinearPolyBaseTypeTraits<ElementCount> {
 
 class ElementCount : public LinearPolySize<ElementCount> {
 public:
+  ElementCount() : LinearPolySize(LinearPolySize::getNull()) {}
 
   ElementCount(const LinearPolySize<ElementCount> &V) : LinearPolySize(V) {}
 
@@ -445,17 +449,7 @@ public:
   //     else
   //       bail out early for scalable vectors and use getFixedValue()
   //   }
-  operator ScalarTy() const {
-#ifdef STRICT_FIXED_SIZE_VECTORS
-    return getFixedValue();
-#else
-    if (isScalable())
-      WithColor::warning() << "Compiler has made implicit assumption that "
-                              "TypeSize is not scalable. This may or may not "
-                              "lead to broken code.\n";
-    return getKnownMinValue();
-#endif
-  }
+  operator ScalarTy() const;
 
   // Additional operators needed to avoid ambiguous parses
   // because of the implicit conversion hack.
@@ -505,8 +499,7 @@ inline raw_ostream &operator<<(raw_ostream &OS,
   return OS;
 }
 
-template <typename T> struct DenseMapInfo;
-template <> struct DenseMapInfo<ElementCount> {
+template <> struct DenseMapInfo<ElementCount, void> {
   static inline ElementCount getEmptyKey() {
     return ElementCount::getScalable(~0U);
   }
@@ -528,4 +521,4 @@ template <> struct DenseMapInfo<ElementCount> {
 
 } // end namespace llvm
 
-#endif // LLVM_SUPPORT_TypeSize_H
+#endif // LLVM_SUPPORT_TYPESIZE_H

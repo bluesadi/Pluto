@@ -16,6 +16,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
@@ -773,10 +774,8 @@ namespace {
 
     void writeValue(raw_ostream &OS) const override {
       OS << "\";\n";
-      OS << "  bool isFirst = true;\n"
-         << "  for (const auto &Val : " << RangeName << "()) {\n"
-         << "    if (isFirst) isFirst = false;\n"
-         << "    else OS << \", \";\n";
+      OS << "  for (const auto &Val : " << RangeName << "()) {\n"
+         << "    DelimitAttributeArgument(OS, IsFirstArgument);\n";
       writeValueImpl(OS);
       OS << "  }\n";
       OS << "  OS << \"";
@@ -1428,10 +1427,12 @@ writePrettyPrintFunction(const Record &R,
     return;
   }
 
-  OS << "  switch (getAttributeSpellingListIndex()) {\n"
-        "  default:\n"
-        "    llvm_unreachable(\"Unknown attribute spelling!\");\n"
-        "    break;\n";
+  OS << "  bool IsFirstArgument = true; (void)IsFirstArgument;\n"
+     << "  unsigned TrailingOmittedArgs = 0; (void)TrailingOmittedArgs;\n"
+     << "  switch (getAttributeSpellingListIndex()) {\n"
+     << "  default:\n"
+     << "    llvm_unreachable(\"Unknown attribute spelling!\");\n"
+     << "    break;\n";
 
   for (unsigned I = 0; I < Spellings.size(); ++ I) {
     llvm::SmallString<16> Prefix;
@@ -1476,12 +1477,10 @@ writePrettyPrintFunction(const Record &R,
 
     Spelling += Name;
 
-    OS <<
-      "  case " << I << " : {\n"
-      "    OS << \"" << Prefix << Spelling;
+    OS << "  case " << I << " : {\n"
+       << "    OS << \"" << Prefix << Spelling << "\";\n";
 
     if (Variety == "Pragma") {
-      OS << "\";\n";
       OS << "    printPrettyPragma(OS, Policy);\n";
       OS << "    OS << \"\\n\";";
       OS << "    break;\n";
@@ -1490,19 +1489,18 @@ writePrettyPrintFunction(const Record &R,
     }
 
     if (Spelling == "availability") {
-      OS << "(";
+      OS << "    OS << \"(";
       writeAvailabilityValue(OS);
-      OS << ")";
+      OS << ")\";\n";
     } else if (Spelling == "deprecated" || Spelling == "gnu::deprecated") {
-      OS << "(";
+      OS << "    OS << \"(";
       writeDeprecatedAttrValue(OS, Variety);
-      OS << ")";
+      OS << ")\";\n";
     } else {
       // To avoid printing parentheses around an empty argument list or
       // printing spurious commas at the end of an argument list, we need to
       // determine where the last provided non-fake argument is.
       unsigned NonFakeArgs = 0;
-      unsigned TrailingOptArgs = 0;
       bool FoundNonOptArg = false;
       for (const auto &arg : llvm::reverse(Args)) {
         if (arg->isFake())
@@ -1516,61 +1514,33 @@ writePrettyPrintFunction(const Record &R,
           FoundNonOptArg = true;
           continue;
         }
-        if (!TrailingOptArgs++)
-          OS << "\";\n"
-             << "    unsigned TrailingOmittedArgs = 0;\n";
         OS << "    if (" << arg->getIsOmitted() << ")\n"
            << "      ++TrailingOmittedArgs;\n";
       }
-      if (TrailingOptArgs)
-        OS << "    OS << \"";
-      if (TrailingOptArgs < NonFakeArgs)
-        OS << "(";
-      else if (TrailingOptArgs)
-        OS << "\";\n"
-           << "    if (TrailingOmittedArgs < " << NonFakeArgs << ")\n"
-           << "       OS << \"(\";\n"
-           << "    OS << \"";
       unsigned ArgIndex = 0;
       for (const auto &arg : Args) {
         if (arg->isFake())
           continue;
-        if (ArgIndex) {
-          if (ArgIndex >= NonFakeArgs - TrailingOptArgs)
-            OS << "\";\n"
-               << "    if (" << ArgIndex << " < " << NonFakeArgs
-               << " - TrailingOmittedArgs)\n"
-               << "      OS << \", \";\n"
-               << "    OS << \"";
-          else
-            OS << ", ";
-        }
         std::string IsOmitted = arg->getIsOmitted();
         if (arg->isOptional() && IsOmitted != "false")
-          OS << "\";\n"
-             << "    if (!(" << IsOmitted << ")) {\n"
-             << "      OS << \"";
+          OS << "    if (!(" << IsOmitted << ")) {\n";
+        // Variadic arguments print their own leading comma.
+        if (!arg->isVariadic())
+          OS << "    DelimitAttributeArgument(OS, IsFirstArgument);\n";
+        OS << "    OS << \"";
         arg->writeValue(OS);
+        OS << "\";\n";
         if (arg->isOptional() && IsOmitted != "false")
-          OS << "\";\n"
-             << "    }\n"
-             << "    OS << \"";
+          OS << "    }\n";
         ++ArgIndex;
       }
-      if (TrailingOptArgs < NonFakeArgs)
-        OS << ")";
-      else if (TrailingOptArgs)
-        OS << "\";\n"
-           << "    if (TrailingOmittedArgs < " << NonFakeArgs << ")\n"
-           << "       OS << \")\";\n"
-           << "    OS << \"";
+      if (ArgIndex != 0)
+        OS << "    if (!IsFirstArgument)\n"
+           << "      OS << \")\";\n";
     }
-
-    OS << Suffix + "\";\n";
-
-    OS <<
-      "    break;\n"
-      "  }\n";
+    OS << "    OS << \"" << Suffix << "\";\n"
+       << "    break;\n"
+       << "  }\n";
   }
 
   // End of the switch statement.
@@ -1859,6 +1829,22 @@ struct PragmaClangAttributeSupport {
 
 } // end anonymous namespace
 
+static bool isSupportedPragmaClangAttributeSubject(const Record &Subject) {
+  // FIXME: #pragma clang attribute does not currently support statement
+  // attributes, so test whether the subject is one that appertains to a
+  // declaration node. However, it may be reasonable for support for statement
+  // attributes to be added.
+  if (Subject.isSubClassOf("DeclNode") || Subject.isSubClassOf("DeclBase") ||
+      Subject.getName() == "DeclBase")
+    return true;
+
+  if (Subject.isSubClassOf("SubsetSubject"))
+    return isSupportedPragmaClangAttributeSubject(
+        *Subject.getValueAsDef("Base"));
+
+  return false;
+}
+
 static bool doesDeclDeriveFrom(const Record *D, const Record *Base) {
   const Record *CurrentBase = D->getValueAsOptionalDef(BaseFieldName);
   if (!CurrentBase)
@@ -1980,13 +1966,15 @@ bool PragmaClangAttributeSupport::isAttributedSupported(
     return false;
   const Record *SubjectObj = Attribute.getValueAsDef("Subjects");
   std::vector<Record *> Subjects = SubjectObj->getValueAsListOfDefs("Subjects");
-  if (Subjects.empty())
-    return false;
+  bool HasAtLeastOneValidSubject = false;
   for (const auto *Subject : Subjects) {
+    if (!isSupportedPragmaClangAttributeSubject(*Subject))
+      continue;
     if (SubjectsToRules.find(Subject) == SubjectsToRules.end())
       return false;
+    HasAtLeastOneValidSubject = true;
   }
-  return true;
+  return HasAtLeastOneValidSubject;
 }
 
 static std::string GenerateTestExpression(ArrayRef<Record *> LangOpts) {
@@ -2032,6 +2020,8 @@ PragmaClangAttributeSupport::generateStrictConformsTo(const Record &Attr,
   const Record *SubjectObj = Attr.getValueAsDef("Subjects");
   std::vector<Record *> Subjects = SubjectObj->getValueAsListOfDefs("Subjects");
   for (const auto *Subject : Subjects) {
+    if (!isSupportedPragmaClangAttributeSubject(*Subject))
+      continue;
     auto It = SubjectsToRules.find(Subject);
     assert(It != SubjectsToRules.end() &&
            "This attribute is unsupported by #pragma clang attribute");
@@ -2054,7 +2044,7 @@ void PragmaClangAttributeSupport::generateParsingHelpers(raw_ostream &OS) {
   OS << "  return None;\n";
   OS << "}\n\n";
 
-  std::map<const Record *, std::vector<AttributeSubjectMatchRule>>
+  llvm::MapVector<const Record *, std::vector<AttributeSubjectMatchRule>>
       SubMatchRules;
   for (const auto &Rule : Rules) {
     if (!Rule.isSubRule())
@@ -2278,6 +2268,18 @@ static void emitAttributes(RecordKeeper &Records, raw_ostream &OS,
                            bool Header) {
   std::vector<Record*> Attrs = Records.getAllDerivedDefinitions("Attr");
   ParsedAttrMap AttrMap = getParsedAttrList(Records);
+
+  // Helper to print the starting character of an attribute argument. If there
+  // hasn't been an argument yet, it prints an opening parenthese; otherwise it
+  // prints a comma.
+  OS << "static inline void DelimitAttributeArgument("
+     << "raw_ostream& OS, bool& IsFirst) {\n"
+     << "  if (IsFirst) {\n"
+     << "    IsFirst = false;\n"
+     << "    OS << \"(\";\n"
+     << "  } else\n"
+     << "    OS << \", \";\n"
+     << "}\n";
 
   for (const auto *Attr : Attrs) {
     const Record &R = *Attr;
@@ -2675,9 +2677,9 @@ static void emitAttrList(raw_ostream &OS, StringRef Class,
 // Determines if an attribute has a Pragma spelling.
 static bool AttrHasPragmaSpelling(const Record *R) {
   std::vector<FlattenedSpelling> Spellings = GetFlattenedSpellings(*R);
-  return llvm::find_if(Spellings, [](const FlattenedSpelling &S) {
-           return S.variety() == "Pragma";
-         }) != Spellings.end();
+  return llvm::any_of(Spellings, [](const FlattenedSpelling &S) {
+    return S.variety() == "Pragma";
+  });
 }
 
 namespace {
@@ -3522,7 +3524,7 @@ static void GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
     return;
 
   const Record *SubjectObj = Attr.getValueAsDef("Subjects");
-  std::vector<Record*> Subjects = SubjectObj->getValueAsListOfDefs("Subjects");
+  std::vector<Record *> Subjects = SubjectObj->getValueAsListOfDefs("Subjects");
 
   // If the list of subjects is empty, it is assumed that the attribute
   // appertains to everything.
@@ -3531,42 +3533,231 @@ static void GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
 
   bool Warn = SubjectObj->getValueAsDef("Diag")->getValueAsBit("Warn");
 
-  // Otherwise, generate an appertainsTo check specific to this attribute which
-  // checks all of the given subjects against the Decl passed in.
-  //
-  // If D is null, that means the attribute was not applied to a declaration
-  // at all (for instance because it was applied to a type), or that the caller
-  // has determined that the check should fail (perhaps prior to the creation
-  // of the declaration).
-  OS << "bool diagAppertainsToDecl(Sema &S, ";
-  OS << "const ParsedAttr &Attr, const Decl *D) const override {\n";
-  OS << "  if (";
-  for (auto I = Subjects.begin(), E = Subjects.end(); I != E; ++I) {
-    // If the subject has custom code associated with it, use the generated
-    // function for it. The function cannot be inlined into this check (yet)
-    // because it requires the subject to be of a specific type, and were that
-    // information inlined here, it would not support an attribute with multiple
-    // custom subjects.
-    if ((*I)->isSubClassOf("SubsetSubject")) {
-      OS << "!" << functionNameForCustomAppertainsTo(**I) << "(D)";
-    } else {
-      OS << "!isa<" << GetSubjectWithSuffix(*I) << ">(D)";
-    }
+  // Split the subjects into declaration subjects and statement subjects.
+  // FIXME: subset subjects are added to the declaration list until there are
+  // enough statement attributes with custom subject needs to warrant
+  // the implementation effort.
+  std::vector<Record *> DeclSubjects, StmtSubjects;
+  llvm::copy_if(
+      Subjects, std::back_inserter(DeclSubjects), [](const Record *R) {
+        return R->isSubClassOf("SubsetSubject") || !R->isSubClassOf("StmtNode");
+      });
+  llvm::copy_if(Subjects, std::back_inserter(StmtSubjects),
+                [](const Record *R) { return R->isSubClassOf("StmtNode"); });
 
-    if (I + 1 != E)
-      OS << " && ";
+  // We should have sorted all of the subjects into two lists.
+  // FIXME: this assertion will be wrong if we ever add type attribute subjects.
+  assert(DeclSubjects.size() + StmtSubjects.size() == Subjects.size());
+
+  if (DeclSubjects.empty()) {
+    // If there are no decl subjects but there are stmt subjects, diagnose
+    // trying to apply a statement attribute to a declaration.
+    if (!StmtSubjects.empty()) {
+      OS << "bool diagAppertainsToDecl(Sema &S, const ParsedAttr &AL, ";
+      OS << "const Decl *D) const override {\n";
+      OS << "  S.Diag(AL.getLoc(), diag::err_stmt_attribute_invalid_on_decl)\n";
+      OS << "    << AL << D->getLocation();\n";
+      OS << "  return false;\n";
+      OS << "}\n\n";
+    }
+  } else {
+    // Otherwise, generate an appertainsTo check specific to this attribute
+    // which checks all of the given subjects against the Decl passed in.
+    OS << "bool diagAppertainsToDecl(Sema &S, ";
+    OS << "const ParsedAttr &Attr, const Decl *D) const override {\n";
+    OS << "  if (";
+    for (auto I = DeclSubjects.begin(), E = DeclSubjects.end(); I != E; ++I) {
+      // If the subject has custom code associated with it, use the generated
+      // function for it. The function cannot be inlined into this check (yet)
+      // because it requires the subject to be of a specific type, and were that
+      // information inlined here, it would not support an attribute with
+      // multiple custom subjects.
+      if ((*I)->isSubClassOf("SubsetSubject"))
+        OS << "!" << functionNameForCustomAppertainsTo(**I) << "(D)";
+      else
+        OS << "!isa<" << GetSubjectWithSuffix(*I) << ">(D)";
+
+      if (I + 1 != E)
+        OS << " && ";
+    }
+    OS << ") {\n";
+    OS << "    S.Diag(Attr.getLoc(), diag::";
+    OS << (Warn ? "warn_attribute_wrong_decl_type_str"
+                : "err_attribute_wrong_decl_type_str");
+    OS << ")\n";
+    OS << "      << Attr << ";
+    OS << CalculateDiagnostic(*SubjectObj) << ";\n";
+    OS << "    return false;\n";
+    OS << "  }\n";
+    OS << "  return true;\n";
+    OS << "}\n\n";
   }
-  OS << ") {\n";
-  OS << "    S.Diag(Attr.getLoc(), diag::";
-  OS << (Warn ? "warn_attribute_wrong_decl_type_str" :
-               "err_attribute_wrong_decl_type_str");
-  OS << ")\n";
-  OS << "      << Attr << ";
-  OS << CalculateDiagnostic(*SubjectObj) << ";\n";
-  OS << "    return false;\n";
-  OS << "  }\n";
-  OS << "  return true;\n";
-  OS << "}\n\n";
+
+  if (StmtSubjects.empty()) {
+    // If there are no stmt subjects but there are decl subjects, diagnose
+    // trying to apply a declaration attribute to a statement.
+    if (!DeclSubjects.empty()) {
+      OS << "bool diagAppertainsToStmt(Sema &S, const ParsedAttr &AL, ";
+      OS << "const Stmt *St) const override {\n";
+      OS << "  S.Diag(AL.getLoc(), diag::err_decl_attribute_invalid_on_stmt)\n";
+      OS << "    << AL << St->getBeginLoc();\n";
+      OS << "  return false;\n";
+      OS << "}\n\n";
+    }
+  } else {
+    // Now, do the same for statements.
+    OS << "bool diagAppertainsToStmt(Sema &S, ";
+    OS << "const ParsedAttr &Attr, const Stmt *St) const override {\n";
+    OS << "  if (";
+    for (auto I = StmtSubjects.begin(), E = StmtSubjects.end(); I != E; ++I) {
+      OS << "!isa<" << (*I)->getName() << ">(St)";
+      if (I + 1 != E)
+        OS << " && ";
+    }
+    OS << ") {\n";
+    OS << "    S.Diag(Attr.getLoc(), diag::";
+    OS << (Warn ? "warn_attribute_wrong_decl_type_str"
+                : "err_attribute_wrong_decl_type_str");
+    OS << ")\n";
+    OS << "      << Attr << ";
+    OS << CalculateDiagnostic(*SubjectObj) << ";\n";
+    OS << "    return false;\n";
+    OS << "  }\n";
+    OS << "  return true;\n";
+    OS << "}\n\n";
+  }
+}
+
+// Generates the mutual exclusion checks. The checks for parsed attributes are
+// written into OS and the checks for merging declaration attributes are
+// written into MergeOS.
+static void GenerateMutualExclusionsChecks(const Record &Attr,
+                                           const RecordKeeper &Records,
+                                           raw_ostream &OS,
+                                           raw_ostream &MergeDeclOS,
+                                           raw_ostream &MergeStmtOS) {
+  // Find all of the definitions that inherit from MutualExclusions and include
+  // the given attribute in the list of exclusions to generate the
+  // diagMutualExclusion() check.
+  std::vector<Record *> ExclusionsList =
+      Records.getAllDerivedDefinitions("MutualExclusions");
+
+  // We don't do any of this magic for type attributes yet.
+  if (Attr.isSubClassOf("TypeAttr"))
+    return;
+
+  // This means the attribute is either a statement attribute, a decl
+  // attribute, or both; find out which.
+  bool CurAttrIsStmtAttr =
+      Attr.isSubClassOf("StmtAttr") || Attr.isSubClassOf("DeclOrStmtAttr");
+  bool CurAttrIsDeclAttr =
+      !CurAttrIsStmtAttr || Attr.isSubClassOf("DeclOrStmtAttr");
+
+  std::vector<std::string> DeclAttrs, StmtAttrs;
+
+  for (const Record *Exclusion : ExclusionsList) {
+    std::vector<Record *> MutuallyExclusiveAttrs =
+        Exclusion->getValueAsListOfDefs("Exclusions");
+    auto IsCurAttr = [Attr](const Record *R) {
+      return R->getName() == Attr.getName();
+    };
+    if (llvm::any_of(MutuallyExclusiveAttrs, IsCurAttr)) {
+      // This list of exclusions includes the attribute we're looking for, so
+      // add the exclusive attributes to the proper list for checking.
+      for (const Record *AttrToExclude : MutuallyExclusiveAttrs) {
+        if (IsCurAttr(AttrToExclude))
+          continue;
+
+        if (CurAttrIsStmtAttr)
+          StmtAttrs.push_back((AttrToExclude->getName() + "Attr").str());
+        if (CurAttrIsDeclAttr)
+          DeclAttrs.push_back((AttrToExclude->getName() + "Attr").str());
+      }
+    }
+  }
+
+  // If there are any decl or stmt attributes, silence -Woverloaded-virtual
+  // warnings for them both.
+  if (!DeclAttrs.empty() || !StmtAttrs.empty())
+    OS << "  using ParsedAttrInfo::diagMutualExclusion;\n\n";
+
+  // If we discovered any decl or stmt attributes to test for, generate the
+  // predicates for them now.
+  if (!DeclAttrs.empty()) {
+    // Generate the ParsedAttrInfo subclass logic for declarations.
+    OS << "  bool diagMutualExclusion(Sema &S, const ParsedAttr &AL, "
+       << "const Decl *D) const override {\n";
+    for (const std::string &A : DeclAttrs) {
+      OS << "    if (const auto *A = D->getAttr<" << A << ">()) {\n";
+      OS << "      S.Diag(AL.getLoc(), diag::err_attributes_are_not_compatible)"
+         << " << AL << A;\n";
+      OS << "      S.Diag(A->getLocation(), diag::note_conflicting_attribute);";
+      OS << "      \nreturn false;\n";
+      OS << "    }\n";
+    }
+    OS << "    return true;\n";
+    OS << "  }\n\n";
+
+    // Also generate the declaration attribute merging logic if the current
+    // attribute is one that can be inheritted on a declaration. It is assumed
+    // this code will be executed in the context of a function with parameters:
+    // Sema &S, Decl *D, Attr *A and that returns a bool (false on diagnostic,
+    // true on success).
+    if (Attr.isSubClassOf("InheritableAttr")) {
+      MergeDeclOS << "  if (const auto *Second = dyn_cast<"
+                  << (Attr.getName() + "Attr").str() << ">(A)) {\n";
+      for (const std::string &A : DeclAttrs) {
+        MergeDeclOS << "    if (const auto *First = D->getAttr<" << A
+                    << ">()) {\n";
+        MergeDeclOS << "      S.Diag(First->getLocation(), "
+                    << "diag::err_attributes_are_not_compatible) << First << "
+                    << "Second;\n";
+        MergeDeclOS << "      S.Diag(Second->getLocation(), "
+                    << "diag::note_conflicting_attribute);\n";
+        MergeDeclOS << "      return false;\n";
+        MergeDeclOS << "    }\n";
+      }
+      MergeDeclOS << "    return true;\n";
+      MergeDeclOS << "  }\n";
+    }
+  }
+
+  // Statement attributes are a bit different from declarations. With
+  // declarations, each attribute is added to the declaration as it is
+  // processed, and so you can look on the Decl * itself to see if there is a
+  // conflicting attribute. Statement attributes are processed as a group
+  // because AttributedStmt needs to tail-allocate all of the attribute nodes
+  // at once. This means we cannot check whether the statement already contains
+  // an attribute to check for the conflict. Instead, we need to check whether
+  // the given list of semantic attributes contain any conflicts. It is assumed
+  // this code will be executed in the context of a function with parameters:
+  // Sema &S, const SmallVectorImpl<const Attr *> &C. The code will be within a
+  // loop which loops over the container C with a loop variable named A to
+  // represent the current attribute to check for conflicts.
+  //
+  // FIXME: it would be nice not to walk over the list of potential attributes
+  // to apply to the statement more than once, but statements typically don't
+  // have long lists of attributes on them, so re-walking the list should not
+  // be an expensive operation.
+  if (!StmtAttrs.empty()) {
+    MergeStmtOS << "    if (const auto *Second = dyn_cast<"
+                << (Attr.getName() + "Attr").str() << ">(A)) {\n";
+    MergeStmtOS << "      auto Iter = llvm::find_if(C, [](const Attr *Check) "
+                << "{ return isa<";
+    interleave(
+        StmtAttrs, [&](const std::string &Name) { MergeStmtOS << Name; },
+        [&] { MergeStmtOS << ", "; });
+    MergeStmtOS << ">(Check); });\n";
+    MergeStmtOS << "      if (Iter != C.end()) {\n";
+    MergeStmtOS << "        S.Diag((*Iter)->getLocation(), "
+                << "diag::err_attributes_are_not_compatible) << *Iter << "
+                << "Second;\n";
+    MergeStmtOS << "        S.Diag(Second->getLocation(), "
+                << "diag::note_conflicting_attribute);\n";
+    MergeStmtOS << "        return false;\n";
+    MergeStmtOS << "      }\n";
+    MergeStmtOS << "    }\n";
+  }
 }
 
 static void
@@ -3613,14 +3804,8 @@ static void GenerateLangOptRequirements(const Record &R,
   if (LangOpts.empty())
     return;
 
-  OS << "bool diagLangOpts(Sema &S, const ParsedAttr &Attr) ";
-  OS << "const override {\n";
-  OS << "  auto &LangOpts = S.LangOpts;\n";
-  OS << "  if (" << GenerateTestExpression(LangOpts) << ")\n";
-  OS << "    return true;\n\n";
-  OS << "  S.Diag(Attr.getLoc(), diag::warn_attribute_ignored) ";
-  OS << "<< Attr;\n";
-  OS << "  return false;\n";
+  OS << "bool acceptsLangOpts(const LangOptions &LangOpts) const override {\n";
+  OS << "  return " << GenerateTestExpression(LangOpts) << ";\n";
   OS << "}\n\n";
 }
 
@@ -3717,6 +3902,8 @@ static bool IsKnownToGCC(const Record &Attr) {
 void EmitClangAttrParsedAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
   emitSourceFileHeader("Parsed attribute helpers", OS);
 
+  OS << "#if !defined(WANT_DECL_MERGE_LOGIC) && "
+     << "!defined(WANT_STMT_MERGE_LOGIC)\n";
   PragmaClangAttributeSupport &PragmaAttributeSupport =
       getPragmaAttributeSupport(Records);
 
@@ -3736,6 +3923,12 @@ void EmitClangAttrParsedAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
       if (Subject->isSubClassOf("SubsetSubject"))
         GenerateCustomAppertainsTo(*Subject, OS);
   }
+
+  // This stream is used to collect all of the declaration attribute merging
+  // logic for performing mutual exclusion checks. This gets emitted at the
+  // end of the file in a helper function of its own.
+  std::string DeclMergeChecks, StmtMergeChecks;
+  raw_string_ostream MergeDeclOS(DeclMergeChecks), MergeStmtOS(StmtMergeChecks);
 
   // Generate a ParsedAttrInfo struct for each of the attributes.
   for (auto I = Attrs.begin(), E = Attrs.end(); I != E; ++I) {
@@ -3767,6 +3960,27 @@ void EmitClangAttrParsedAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
       }
       OS << "};\n";
     }
+
+    std::vector<std::string> ArgNames;
+    for (const auto &Arg : Attr.getValueAsListOfDefs("Args")) {
+      bool UnusedUnset;
+      if (Arg->getValueAsBitOrUnset("Fake", UnusedUnset))
+        continue;
+      ArgNames.push_back(Arg->getValueAsString("Name").str());
+      for (const auto &Class : Arg->getSuperClasses()) {
+        if (Class.first->getName().startswith("Variadic")) {
+          ArgNames.back().append("...");
+          break;
+        }
+      }
+    }
+    if (!ArgNames.empty()) {
+      OS << "static constexpr const char *" << I->first << "ArgNames[] = {\n";
+      for (const auto &N : ArgNames)
+        OS << '"' << N << "\",";
+      OS << "};\n";
+    }
+
     OS << "struct ParsedAttrInfo" << I->first
        << " final : public ParsedAttrInfo {\n";
     OS << "  ParsedAttrInfo" << I->first << "() {\n";
@@ -3788,8 +4002,11 @@ void EmitClangAttrParsedAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
     OS << PragmaAttributeSupport.isAttributedSupported(*I->second) << ";\n";
     if (!Spellings.empty())
       OS << "    Spellings = " << I->first << "Spellings;\n";
+    if (!ArgNames.empty())
+      OS << "    ArgNames = " << I->first << "ArgNames;\n";
     OS << "  }\n";
     GenerateAppertainsTo(Attr, OS);
+    GenerateMutualExclusionsChecks(Attr, Records, OS, MergeDeclOS, MergeStmtOS);
     GenerateLangOptRequirements(Attr, OS);
     GenerateTargetRequirements(Attr, Dupes, OS);
     GenerateSpellingIndexToSemanticSpelling(Attr, OS);
@@ -3809,6 +4026,28 @@ void EmitClangAttrParsedAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
 
   // Generate the attribute match rules.
   emitAttributeMatchRules(PragmaAttributeSupport, OS);
+
+  OS << "#elif defined(WANT_DECL_MERGE_LOGIC)\n\n";
+
+  // Write out the declaration merging check logic.
+  OS << "static bool DiagnoseMutualExclusions(Sema &S, const NamedDecl *D, "
+     << "const Attr *A) {\n";
+  OS << MergeDeclOS.str();
+  OS << "  return true;\n";
+  OS << "}\n\n";
+
+  OS << "#elif defined(WANT_STMT_MERGE_LOGIC)\n\n";
+
+  // Write out the statement merging check logic.
+  OS << "static bool DiagnoseMutualExclusions(Sema &S, "
+     << "const SmallVectorImpl<const Attr *> &C) {\n";
+  OS << "  for (const Attr *A : C) {\n";
+  OS << MergeStmtOS.str();
+  OS << "  }\n";
+  OS << "  return true;\n";
+  OS << "}\n\n";
+
+  OS << "#endif\n";
 }
 
 // Emits the kind list of parsed attributes
@@ -3987,6 +4226,24 @@ void EmitClangAttrParserStringSwitches(RecordKeeper &Records,
 void EmitClangAttrSubjectMatchRulesParserStringSwitches(RecordKeeper &Records,
                                                         raw_ostream &OS) {
   getPragmaAttributeSupport(Records).generateParsingHelpers(OS);
+}
+
+void EmitClangAttrDocTable(RecordKeeper &Records, raw_ostream &OS) {
+  emitSourceFileHeader("Clang attribute documentation", OS);
+
+  std::vector<Record *> Attrs = Records.getAllDerivedDefinitions("Attr");
+  for (const auto *A : Attrs) {
+    if (!A->getValueAsBit("ASTNode"))
+      continue;
+    std::vector<Record *> Docs = A->getValueAsListOfDefs("Documentation");
+    assert(!Docs.empty());
+    // Only look at the first documentation if there are several.
+    // (Currently there's only one such attr, revisit if this becomes common).
+    StringRef Text =
+        Docs.front()->getValueAsOptionalString("Content").getValueOr("");
+    OS << "\nstatic const char AttrDoc_" << A->getName() << "[] = "
+       << "R\"reST(" << Text.trim() << ")reST\";\n";
+  }
 }
 
 enum class SpellingKind {
@@ -4176,7 +4433,13 @@ void EmitClangAttrDocs(RecordKeeper &Records, raw_ostream &OS) {
   // Gather the Documentation lists from each of the attributes, based on the
   // category provided.
   std::vector<Record *> Attrs = Records.getAllDerivedDefinitions("Attr");
-  std::map<const Record *, std::vector<DocumentationData>> SplitDocs;
+  struct CategoryLess {
+    bool operator()(const Record *L, const Record *R) const {
+      return L->getValueAsString("Name") < R->getValueAsString("Name");
+    }
+  };
+  std::map<const Record *, std::vector<DocumentationData>, CategoryLess>
+      SplitDocs;
   for (const auto *A : Attrs) {
     const Record &Attr = *A;
     std::vector<Record *> Docs = Attr.getValueAsListOfDefs("Documentation");
@@ -4233,9 +4496,13 @@ void EmitTestPragmaAttributeSupportedAttributes(RecordKeeper &Records,
     std::vector<Record *> Subjects =
         SubjectObj->getValueAsListOfDefs("Subjects");
     OS << " (";
+    bool PrintComma = false;
     for (const auto &Subject : llvm::enumerate(Subjects)) {
-      if (Subject.index())
+      if (!isSupportedPragmaClangAttributeSubject(*Subject.value()))
+        continue;
+      if (PrintComma)
         OS << ", ";
+      PrintComma = true;
       PragmaClangAttributeSupport::RuleOrAggregateRuleSet &RuleSet =
           Support.SubjectsToRules.find(Subject.value())->getSecond();
       if (RuleSet.isRule()) {

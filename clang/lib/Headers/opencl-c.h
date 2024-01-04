@@ -11,11 +11,11 @@
 
 #include "opencl-c-base.h"
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_images)
 #ifndef cl_khr_depth_images
 #define cl_khr_depth_images
 #endif //cl_khr_depth_images
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_images)
 
 #if __OPENCL_C_VERSION__ < CL_VERSION_2_0
 #ifdef cl_khr_3d_image_writes
@@ -23,10 +23,14 @@
 #endif //cl_khr_3d_image_writes
 #endif //__OPENCL_C_VERSION__ < CL_VERSION_2_0
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)
+#if (defined(__OPENCL_CPP_VERSION__) ||                                        \
+     (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)) &&                              \
+    (defined(__SPIR__) || defined(__SPIRV__))
 #pragma OPENCL EXTENSION cl_intel_planar_yuv : begin
 #pragma OPENCL EXTENSION cl_intel_planar_yuv : end
-#endif // defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)
+#endif // (defined(__OPENCL_CPP_VERSION__) ||
+       //  (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)) &&
+       // (defined(__SPIR__) || defined(__SPIRV__))
 
 #define __ovld __attribute__((overloadable))
 #define __conv __attribute__((convergent))
@@ -6339,101 +6343,6 @@ half16 __ovld __cnfn convert_half16_rtz(double16);
 
 #endif // cl_khr_fp16
 
-/**
- * OpenCL v1.1/1.2/2.0 s6.2.4.2 - as_type operators
- * Reinterprets a data type as another data type of the same size
- */
-#define as_char(x) __builtin_astype((x),   char)
-#define as_char2(x) __builtin_astype((x),  char2)
-#define as_char3(x) __builtin_astype((x),  char3)
-#define as_char4(x) __builtin_astype((x),  char4)
-#define as_char8(x) __builtin_astype((x),  char8)
-#define as_char16(x) __builtin_astype((x), char16)
-
-#define as_uchar(x) __builtin_astype((x),   uchar)
-#define as_uchar2(x) __builtin_astype((x),  uchar2)
-#define as_uchar3(x) __builtin_astype((x),  uchar3)
-#define as_uchar4(x) __builtin_astype((x),  uchar4)
-#define as_uchar8(x) __builtin_astype((x),  uchar8)
-#define as_uchar16(x) __builtin_astype((x), uchar16)
-
-#define as_short(x) __builtin_astype((x),   short)
-#define as_short2(x) __builtin_astype((x),  short2)
-#define as_short3(x) __builtin_astype((x),  short3)
-#define as_short4(x) __builtin_astype((x),  short4)
-#define as_short8(x) __builtin_astype((x),  short8)
-#define as_short16(x) __builtin_astype((x), short16)
-
-#define as_ushort(x) __builtin_astype((x),   ushort)
-#define as_ushort2(x) __builtin_astype((x),  ushort2)
-#define as_ushort3(x) __builtin_astype((x),  ushort3)
-#define as_ushort4(x) __builtin_astype((x),  ushort4)
-#define as_ushort8(x) __builtin_astype((x),  ushort8)
-#define as_ushort16(x) __builtin_astype((x), ushort16)
-
-#define as_int(x) __builtin_astype((x),   int)
-#define as_int2(x) __builtin_astype((x),  int2)
-#define as_int3(x) __builtin_astype((x),  int3)
-#define as_int4(x) __builtin_astype((x),  int4)
-#define as_int8(x) __builtin_astype((x),  int8)
-#define as_int16(x) __builtin_astype((x), int16)
-
-#define as_uint(x) __builtin_astype((x),   uint)
-#define as_uint2(x) __builtin_astype((x),  uint2)
-#define as_uint3(x) __builtin_astype((x),  uint3)
-#define as_uint4(x) __builtin_astype((x),  uint4)
-#define as_uint8(x) __builtin_astype((x),  uint8)
-#define as_uint16(x) __builtin_astype((x), uint16)
-
-#define as_long(x) __builtin_astype((x),   long)
-#define as_long2(x) __builtin_astype((x),  long2)
-#define as_long3(x) __builtin_astype((x),  long3)
-#define as_long4(x) __builtin_astype((x),  long4)
-#define as_long8(x) __builtin_astype((x),  long8)
-#define as_long16(x) __builtin_astype((x), long16)
-
-#define as_ulong(x) __builtin_astype((x),   ulong)
-#define as_ulong2(x) __builtin_astype((x),  ulong2)
-#define as_ulong3(x) __builtin_astype((x),  ulong3)
-#define as_ulong4(x) __builtin_astype((x),  ulong4)
-#define as_ulong8(x) __builtin_astype((x),  ulong8)
-#define as_ulong16(x) __builtin_astype((x), ulong16)
-
-#define as_float(x) __builtin_astype((x),   float)
-#define as_float2(x) __builtin_astype((x),  float2)
-#define as_float3(x) __builtin_astype((x),  float3)
-#define as_float4(x) __builtin_astype((x),  float4)
-#define as_float8(x) __builtin_astype((x),  float8)
-#define as_float16(x) __builtin_astype((x), float16)
-
-#ifdef cl_khr_fp64
-#define as_double(x) __builtin_astype((x),   double)
-#define as_double2(x) __builtin_astype((x),  double2)
-#define as_double3(x) __builtin_astype((x),  double3)
-#define as_double4(x) __builtin_astype((x),  double4)
-#define as_double8(x) __builtin_astype((x),  double8)
-#define as_double16(x) __builtin_astype((x), double16)
-#endif //cl_khr_fp64
-
-#ifdef cl_khr_fp16
-#define as_half(x) __builtin_astype((x),   half)
-#define as_half2(x) __builtin_astype((x),  half2)
-#define as_half3(x) __builtin_astype((x),  half3)
-#define as_half4(x) __builtin_astype((x),  half4)
-#define as_half8(x) __builtin_astype((x),  half8)
-#define as_half16(x) __builtin_astype((x), half16)
-#endif //cl_khr_fp16
-
-// OpenCL v1.1 s6.9, v1.2/2.0 s6.10 - Function qualifiers
-
-#define __kernel_exec(X, typen) __kernel \
-	__attribute__((work_group_size_hint(X, 1, 1))) \
-	__attribute__((vec_type_hint(typen)))
-
-#define kernel_exec(X, typen) __kernel \
-	__attribute__((work_group_size_hint(X, 1, 1))) \
-	__attribute__((vec_type_hint(typen)))
-
 // OpenCL v1.1 s6.11.1, v1.2 s6.12.1, v2.0 s6.13.1 - Work-item Functions
 
 /**
@@ -6494,8 +6403,7 @@ size_t __ovld __cnfn get_local_id(uint dimindx);
  * Returns the number of work-groups that will execute a
  * kernel for dimension identified by dimindx.
  * Valid values of dimindx are 0 to get_work_dim() - 1.
- * For other values of dimindx, get_num_groups () returns
- * 1.
+ * For other values of dimindx, get_num_groups() returns 1.
  * For clEnqueueTask, this always returns 1.
  */
 size_t __ovld __cnfn get_num_groups(uint dimindx);
@@ -7354,7 +7262,7 @@ half16 __ovld __cnfn fmod(half16 x, half16 y);
  * Returns fmin(x - floor (x), 0x1.fffffep-1f ).
  * floor(x) is returned in iptr.
  */
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_generic_address_space)
 float __ovld fract(float x, float *iptr);
 float2 __ovld fract(float2 x, float2 *iptr);
 float3 __ovld fract(float3 x, float3 *iptr);
@@ -7377,7 +7285,9 @@ half4 __ovld fract(half4 x, half4 *iptr);
 half8 __ovld fract(half8 x, half8 *iptr);
 half16 __ovld fract(half16 x, half16 *iptr);
 #endif //cl_khr_fp16
-#else
+#endif //defined(__opencl_c_generic_address_space)
+
+#if defined(__opencl_c_named_address_space_builtins)
 float __ovld fract(float x, __global float *iptr);
 float2 __ovld fract(float2 x, __global float2 *iptr);
 float3 __ovld fract(float3 x, __global float3 *iptr);
@@ -7436,7 +7346,7 @@ half4 __ovld fract(half4 x, __private half4 *iptr);
 half8 __ovld fract(half8 x, __private half8 *iptr);
 half16 __ovld fract(half16 x, __private half16 *iptr);
 #endif //cl_khr_fp16
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_named_address_space_builtins)
 
 /**
  * Extract mantissa and exponent from x. For each
@@ -7444,7 +7354,7 @@ half16 __ovld fract(half16 x, __private half16 *iptr);
  * magnitude in the interval [1/2, 1) or 0. Each
  * component of x equals mantissa returned * 2^exp.
  */
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_generic_address_space)
 float __ovld frexp(float x, int *exp);
 float2 __ovld frexp(float2 x, int2 *exp);
 float3 __ovld frexp(float3 x, int3 *exp);
@@ -7467,7 +7377,9 @@ half4 __ovld frexp(half4 x, int4 *exp);
 half8 __ovld frexp(half8 x, int8 *exp);
 half16 __ovld frexp(half16 x, int16 *exp);
 #endif //cl_khr_fp16
-#else
+#endif //defined(__opencl_c_generic_address_space)
+
+#if defined(__opencl_c_named_address_space_builtins)
 float __ovld frexp(float x, __global int *exp);
 float2 __ovld frexp(float2 x, __global int2 *exp);
 float3 __ovld frexp(float3 x, __global int3 *exp);
@@ -7526,7 +7438,7 @@ half4 __ovld frexp(half4 x, __private int4 *exp);
 half8 __ovld frexp(half8 x, __private int8 *exp);
 half16 __ovld frexp(half16 x, __private int16 *exp);
 #endif //cl_khr_fp16
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_named_address_space_builtins)
 
 /**
  * Compute the value of the square root of x^2 + y^2
@@ -7651,7 +7563,7 @@ half8 __ovld __cnfn lgamma(half8 x);
 half16 __ovld __cnfn lgamma(half16 x);
 #endif //cl_khr_fp16
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_generic_address_space)
 float __ovld lgamma_r(float x, int *signp);
 float2 __ovld lgamma_r(float2 x, int2 *signp);
 float3 __ovld lgamma_r(float3 x, int3 *signp);
@@ -7674,7 +7586,9 @@ half4 __ovld lgamma_r(half4 x, int4 *signp);
 half8 __ovld lgamma_r(half8 x, int8 *signp);
 half16 __ovld lgamma_r(half16 x, int16 *signp);
 #endif //cl_khr_fp16
-#else
+#endif //defined(__opencl_c_generic_address_space)
+
+#if defined(__opencl_c_named_address_space_builtins)
 float __ovld lgamma_r(float x, __global int *signp);
 float2 __ovld lgamma_r(float2 x, __global int2 *signp);
 float3 __ovld lgamma_r(float3 x, __global int3 *signp);
@@ -7733,7 +7647,7 @@ half4 __ovld lgamma_r(half4 x, __private int4 *signp);
 half8 __ovld lgamma_r(half8 x, __private int8 *signp);
 half16 __ovld lgamma_r(half16 x, __private int16 *signp);
 #endif //cl_khr_fp16
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_named_address_space_builtins)
 
 /**
  * Compute natural logarithm.
@@ -7957,7 +7871,7 @@ half16 __ovld __cnfn minmag(half16 x, half16 y);
  * the argument. It stores the integral part in the object
  * pointed to by iptr.
  */
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_generic_address_space)
 float __ovld modf(float x, float *iptr);
 float2 __ovld modf(float2 x, float2 *iptr);
 float3 __ovld modf(float3 x, float3 *iptr);
@@ -7980,7 +7894,9 @@ half4 __ovld modf(half4 x, half4 *iptr);
 half8 __ovld modf(half8 x, half8 *iptr);
 half16 __ovld modf(half16 x, half16 *iptr);
 #endif //cl_khr_fp16
-#else
+#endif //defined(__opencl_c_generic_address_space)
+
+#if defined(__opencl_c_named_address_space_builtins)
 float __ovld modf(float x, __global float *iptr);
 float2 __ovld modf(float2 x, __global float2 *iptr);
 float3 __ovld modf(float3 x, __global float3 *iptr);
@@ -8039,7 +7955,7 @@ half4 __ovld modf(half4 x, __private half4 *iptr);
 half8 __ovld modf(half8 x, __private half8 *iptr);
 half16 __ovld modf(half16 x, __private half16 *iptr);
 #endif //cl_khr_fp16
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_named_address_space_builtins)
 
 /**
  * Returns a quiet NaN. The nancode may be placed
@@ -8217,7 +8133,7 @@ half16 __ovld __cnfn remainder(half16 x, half16 y);
  * sign as x/y. It stores this signed value in the object
  * pointed to by quo.
  */
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_generic_address_space)
 float __ovld remquo(float x, float y, int *quo);
 float2 __ovld remquo(float2 x, float2 y, int2 *quo);
 float3 __ovld remquo(float3 x, float3 y, int3 *quo);
@@ -8239,9 +8155,10 @@ half3 __ovld remquo(half3 x, half3 y, int3 *quo);
 half4 __ovld remquo(half4 x, half4 y, int4 *quo);
 half8 __ovld remquo(half8 x, half8 y, int8 *quo);
 half16 __ovld remquo(half16 x, half16 y, int16 *quo);
-
 #endif //cl_khr_fp16
-#else
+#endif //defined(__opencl_c_generic_address_space)
+
+#if defined(__opencl_c_named_address_space_builtins)
 float __ovld remquo(float x, float y, __global int *quo);
 float2 __ovld remquo(float2 x, float2 y, __global int2 *quo);
 float3 __ovld remquo(float3 x, float3 y, __global int3 *quo);
@@ -8300,7 +8217,7 @@ half4 __ovld remquo(half4 x, half4 y, __private int4 *quo);
 half8 __ovld remquo(half8 x, half8 y, __private int8 *quo);
 half16 __ovld remquo(half16 x, half16 y, __private int16 *quo);
 #endif //cl_khr_fp16
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_named_address_space_builtins)
 /**
  * Round to integral value (using round to nearest
  * even rounding mode) in floating-point format.
@@ -8441,7 +8358,7 @@ half16 __ovld __cnfn sin(half16);
  * is the return value and computed cosine is returned
  * in cosval.
  */
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_generic_address_space)
 float __ovld sincos(float x, float *cosval);
 float2 __ovld sincos(float2 x, float2 *cosval);
 float3 __ovld sincos(float3 x, float3 *cosval);
@@ -8464,7 +8381,9 @@ half4 __ovld sincos(half4 x, half4 *cosval);
 half8 __ovld sincos(half8 x, half8 *cosval);
 half16 __ovld sincos(half16 x, half16 *cosval);
 #endif //cl_khr_fp16
-#else
+#endif //defined(__opencl_c_generic_address_space)
+
+#if defined(__opencl_c_named_address_space_builtins)
 float __ovld sincos(float x, __global float *cosval);
 float2 __ovld sincos(float2 x, __global float2 *cosval);
 float3 __ovld sincos(float3 x, __global float3 *cosval);
@@ -8523,7 +8442,7 @@ half4 __ovld sincos(half4 x, __private half4 *cosval);
 half8 __ovld sincos(half8 x, __private half8 *cosval);
 half16 __ovld sincos(half16 x, __private half16 *cosval);
 #endif //cl_khr_fp16
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_named_address_space_builtins)
 
 /**
  * Compute hyperbolic sine.
@@ -9449,54 +9368,54 @@ ulong16 __ovld __cnfn clz(ulong16 x);
  * component type of x, if x is a vector.
  */
 #if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
-char __ovld ctz(char x);
-uchar __ovld ctz(uchar x);
-char2 __ovld ctz(char2 x);
-uchar2 __ovld ctz(uchar2 x);
-char3 __ovld ctz(char3 x);
-uchar3 __ovld ctz(uchar3 x);
-char4 __ovld ctz(char4 x);
-uchar4 __ovld ctz(uchar4 x);
-char8 __ovld ctz(char8 x);
-uchar8 __ovld ctz(uchar8 x);
-char16 __ovld ctz(char16 x);
-uchar16 __ovld ctz(uchar16 x);
-short __ovld ctz(short x);
-ushort __ovld ctz(ushort x);
-short2 __ovld ctz(short2 x);
-ushort2 __ovld ctz(ushort2 x);
-short3 __ovld ctz(short3 x);
-ushort3 __ovld ctz(ushort3 x);
-short4 __ovld ctz(short4 x);
-ushort4 __ovld ctz(ushort4 x);
-short8 __ovld ctz(short8 x);
-ushort8 __ovld ctz(ushort8 x);
-short16 __ovld ctz(short16 x);
-ushort16 __ovld ctz(ushort16 x);
-int __ovld ctz(int x);
-uint __ovld ctz(uint x);
-int2 __ovld ctz(int2 x);
-uint2 __ovld ctz(uint2 x);
-int3 __ovld ctz(int3 x);
-uint3 __ovld ctz(uint3 x);
-int4 __ovld ctz(int4 x);
-uint4 __ovld ctz(uint4 x);
-int8 __ovld ctz(int8 x);
-uint8 __ovld ctz(uint8 x);
-int16 __ovld ctz(int16 x);
-uint16 __ovld ctz(uint16 x);
-long __ovld ctz(long x);
-ulong __ovld ctz(ulong x);
-long2 __ovld ctz(long2 x);
-ulong2 __ovld ctz(ulong2 x);
-long3 __ovld ctz(long3 x);
-ulong3 __ovld ctz(ulong3 x);
-long4 __ovld ctz(long4 x);
-ulong4 __ovld ctz(ulong4 x);
-long8 __ovld ctz(long8 x);
-ulong8 __ovld ctz(ulong8 x);
-long16 __ovld ctz(long16 x);
-ulong16 __ovld ctz(ulong16 x);
+char __ovld __cnfn ctz(char x);
+uchar __ovld __cnfn ctz(uchar x);
+char2 __ovld __cnfn ctz(char2 x);
+uchar2 __ovld __cnfn ctz(uchar2 x);
+char3 __ovld __cnfn ctz(char3 x);
+uchar3 __ovld __cnfn ctz(uchar3 x);
+char4 __ovld __cnfn ctz(char4 x);
+uchar4 __ovld __cnfn ctz(uchar4 x);
+char8 __ovld __cnfn ctz(char8 x);
+uchar8 __ovld __cnfn ctz(uchar8 x);
+char16 __ovld __cnfn ctz(char16 x);
+uchar16 __ovld __cnfn ctz(uchar16 x);
+short __ovld __cnfn ctz(short x);
+ushort __ovld __cnfn ctz(ushort x);
+short2 __ovld __cnfn ctz(short2 x);
+ushort2 __ovld __cnfn ctz(ushort2 x);
+short3 __ovld __cnfn ctz(short3 x);
+ushort3 __ovld __cnfn ctz(ushort3 x);
+short4 __ovld __cnfn ctz(short4 x);
+ushort4 __ovld __cnfn ctz(ushort4 x);
+short8 __ovld __cnfn ctz(short8 x);
+ushort8 __ovld __cnfn ctz(ushort8 x);
+short16 __ovld __cnfn ctz(short16 x);
+ushort16 __ovld __cnfn ctz(ushort16 x);
+int __ovld __cnfn ctz(int x);
+uint __ovld __cnfn ctz(uint x);
+int2 __ovld __cnfn ctz(int2 x);
+uint2 __ovld __cnfn ctz(uint2 x);
+int3 __ovld __cnfn ctz(int3 x);
+uint3 __ovld __cnfn ctz(uint3 x);
+int4 __ovld __cnfn ctz(int4 x);
+uint4 __ovld __cnfn ctz(uint4 x);
+int8 __ovld __cnfn ctz(int8 x);
+uint8 __ovld __cnfn ctz(uint8 x);
+int16 __ovld __cnfn ctz(int16 x);
+uint16 __ovld __cnfn ctz(uint16 x);
+long __ovld __cnfn ctz(long x);
+ulong __ovld __cnfn ctz(ulong x);
+long2 __ovld __cnfn ctz(long2 x);
+ulong2 __ovld __cnfn ctz(ulong2 x);
+long3 __ovld __cnfn ctz(long3 x);
+ulong3 __ovld __cnfn ctz(ulong3 x);
+long4 __ovld __cnfn ctz(long4 x);
+ulong4 __ovld __cnfn ctz(ulong4 x);
+long8 __ovld __cnfn ctz(long8 x);
+ulong8 __ovld __cnfn ctz(ulong8 x);
+long16 __ovld __cnfn ctz(long16 x);
+ulong16 __ovld __cnfn ctz(ulong16 x);
 #endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 
 /**
@@ -10002,6 +9921,7 @@ ulong16 __ovld __cnfn upsample(uint16 hi, uint16 lo);
 /*
  * popcount(x): returns the number of set bit in x
  */
+#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)
 char __ovld __cnfn popcount(char x);
 uchar __ovld __cnfn popcount(uchar x);
 char2 __ovld __cnfn popcount(char2 x);
@@ -10050,6 +9970,7 @@ long8 __ovld __cnfn popcount(long8 x);
 ulong8 __ovld __cnfn popcount(ulong8 x);
 long16 __ovld __cnfn popcount(long16 x);
 ulong16 __ovld __cnfn popcount(ulong16 x);
+#endif // defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)
 
 /**
  * Multiply two 24-bit integer values x and y and add
@@ -11280,309 +11201,311 @@ half16 __ovld __cnfn select(half16 a, half16 b, ushort16 c);
  * 64-bit aligned if gentype is long, ulong, double.
  */
 
-char2 __ovld vload2(size_t offset, const __constant char *p);
-uchar2 __ovld vload2(size_t offset, const __constant uchar *p);
-short2 __ovld vload2(size_t offset, const __constant short *p);
-ushort2 __ovld vload2(size_t offset, const __constant ushort *p);
-int2 __ovld vload2(size_t offset, const __constant int *p);
-uint2 __ovld vload2(size_t offset, const __constant uint *p);
-long2 __ovld vload2(size_t offset, const __constant long *p);
-ulong2 __ovld vload2(size_t offset, const __constant ulong *p);
-float2 __ovld vload2(size_t offset, const __constant float *p);
-char3 __ovld vload3(size_t offset, const __constant char *p);
-uchar3 __ovld vload3(size_t offset, const __constant uchar *p);
-short3 __ovld vload3(size_t offset, const __constant short *p);
-ushort3 __ovld vload3(size_t offset, const __constant ushort *p);
-int3 __ovld vload3(size_t offset, const __constant int *p);
-uint3 __ovld vload3(size_t offset, const __constant uint *p);
-long3 __ovld vload3(size_t offset, const __constant long *p);
-ulong3 __ovld vload3(size_t offset, const __constant ulong *p);
-float3 __ovld vload3(size_t offset, const __constant float *p);
-char4 __ovld vload4(size_t offset, const __constant char *p);
-uchar4 __ovld vload4(size_t offset, const __constant uchar *p);
-short4 __ovld vload4(size_t offset, const __constant short *p);
-ushort4 __ovld vload4(size_t offset, const __constant ushort *p);
-int4 __ovld vload4(size_t offset, const __constant int *p);
-uint4 __ovld vload4(size_t offset, const __constant uint *p);
-long4 __ovld vload4(size_t offset, const __constant long *p);
-ulong4 __ovld vload4(size_t offset, const __constant ulong *p);
-float4 __ovld vload4(size_t offset, const __constant float *p);
-char8 __ovld vload8(size_t offset, const __constant char *p);
-uchar8 __ovld vload8(size_t offset, const __constant uchar *p);
-short8 __ovld vload8(size_t offset, const __constant short *p);
-ushort8 __ovld vload8(size_t offset, const __constant ushort *p);
-int8 __ovld vload8(size_t offset, const __constant int *p);
-uint8 __ovld vload8(size_t offset, const __constant uint *p);
-long8 __ovld vload8(size_t offset, const __constant long *p);
-ulong8 __ovld vload8(size_t offset, const __constant ulong *p);
-float8 __ovld vload8(size_t offset, const __constant float *p);
-char16 __ovld vload16(size_t offset, const __constant char *p);
-uchar16 __ovld vload16(size_t offset, const __constant uchar *p);
-short16 __ovld vload16(size_t offset, const __constant short *p);
-ushort16 __ovld vload16(size_t offset, const __constant ushort *p);
-int16 __ovld vload16(size_t offset, const __constant int *p);
-uint16 __ovld vload16(size_t offset, const __constant uint *p);
-long16 __ovld vload16(size_t offset, const __constant long *p);
-ulong16 __ovld vload16(size_t offset, const __constant ulong *p);
-float16 __ovld vload16(size_t offset, const __constant float *p);
+char2 __ovld __purefn vload2(size_t offset, const __constant char *p);
+uchar2 __ovld __purefn vload2(size_t offset, const __constant uchar *p);
+short2 __ovld __purefn vload2(size_t offset, const __constant short *p);
+ushort2 __ovld __purefn vload2(size_t offset, const __constant ushort *p);
+int2 __ovld __purefn vload2(size_t offset, const __constant int *p);
+uint2 __ovld __purefn vload2(size_t offset, const __constant uint *p);
+long2 __ovld __purefn vload2(size_t offset, const __constant long *p);
+ulong2 __ovld __purefn vload2(size_t offset, const __constant ulong *p);
+float2 __ovld __purefn vload2(size_t offset, const __constant float *p);
+char3 __ovld __purefn vload3(size_t offset, const __constant char *p);
+uchar3 __ovld __purefn vload3(size_t offset, const __constant uchar *p);
+short3 __ovld __purefn vload3(size_t offset, const __constant short *p);
+ushort3 __ovld __purefn vload3(size_t offset, const __constant ushort *p);
+int3 __ovld __purefn vload3(size_t offset, const __constant int *p);
+uint3 __ovld __purefn vload3(size_t offset, const __constant uint *p);
+long3 __ovld __purefn vload3(size_t offset, const __constant long *p);
+ulong3 __ovld __purefn vload3(size_t offset, const __constant ulong *p);
+float3 __ovld __purefn vload3(size_t offset, const __constant float *p);
+char4 __ovld __purefn vload4(size_t offset, const __constant char *p);
+uchar4 __ovld __purefn vload4(size_t offset, const __constant uchar *p);
+short4 __ovld __purefn vload4(size_t offset, const __constant short *p);
+ushort4 __ovld __purefn vload4(size_t offset, const __constant ushort *p);
+int4 __ovld __purefn vload4(size_t offset, const __constant int *p);
+uint4 __ovld __purefn vload4(size_t offset, const __constant uint *p);
+long4 __ovld __purefn vload4(size_t offset, const __constant long *p);
+ulong4 __ovld __purefn vload4(size_t offset, const __constant ulong *p);
+float4 __ovld __purefn vload4(size_t offset, const __constant float *p);
+char8 __ovld __purefn vload8(size_t offset, const __constant char *p);
+uchar8 __ovld __purefn vload8(size_t offset, const __constant uchar *p);
+short8 __ovld __purefn vload8(size_t offset, const __constant short *p);
+ushort8 __ovld __purefn vload8(size_t offset, const __constant ushort *p);
+int8 __ovld __purefn vload8(size_t offset, const __constant int *p);
+uint8 __ovld __purefn vload8(size_t offset, const __constant uint *p);
+long8 __ovld __purefn vload8(size_t offset, const __constant long *p);
+ulong8 __ovld __purefn vload8(size_t offset, const __constant ulong *p);
+float8 __ovld __purefn vload8(size_t offset, const __constant float *p);
+char16 __ovld __purefn vload16(size_t offset, const __constant char *p);
+uchar16 __ovld __purefn vload16(size_t offset, const __constant uchar *p);
+short16 __ovld __purefn vload16(size_t offset, const __constant short *p);
+ushort16 __ovld __purefn vload16(size_t offset, const __constant ushort *p);
+int16 __ovld __purefn vload16(size_t offset, const __constant int *p);
+uint16 __ovld __purefn vload16(size_t offset, const __constant uint *p);
+long16 __ovld __purefn vload16(size_t offset, const __constant long *p);
+ulong16 __ovld __purefn vload16(size_t offset, const __constant ulong *p);
+float16 __ovld __purefn vload16(size_t offset, const __constant float *p);
 #ifdef cl_khr_fp64
-double2 __ovld vload2(size_t offset, const __constant double *p);
-double3 __ovld vload3(size_t offset, const __constant double *p);
-double4 __ovld vload4(size_t offset, const __constant double *p);
-double8 __ovld vload8(size_t offset, const __constant double *p);
-double16 __ovld vload16(size_t offset, const __constant double *p);
+double2 __ovld __purefn vload2(size_t offset, const __constant double *p);
+double3 __ovld __purefn vload3(size_t offset, const __constant double *p);
+double4 __ovld __purefn vload4(size_t offset, const __constant double *p);
+double8 __ovld __purefn vload8(size_t offset, const __constant double *p);
+double16 __ovld __purefn vload16(size_t offset, const __constant double *p);
 #endif //cl_khr_fp64
 
 #ifdef cl_khr_fp16
-half __ovld vload(size_t offset, const __constant half *p);
-half2 __ovld vload2(size_t offset, const __constant half *p);
-half3 __ovld vload3(size_t offset, const __constant half *p);
-half4 __ovld vload4(size_t offset, const __constant half *p);
-half8 __ovld vload8(size_t offset, const __constant half *p);
-half16 __ovld vload16(size_t offset, const __constant half *p);
+half __ovld __purefn vload(size_t offset, const __constant half *p);
+half2 __ovld __purefn vload2(size_t offset, const __constant half *p);
+half3 __ovld __purefn vload3(size_t offset, const __constant half *p);
+half4 __ovld __purefn vload4(size_t offset, const __constant half *p);
+half8 __ovld __purefn vload8(size_t offset, const __constant half *p);
+half16 __ovld __purefn vload16(size_t offset, const __constant half *p);
 #endif //cl_khr_fp16
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
-char2 __ovld vload2(size_t offset, const char *p);
-uchar2 __ovld vload2(size_t offset, const uchar *p);
-short2 __ovld vload2(size_t offset, const short *p);
-ushort2 __ovld vload2(size_t offset, const ushort *p);
-int2 __ovld vload2(size_t offset, const int *p);
-uint2 __ovld vload2(size_t offset, const uint *p);
-long2 __ovld vload2(size_t offset, const long *p);
-ulong2 __ovld vload2(size_t offset, const ulong *p);
-float2 __ovld vload2(size_t offset, const float *p);
-char3 __ovld vload3(size_t offset, const char *p);
-uchar3 __ovld vload3(size_t offset, const uchar *p);
-short3 __ovld vload3(size_t offset, const short *p);
-ushort3 __ovld vload3(size_t offset, const ushort *p);
-int3 __ovld vload3(size_t offset, const int *p);
-uint3 __ovld vload3(size_t offset, const uint *p);
-long3 __ovld vload3(size_t offset, const long *p);
-ulong3 __ovld vload3(size_t offset, const ulong *p);
-float3 __ovld vload3(size_t offset, const float *p);
-char4 __ovld vload4(size_t offset, const char *p);
-uchar4 __ovld vload4(size_t offset, const uchar *p);
-short4 __ovld vload4(size_t offset, const short *p);
-ushort4 __ovld vload4(size_t offset, const ushort *p);
-int4 __ovld vload4(size_t offset, const int *p);
-uint4 __ovld vload4(size_t offset, const uint *p);
-long4 __ovld vload4(size_t offset, const long *p);
-ulong4 __ovld vload4(size_t offset, const ulong *p);
-float4 __ovld vload4(size_t offset, const float *p);
-char8 __ovld vload8(size_t offset, const char *p);
-uchar8 __ovld vload8(size_t offset, const uchar *p);
-short8 __ovld vload8(size_t offset, const short *p);
-ushort8 __ovld vload8(size_t offset, const ushort *p);
-int8 __ovld vload8(size_t offset, const int *p);
-uint8 __ovld vload8(size_t offset, const uint *p);
-long8 __ovld vload8(size_t offset, const long *p);
-ulong8 __ovld vload8(size_t offset, const ulong *p);
-float8 __ovld vload8(size_t offset, const float *p);
-char16 __ovld vload16(size_t offset, const char *p);
-uchar16 __ovld vload16(size_t offset, const uchar *p);
-short16 __ovld vload16(size_t offset, const short *p);
-ushort16 __ovld vload16(size_t offset, const ushort *p);
-int16 __ovld vload16(size_t offset, const int *p);
-uint16 __ovld vload16(size_t offset, const uint *p);
-long16 __ovld vload16(size_t offset, const long *p);
-ulong16 __ovld vload16(size_t offset, const ulong *p);
-float16 __ovld vload16(size_t offset, const float *p);
+#if defined(__opencl_c_generic_address_space)
+char2 __ovld __purefn vload2(size_t offset, const char *p);
+uchar2 __ovld __purefn vload2(size_t offset, const uchar *p);
+short2 __ovld __purefn vload2(size_t offset, const short *p);
+ushort2 __ovld __purefn vload2(size_t offset, const ushort *p);
+int2 __ovld __purefn vload2(size_t offset, const int *p);
+uint2 __ovld __purefn vload2(size_t offset, const uint *p);
+long2 __ovld __purefn vload2(size_t offset, const long *p);
+ulong2 __ovld __purefn vload2(size_t offset, const ulong *p);
+float2 __ovld __purefn vload2(size_t offset, const float *p);
+char3 __ovld __purefn vload3(size_t offset, const char *p);
+uchar3 __ovld __purefn vload3(size_t offset, const uchar *p);
+short3 __ovld __purefn vload3(size_t offset, const short *p);
+ushort3 __ovld __purefn vload3(size_t offset, const ushort *p);
+int3 __ovld __purefn vload3(size_t offset, const int *p);
+uint3 __ovld __purefn vload3(size_t offset, const uint *p);
+long3 __ovld __purefn vload3(size_t offset, const long *p);
+ulong3 __ovld __purefn vload3(size_t offset, const ulong *p);
+float3 __ovld __purefn vload3(size_t offset, const float *p);
+char4 __ovld __purefn vload4(size_t offset, const char *p);
+uchar4 __ovld __purefn vload4(size_t offset, const uchar *p);
+short4 __ovld __purefn vload4(size_t offset, const short *p);
+ushort4 __ovld __purefn vload4(size_t offset, const ushort *p);
+int4 __ovld __purefn vload4(size_t offset, const int *p);
+uint4 __ovld __purefn vload4(size_t offset, const uint *p);
+long4 __ovld __purefn vload4(size_t offset, const long *p);
+ulong4 __ovld __purefn vload4(size_t offset, const ulong *p);
+float4 __ovld __purefn vload4(size_t offset, const float *p);
+char8 __ovld __purefn vload8(size_t offset, const char *p);
+uchar8 __ovld __purefn vload8(size_t offset, const uchar *p);
+short8 __ovld __purefn vload8(size_t offset, const short *p);
+ushort8 __ovld __purefn vload8(size_t offset, const ushort *p);
+int8 __ovld __purefn vload8(size_t offset, const int *p);
+uint8 __ovld __purefn vload8(size_t offset, const uint *p);
+long8 __ovld __purefn vload8(size_t offset, const long *p);
+ulong8 __ovld __purefn vload8(size_t offset, const ulong *p);
+float8 __ovld __purefn vload8(size_t offset, const float *p);
+char16 __ovld __purefn vload16(size_t offset, const char *p);
+uchar16 __ovld __purefn vload16(size_t offset, const uchar *p);
+short16 __ovld __purefn vload16(size_t offset, const short *p);
+ushort16 __ovld __purefn vload16(size_t offset, const ushort *p);
+int16 __ovld __purefn vload16(size_t offset, const int *p);
+uint16 __ovld __purefn vload16(size_t offset, const uint *p);
+long16 __ovld __purefn vload16(size_t offset, const long *p);
+ulong16 __ovld __purefn vload16(size_t offset, const ulong *p);
+float16 __ovld __purefn vload16(size_t offset, const float *p);
 
 #ifdef cl_khr_fp64
-double2 __ovld vload2(size_t offset, const double *p);
-double3 __ovld vload3(size_t offset, const double *p);
-double4 __ovld vload4(size_t offset, const double *p);
-double8 __ovld vload8(size_t offset, const double *p);
-double16 __ovld vload16(size_t offset, const double *p);
+double2 __ovld __purefn vload2(size_t offset, const double *p);
+double3 __ovld __purefn vload3(size_t offset, const double *p);
+double4 __ovld __purefn vload4(size_t offset, const double *p);
+double8 __ovld __purefn vload8(size_t offset, const double *p);
+double16 __ovld __purefn vload16(size_t offset, const double *p);
 #endif //cl_khr_fp64
 
 #ifdef cl_khr_fp16
-half __ovld vload(size_t offset, const half *p);
-half2 __ovld vload2(size_t offset, const half *p);
-half3 __ovld vload3(size_t offset, const half *p);
-half4 __ovld vload4(size_t offset, const half *p);
-half8 __ovld vload8(size_t offset, const half *p);
-half16 __ovld vload16(size_t offset, const half *p);
+half __ovld __purefn vload(size_t offset, const half *p);
+half2 __ovld __purefn vload2(size_t offset, const half *p);
+half3 __ovld __purefn vload3(size_t offset, const half *p);
+half4 __ovld __purefn vload4(size_t offset, const half *p);
+half8 __ovld __purefn vload8(size_t offset, const half *p);
+half16 __ovld __purefn vload16(size_t offset, const half *p);
 #endif //cl_khr_fp16
-#else
-char2 __ovld vload2(size_t offset, const __global char *p);
-uchar2 __ovld vload2(size_t offset, const __global uchar *p);
-short2 __ovld vload2(size_t offset, const __global short *p);
-ushort2 __ovld vload2(size_t offset, const __global ushort *p);
-int2 __ovld vload2(size_t offset, const __global int *p);
-uint2 __ovld vload2(size_t offset, const __global uint *p);
-long2 __ovld vload2(size_t offset, const __global long *p);
-ulong2 __ovld vload2(size_t offset, const __global ulong *p);
-float2 __ovld vload2(size_t offset, const __global float *p);
-char3 __ovld vload3(size_t offset, const __global char *p);
-uchar3 __ovld vload3(size_t offset, const __global uchar *p);
-short3 __ovld vload3(size_t offset, const __global short *p);
-ushort3 __ovld vload3(size_t offset, const __global ushort *p);
-int3 __ovld vload3(size_t offset, const __global int *p);
-uint3 __ovld vload3(size_t offset, const __global uint *p);
-long3 __ovld vload3(size_t offset, const __global long *p);
-ulong3 __ovld vload3(size_t offset, const __global ulong *p);
-float3 __ovld vload3(size_t offset, const __global float *p);
-char4 __ovld vload4(size_t offset, const __global char *p);
-uchar4 __ovld vload4(size_t offset, const __global uchar *p);
-short4 __ovld vload4(size_t offset, const __global short *p);
-ushort4 __ovld vload4(size_t offset, const __global ushort *p);
-int4 __ovld vload4(size_t offset, const __global int *p);
-uint4 __ovld vload4(size_t offset, const __global uint *p);
-long4 __ovld vload4(size_t offset, const __global long *p);
-ulong4 __ovld vload4(size_t offset, const __global ulong *p);
-float4 __ovld vload4(size_t offset, const __global float *p);
-char8 __ovld vload8(size_t offset, const __global char *p);
-uchar8 __ovld vload8(size_t offset, const __global uchar *p);
-short8 __ovld vload8(size_t offset, const __global short *p);
-ushort8 __ovld vload8(size_t offset, const __global ushort *p);
-int8 __ovld vload8(size_t offset, const __global int *p);
-uint8 __ovld vload8(size_t offset, const __global uint *p);
-long8 __ovld vload8(size_t offset, const __global long *p);
-ulong8 __ovld vload8(size_t offset, const __global ulong *p);
-float8 __ovld vload8(size_t offset, const __global float *p);
-char16 __ovld vload16(size_t offset, const __global char *p);
-uchar16 __ovld vload16(size_t offset, const __global uchar *p);
-short16 __ovld vload16(size_t offset, const __global short *p);
-ushort16 __ovld vload16(size_t offset, const __global ushort *p);
-int16 __ovld vload16(size_t offset, const __global int *p);
-uint16 __ovld vload16(size_t offset, const __global uint *p);
-long16 __ovld vload16(size_t offset, const __global long *p);
-ulong16 __ovld vload16(size_t offset, const __global ulong *p);
-float16 __ovld vload16(size_t offset, const __global float *p);
-char2 __ovld vload2(size_t offset, const __local char *p);
-uchar2 __ovld vload2(size_t offset, const __local uchar *p);
-short2 __ovld vload2(size_t offset, const __local short *p);
-ushort2 __ovld vload2(size_t offset, const __local ushort *p);
-int2 __ovld vload2(size_t offset, const __local int *p);
-uint2 __ovld vload2(size_t offset, const __local uint *p);
-long2 __ovld vload2(size_t offset, const __local long *p);
-ulong2 __ovld vload2(size_t offset, const __local ulong *p);
-float2 __ovld vload2(size_t offset, const __local float *p);
-char3 __ovld vload3(size_t offset, const __local char *p);
-uchar3 __ovld vload3(size_t offset, const __local uchar *p);
-short3 __ovld vload3(size_t offset, const __local short *p);
-ushort3 __ovld vload3(size_t offset, const __local ushort *p);
-int3 __ovld vload3(size_t offset, const __local int *p);
-uint3 __ovld vload3(size_t offset, const __local uint *p);
-long3 __ovld vload3(size_t offset, const __local long *p);
-ulong3 __ovld vload3(size_t offset, const __local ulong *p);
-float3 __ovld vload3(size_t offset, const __local float *p);
-char4 __ovld vload4(size_t offset, const __local char *p);
-uchar4 __ovld vload4(size_t offset, const __local uchar *p);
-short4 __ovld vload4(size_t offset, const __local short *p);
-ushort4 __ovld vload4(size_t offset, const __local ushort *p);
-int4 __ovld vload4(size_t offset, const __local int *p);
-uint4 __ovld vload4(size_t offset, const __local uint *p);
-long4 __ovld vload4(size_t offset, const __local long *p);
-ulong4 __ovld vload4(size_t offset, const __local ulong *p);
-float4 __ovld vload4(size_t offset, const __local float *p);
-char8 __ovld vload8(size_t offset, const __local char *p);
-uchar8 __ovld vload8(size_t offset, const __local uchar *p);
-short8 __ovld vload8(size_t offset, const __local short *p);
-ushort8 __ovld vload8(size_t offset, const __local ushort *p);
-int8 __ovld vload8(size_t offset, const __local int *p);
-uint8 __ovld vload8(size_t offset, const __local uint *p);
-long8 __ovld vload8(size_t offset, const __local long *p);
-ulong8 __ovld vload8(size_t offset, const __local ulong *p);
-float8 __ovld vload8(size_t offset, const __local float *p);
-char16 __ovld vload16(size_t offset, const __local char *p);
-uchar16 __ovld vload16(size_t offset, const __local uchar *p);
-short16 __ovld vload16(size_t offset, const __local short *p);
-ushort16 __ovld vload16(size_t offset, const __local ushort *p);
-int16 __ovld vload16(size_t offset, const __local int *p);
-uint16 __ovld vload16(size_t offset, const __local uint *p);
-long16 __ovld vload16(size_t offset, const __local long *p);
-ulong16 __ovld vload16(size_t offset, const __local ulong *p);
-float16 __ovld vload16(size_t offset, const __local float *p);
-char2 __ovld vload2(size_t offset, const __private char *p);
-uchar2 __ovld vload2(size_t offset, const __private uchar *p);
-short2 __ovld vload2(size_t offset, const __private short *p);
-ushort2 __ovld vload2(size_t offset, const __private ushort *p);
-int2 __ovld vload2(size_t offset, const __private int *p);
-uint2 __ovld vload2(size_t offset, const __private uint *p);
-long2 __ovld vload2(size_t offset, const __private long *p);
-ulong2 __ovld vload2(size_t offset, const __private ulong *p);
-float2 __ovld vload2(size_t offset, const __private float *p);
-char3 __ovld vload3(size_t offset, const __private char *p);
-uchar3 __ovld vload3(size_t offset, const __private uchar *p);
-short3 __ovld vload3(size_t offset, const __private short *p);
-ushort3 __ovld vload3(size_t offset, const __private ushort *p);
-int3 __ovld vload3(size_t offset, const __private int *p);
-uint3 __ovld vload3(size_t offset, const __private uint *p);
-long3 __ovld vload3(size_t offset, const __private long *p);
-ulong3 __ovld vload3(size_t offset, const __private ulong *p);
-float3 __ovld vload3(size_t offset, const __private float *p);
-char4 __ovld vload4(size_t offset, const __private char *p);
-uchar4 __ovld vload4(size_t offset, const __private uchar *p);
-short4 __ovld vload4(size_t offset, const __private short *p);
-ushort4 __ovld vload4(size_t offset, const __private ushort *p);
-int4 __ovld vload4(size_t offset, const __private int *p);
-uint4 __ovld vload4(size_t offset, const __private uint *p);
-long4 __ovld vload4(size_t offset, const __private long *p);
-ulong4 __ovld vload4(size_t offset, const __private ulong *p);
-float4 __ovld vload4(size_t offset, const __private float *p);
-char8 __ovld vload8(size_t offset, const __private char *p);
-uchar8 __ovld vload8(size_t offset, const __private uchar *p);
-short8 __ovld vload8(size_t offset, const __private short *p);
-ushort8 __ovld vload8(size_t offset, const __private ushort *p);
-int8 __ovld vload8(size_t offset, const __private int *p);
-uint8 __ovld vload8(size_t offset, const __private uint *p);
-long8 __ovld vload8(size_t offset, const __private long *p);
-ulong8 __ovld vload8(size_t offset, const __private ulong *p);
-float8 __ovld vload8(size_t offset, const __private float *p);
-char16 __ovld vload16(size_t offset, const __private char *p);
-uchar16 __ovld vload16(size_t offset, const __private uchar *p);
-short16 __ovld vload16(size_t offset, const __private short *p);
-ushort16 __ovld vload16(size_t offset, const __private ushort *p);
-int16 __ovld vload16(size_t offset, const __private int *p);
-uint16 __ovld vload16(size_t offset, const __private uint *p);
-long16 __ovld vload16(size_t offset, const __private long *p);
-ulong16 __ovld vload16(size_t offset, const __private ulong *p);
-float16 __ovld vload16(size_t offset, const __private float *p);
+#endif //defined(__opencl_c_generic_address_space)
+
+#if defined(__opencl_c_named_address_space_builtins)
+char2 __ovld __purefn vload2(size_t offset, const __global char *p);
+uchar2 __ovld __purefn vload2(size_t offset, const __global uchar *p);
+short2 __ovld __purefn vload2(size_t offset, const __global short *p);
+ushort2 __ovld __purefn vload2(size_t offset, const __global ushort *p);
+int2 __ovld __purefn vload2(size_t offset, const __global int *p);
+uint2 __ovld __purefn vload2(size_t offset, const __global uint *p);
+long2 __ovld __purefn vload2(size_t offset, const __global long *p);
+ulong2 __ovld __purefn vload2(size_t offset, const __global ulong *p);
+float2 __ovld __purefn vload2(size_t offset, const __global float *p);
+char3 __ovld __purefn vload3(size_t offset, const __global char *p);
+uchar3 __ovld __purefn vload3(size_t offset, const __global uchar *p);
+short3 __ovld __purefn vload3(size_t offset, const __global short *p);
+ushort3 __ovld __purefn vload3(size_t offset, const __global ushort *p);
+int3 __ovld __purefn vload3(size_t offset, const __global int *p);
+uint3 __ovld __purefn vload3(size_t offset, const __global uint *p);
+long3 __ovld __purefn vload3(size_t offset, const __global long *p);
+ulong3 __ovld __purefn vload3(size_t offset, const __global ulong *p);
+float3 __ovld __purefn vload3(size_t offset, const __global float *p);
+char4 __ovld __purefn vload4(size_t offset, const __global char *p);
+uchar4 __ovld __purefn vload4(size_t offset, const __global uchar *p);
+short4 __ovld __purefn vload4(size_t offset, const __global short *p);
+ushort4 __ovld __purefn vload4(size_t offset, const __global ushort *p);
+int4 __ovld __purefn vload4(size_t offset, const __global int *p);
+uint4 __ovld __purefn vload4(size_t offset, const __global uint *p);
+long4 __ovld __purefn vload4(size_t offset, const __global long *p);
+ulong4 __ovld __purefn vload4(size_t offset, const __global ulong *p);
+float4 __ovld __purefn vload4(size_t offset, const __global float *p);
+char8 __ovld __purefn vload8(size_t offset, const __global char *p);
+uchar8 __ovld __purefn vload8(size_t offset, const __global uchar *p);
+short8 __ovld __purefn vload8(size_t offset, const __global short *p);
+ushort8 __ovld __purefn vload8(size_t offset, const __global ushort *p);
+int8 __ovld __purefn vload8(size_t offset, const __global int *p);
+uint8 __ovld __purefn vload8(size_t offset, const __global uint *p);
+long8 __ovld __purefn vload8(size_t offset, const __global long *p);
+ulong8 __ovld __purefn vload8(size_t offset, const __global ulong *p);
+float8 __ovld __purefn vload8(size_t offset, const __global float *p);
+char16 __ovld __purefn vload16(size_t offset, const __global char *p);
+uchar16 __ovld __purefn vload16(size_t offset, const __global uchar *p);
+short16 __ovld __purefn vload16(size_t offset, const __global short *p);
+ushort16 __ovld __purefn vload16(size_t offset, const __global ushort *p);
+int16 __ovld __purefn vload16(size_t offset, const __global int *p);
+uint16 __ovld __purefn vload16(size_t offset, const __global uint *p);
+long16 __ovld __purefn vload16(size_t offset, const __global long *p);
+ulong16 __ovld __purefn vload16(size_t offset, const __global ulong *p);
+float16 __ovld __purefn vload16(size_t offset, const __global float *p);
+char2 __ovld __purefn vload2(size_t offset, const __local char *p);
+uchar2 __ovld __purefn vload2(size_t offset, const __local uchar *p);
+short2 __ovld __purefn vload2(size_t offset, const __local short *p);
+ushort2 __ovld __purefn vload2(size_t offset, const __local ushort *p);
+int2 __ovld __purefn vload2(size_t offset, const __local int *p);
+uint2 __ovld __purefn vload2(size_t offset, const __local uint *p);
+long2 __ovld __purefn vload2(size_t offset, const __local long *p);
+ulong2 __ovld __purefn vload2(size_t offset, const __local ulong *p);
+float2 __ovld __purefn vload2(size_t offset, const __local float *p);
+char3 __ovld __purefn vload3(size_t offset, const __local char *p);
+uchar3 __ovld __purefn vload3(size_t offset, const __local uchar *p);
+short3 __ovld __purefn vload3(size_t offset, const __local short *p);
+ushort3 __ovld __purefn vload3(size_t offset, const __local ushort *p);
+int3 __ovld __purefn vload3(size_t offset, const __local int *p);
+uint3 __ovld __purefn vload3(size_t offset, const __local uint *p);
+long3 __ovld __purefn vload3(size_t offset, const __local long *p);
+ulong3 __ovld __purefn vload3(size_t offset, const __local ulong *p);
+float3 __ovld __purefn vload3(size_t offset, const __local float *p);
+char4 __ovld __purefn vload4(size_t offset, const __local char *p);
+uchar4 __ovld __purefn vload4(size_t offset, const __local uchar *p);
+short4 __ovld __purefn vload4(size_t offset, const __local short *p);
+ushort4 __ovld __purefn vload4(size_t offset, const __local ushort *p);
+int4 __ovld __purefn vload4(size_t offset, const __local int *p);
+uint4 __ovld __purefn vload4(size_t offset, const __local uint *p);
+long4 __ovld __purefn vload4(size_t offset, const __local long *p);
+ulong4 __ovld __purefn vload4(size_t offset, const __local ulong *p);
+float4 __ovld __purefn vload4(size_t offset, const __local float *p);
+char8 __ovld __purefn vload8(size_t offset, const __local char *p);
+uchar8 __ovld __purefn vload8(size_t offset, const __local uchar *p);
+short8 __ovld __purefn vload8(size_t offset, const __local short *p);
+ushort8 __ovld __purefn vload8(size_t offset, const __local ushort *p);
+int8 __ovld __purefn vload8(size_t offset, const __local int *p);
+uint8 __ovld __purefn vload8(size_t offset, const __local uint *p);
+long8 __ovld __purefn vload8(size_t offset, const __local long *p);
+ulong8 __ovld __purefn vload8(size_t offset, const __local ulong *p);
+float8 __ovld __purefn vload8(size_t offset, const __local float *p);
+char16 __ovld __purefn vload16(size_t offset, const __local char *p);
+uchar16 __ovld __purefn vload16(size_t offset, const __local uchar *p);
+short16 __ovld __purefn vload16(size_t offset, const __local short *p);
+ushort16 __ovld __purefn vload16(size_t offset, const __local ushort *p);
+int16 __ovld __purefn vload16(size_t offset, const __local int *p);
+uint16 __ovld __purefn vload16(size_t offset, const __local uint *p);
+long16 __ovld __purefn vload16(size_t offset, const __local long *p);
+ulong16 __ovld __purefn vload16(size_t offset, const __local ulong *p);
+float16 __ovld __purefn vload16(size_t offset, const __local float *p);
+char2 __ovld __purefn vload2(size_t offset, const __private char *p);
+uchar2 __ovld __purefn vload2(size_t offset, const __private uchar *p);
+short2 __ovld __purefn vload2(size_t offset, const __private short *p);
+ushort2 __ovld __purefn vload2(size_t offset, const __private ushort *p);
+int2 __ovld __purefn vload2(size_t offset, const __private int *p);
+uint2 __ovld __purefn vload2(size_t offset, const __private uint *p);
+long2 __ovld __purefn vload2(size_t offset, const __private long *p);
+ulong2 __ovld __purefn vload2(size_t offset, const __private ulong *p);
+float2 __ovld __purefn vload2(size_t offset, const __private float *p);
+char3 __ovld __purefn vload3(size_t offset, const __private char *p);
+uchar3 __ovld __purefn vload3(size_t offset, const __private uchar *p);
+short3 __ovld __purefn vload3(size_t offset, const __private short *p);
+ushort3 __ovld __purefn vload3(size_t offset, const __private ushort *p);
+int3 __ovld __purefn vload3(size_t offset, const __private int *p);
+uint3 __ovld __purefn vload3(size_t offset, const __private uint *p);
+long3 __ovld __purefn vload3(size_t offset, const __private long *p);
+ulong3 __ovld __purefn vload3(size_t offset, const __private ulong *p);
+float3 __ovld __purefn vload3(size_t offset, const __private float *p);
+char4 __ovld __purefn vload4(size_t offset, const __private char *p);
+uchar4 __ovld __purefn vload4(size_t offset, const __private uchar *p);
+short4 __ovld __purefn vload4(size_t offset, const __private short *p);
+ushort4 __ovld __purefn vload4(size_t offset, const __private ushort *p);
+int4 __ovld __purefn vload4(size_t offset, const __private int *p);
+uint4 __ovld __purefn vload4(size_t offset, const __private uint *p);
+long4 __ovld __purefn vload4(size_t offset, const __private long *p);
+ulong4 __ovld __purefn vload4(size_t offset, const __private ulong *p);
+float4 __ovld __purefn vload4(size_t offset, const __private float *p);
+char8 __ovld __purefn vload8(size_t offset, const __private char *p);
+uchar8 __ovld __purefn vload8(size_t offset, const __private uchar *p);
+short8 __ovld __purefn vload8(size_t offset, const __private short *p);
+ushort8 __ovld __purefn vload8(size_t offset, const __private ushort *p);
+int8 __ovld __purefn vload8(size_t offset, const __private int *p);
+uint8 __ovld __purefn vload8(size_t offset, const __private uint *p);
+long8 __ovld __purefn vload8(size_t offset, const __private long *p);
+ulong8 __ovld __purefn vload8(size_t offset, const __private ulong *p);
+float8 __ovld __purefn vload8(size_t offset, const __private float *p);
+char16 __ovld __purefn vload16(size_t offset, const __private char *p);
+uchar16 __ovld __purefn vload16(size_t offset, const __private uchar *p);
+short16 __ovld __purefn vload16(size_t offset, const __private short *p);
+ushort16 __ovld __purefn vload16(size_t offset, const __private ushort *p);
+int16 __ovld __purefn vload16(size_t offset, const __private int *p);
+uint16 __ovld __purefn vload16(size_t offset, const __private uint *p);
+long16 __ovld __purefn vload16(size_t offset, const __private long *p);
+ulong16 __ovld __purefn vload16(size_t offset, const __private ulong *p);
+float16 __ovld __purefn vload16(size_t offset, const __private float *p);
 
 #ifdef cl_khr_fp64
-double2 __ovld vload2(size_t offset, const __global double *p);
-double3 __ovld vload3(size_t offset, const __global double *p);
-double4 __ovld vload4(size_t offset, const __global double *p);
-double8 __ovld vload8(size_t offset, const __global double *p);
-double16 __ovld vload16(size_t offset, const __global double *p);
-double2 __ovld vload2(size_t offset, const __local double *p);
-double3 __ovld vload3(size_t offset, const __local double *p);
-double4 __ovld vload4(size_t offset, const __local double *p);
-double8 __ovld vload8(size_t offset, const __local double *p);
-double16 __ovld vload16(size_t offset, const __local double *p);
-double2 __ovld vload2(size_t offset, const __private double *p);
-double3 __ovld vload3(size_t offset, const __private double *p);
-double4 __ovld vload4(size_t offset, const __private double *p);
-double8 __ovld vload8(size_t offset, const __private double *p);
-double16 __ovld vload16(size_t offset, const __private double *p);
+double2 __ovld __purefn vload2(size_t offset, const __global double *p);
+double3 __ovld __purefn vload3(size_t offset, const __global double *p);
+double4 __ovld __purefn vload4(size_t offset, const __global double *p);
+double8 __ovld __purefn vload8(size_t offset, const __global double *p);
+double16 __ovld __purefn vload16(size_t offset, const __global double *p);
+double2 __ovld __purefn vload2(size_t offset, const __local double *p);
+double3 __ovld __purefn vload3(size_t offset, const __local double *p);
+double4 __ovld __purefn vload4(size_t offset, const __local double *p);
+double8 __ovld __purefn vload8(size_t offset, const __local double *p);
+double16 __ovld __purefn vload16(size_t offset, const __local double *p);
+double2 __ovld __purefn vload2(size_t offset, const __private double *p);
+double3 __ovld __purefn vload3(size_t offset, const __private double *p);
+double4 __ovld __purefn vload4(size_t offset, const __private double *p);
+double8 __ovld __purefn vload8(size_t offset, const __private double *p);
+double16 __ovld __purefn vload16(size_t offset, const __private double *p);
 #endif //cl_khr_fp64
 
 #ifdef cl_khr_fp16
-half __ovld vload(size_t offset, const __global half *p);
-half2 __ovld vload2(size_t offset, const __global half *p);
-half3 __ovld vload3(size_t offset, const __global half *p);
-half4 __ovld vload4(size_t offset, const __global half *p);
-half8 __ovld vload8(size_t offset, const __global half *p);
-half16 __ovld vload16(size_t offset, const __global half *p);
-half __ovld vload(size_t offset, const __local half *p);
-half2 __ovld vload2(size_t offset, const __local half *p);
-half3 __ovld vload3(size_t offset, const __local half *p);
-half4 __ovld vload4(size_t offset, const __local half *p);
-half8 __ovld vload8(size_t offset, const __local half *p);
-half16 __ovld vload16(size_t offset, const __local half *p);
-half __ovld vload(size_t offset, const __private half *p);
-half2 __ovld vload2(size_t offset, const __private half *p);
-half3 __ovld vload3(size_t offset, const __private half *p);
-half4 __ovld vload4(size_t offset, const __private half *p);
-half8 __ovld vload8(size_t offset, const __private half *p);
-half16 __ovld vload16(size_t offset, const __private half *p);
+half __ovld __purefn vload(size_t offset, const __global half *p);
+half2 __ovld __purefn vload2(size_t offset, const __global half *p);
+half3 __ovld __purefn vload3(size_t offset, const __global half *p);
+half4 __ovld __purefn vload4(size_t offset, const __global half *p);
+half8 __ovld __purefn vload8(size_t offset, const __global half *p);
+half16 __ovld __purefn vload16(size_t offset, const __global half *p);
+half __ovld __purefn vload(size_t offset, const __local half *p);
+half2 __ovld __purefn vload2(size_t offset, const __local half *p);
+half3 __ovld __purefn vload3(size_t offset, const __local half *p);
+half4 __ovld __purefn vload4(size_t offset, const __local half *p);
+half8 __ovld __purefn vload8(size_t offset, const __local half *p);
+half16 __ovld __purefn vload16(size_t offset, const __local half *p);
+half __ovld __purefn vload(size_t offset, const __private half *p);
+half2 __ovld __purefn vload2(size_t offset, const __private half *p);
+half3 __ovld __purefn vload3(size_t offset, const __private half *p);
+half4 __ovld __purefn vload4(size_t offset, const __private half *p);
+half8 __ovld __purefn vload8(size_t offset, const __private half *p);
+half16 __ovld __purefn vload16(size_t offset, const __private half *p);
 #endif //cl_khr_fp16
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_named_address_space_builtins)
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_generic_address_space)
 void __ovld vstore2(char2 data, size_t offset, char *p);
 void __ovld vstore2(uchar2 data, size_t offset, uchar *p);
 void __ovld vstore2(short2 data, size_t offset, short *p);
@@ -11643,7 +11566,9 @@ void __ovld vstore4(half4 data, size_t offset, half *p);
 void __ovld vstore8(half8 data, size_t offset, half *p);
 void __ovld vstore16(half16 data, size_t offset, half *p);
 #endif //cl_khr_fp16
-#else
+#endif //defined(__opencl_c_generic_address_space)
+
+#if defined(__opencl_c_named_address_space_builtins)
 void __ovld vstore2(char2 data, size_t offset, __global char *p);
 void __ovld vstore2(uchar2 data, size_t offset, __global uchar *p);
 void __ovld vstore2(short2 data, size_t offset, __global short *p);
@@ -11816,7 +11741,7 @@ void __ovld vstore4(half4 data, size_t offset, __private half *p);
 void __ovld vstore8(half8 data, size_t offset, __private half *p);
 void __ovld vstore16(half16 data, size_t offset, __private half *p);
 #endif //cl_khr_fp16
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_named_address_space_builtins)
 
 /**
  * Read sizeof (half) bytes of data from address
@@ -11826,14 +11751,16 @@ void __ovld vstore16(half16 data, size_t offset, __private half *p);
  * The read address computed as (p + offset)
  * must be 16-bit aligned.
  */
-float __ovld vload_half(size_t offset, const __constant half *p);
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
-float __ovld vload_half(size_t offset, const half *p);
-#else
-float __ovld vload_half(size_t offset, const __global half *p);
-float __ovld vload_half(size_t offset, const __local half *p);
-float __ovld vload_half(size_t offset, const __private half *p);
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+float __ovld __purefn vload_half(size_t offset, const __constant half *p);
+#if defined(__opencl_c_generic_address_space)
+float __ovld __purefn vload_half(size_t offset, const half *p);
+#endif //defined(__opencl_c_generic_address_space)
+
+#if defined(__opencl_c_named_address_space_builtins)
+float __ovld __purefn vload_half(size_t offset, const __global half *p);
+float __ovld __purefn vload_half(size_t offset, const __local half *p);
+float __ovld __purefn vload_half(size_t offset, const __private half *p);
+#endif //defined(__opencl_c_named_address_space_builtins)
 
 /**
  * Read sizeof (halfn) bytes of data from address
@@ -11843,34 +11770,36 @@ float __ovld vload_half(size_t offset, const __private half *p);
  * value is returned. The read address computed
  * as (p + (offset * n)) must be 16-bit aligned.
  */
-float2 __ovld vload_half2(size_t offset, const __constant half *p);
-float3 __ovld vload_half3(size_t offset, const __constant half *p);
-float4 __ovld vload_half4(size_t offset, const __constant half *p);
-float8 __ovld vload_half8(size_t offset, const __constant half *p);
-float16 __ovld vload_half16(size_t offset, const __constant half *p);
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
-float2 __ovld vload_half2(size_t offset, const half *p);
-float3 __ovld vload_half3(size_t offset, const half *p);
-float4 __ovld vload_half4(size_t offset, const half *p);
-float8 __ovld vload_half8(size_t offset, const half *p);
-float16 __ovld vload_half16(size_t offset, const half *p);
-#else
-float2 __ovld vload_half2(size_t offset, const __global half *p);
-float3 __ovld vload_half3(size_t offset, const __global half *p);
-float4 __ovld vload_half4(size_t offset, const __global half *p);
-float8 __ovld vload_half8(size_t offset, const __global half *p);
-float16 __ovld vload_half16(size_t offset, const __global half *p);
-float2 __ovld vload_half2(size_t offset, const __local half *p);
-float3 __ovld vload_half3(size_t offset, const __local half *p);
-float4 __ovld vload_half4(size_t offset, const __local half *p);
-float8 __ovld vload_half8(size_t offset, const __local half *p);
-float16 __ovld vload_half16(size_t offset, const __local half *p);
-float2 __ovld vload_half2(size_t offset, const __private half *p);
-float3 __ovld vload_half3(size_t offset, const __private half *p);
-float4 __ovld vload_half4(size_t offset, const __private half *p);
-float8 __ovld vload_half8(size_t offset, const __private half *p);
-float16 __ovld vload_half16(size_t offset, const __private half *p);
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+float2 __ovld __purefn vload_half2(size_t offset, const __constant half *p);
+float3 __ovld __purefn vload_half3(size_t offset, const __constant half *p);
+float4 __ovld __purefn vload_half4(size_t offset, const __constant half *p);
+float8 __ovld __purefn vload_half8(size_t offset, const __constant half *p);
+float16 __ovld __purefn vload_half16(size_t offset, const __constant half *p);
+#if defined(__opencl_c_generic_address_space)
+float2 __ovld __purefn vload_half2(size_t offset, const half *p);
+float3 __ovld __purefn vload_half3(size_t offset, const half *p);
+float4 __ovld __purefn vload_half4(size_t offset, const half *p);
+float8 __ovld __purefn vload_half8(size_t offset, const half *p);
+float16 __ovld __purefn vload_half16(size_t offset, const half *p);
+#endif //defined(__opencl_c_generic_address_space)
+
+#if defined(__opencl_c_named_address_space_builtins)
+float2 __ovld __purefn vload_half2(size_t offset, const __global half *p);
+float3 __ovld __purefn vload_half3(size_t offset, const __global half *p);
+float4 __ovld __purefn vload_half4(size_t offset, const __global half *p);
+float8 __ovld __purefn vload_half8(size_t offset, const __global half *p);
+float16 __ovld __purefn vload_half16(size_t offset, const __global half *p);
+float2 __ovld __purefn vload_half2(size_t offset, const __local half *p);
+float3 __ovld __purefn vload_half3(size_t offset, const __local half *p);
+float4 __ovld __purefn vload_half4(size_t offset, const __local half *p);
+float8 __ovld __purefn vload_half8(size_t offset, const __local half *p);
+float16 __ovld __purefn vload_half16(size_t offset, const __local half *p);
+float2 __ovld __purefn vload_half2(size_t offset, const __private half *p);
+float3 __ovld __purefn vload_half3(size_t offset, const __private half *p);
+float4 __ovld __purefn vload_half4(size_t offset, const __private half *p);
+float8 __ovld __purefn vload_half8(size_t offset, const __private half *p);
+float16 __ovld __purefn vload_half16(size_t offset, const __private half *p);
+#endif //defined(__opencl_c_named_address_space_builtins)
 
 /**
  * The float value given by data is first
@@ -11883,7 +11812,7 @@ float16 __ovld vload_half16(size_t offset, const __private half *p);
  * The default current rounding mode is round to
  * nearest even.
  */
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_generic_address_space)
 void __ovld vstore_half(float data, size_t offset, half *p);
 void __ovld vstore_half_rte(float data, size_t offset, half *p);
 void __ovld vstore_half_rtz(float data, size_t offset, half *p);
@@ -11896,7 +11825,9 @@ void __ovld vstore_half_rtz(double data, size_t offset, half *p);
 void __ovld vstore_half_rtp(double data, size_t offset, half *p);
 void __ovld vstore_half_rtn(double data, size_t offset, half *p);
 #endif //cl_khr_fp64
-#else
+#endif //defined(__opencl_c_generic_address_space)
+
+#if defined(__opencl_c_named_address_space_builtins)
 void __ovld vstore_half(float data, size_t offset, __global half *p);
 void __ovld vstore_half_rte(float data, size_t offset, __global half *p);
 void __ovld vstore_half_rtz(float data, size_t offset, __global half *p);
@@ -11929,7 +11860,7 @@ void __ovld vstore_half_rtz(double data, size_t offset, __private half *p);
 void __ovld vstore_half_rtp(double data, size_t offset, __private half *p);
 void __ovld vstore_half_rtn(double data, size_t offset, __private half *p);
 #endif //cl_khr_fp64
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_named_address_space_builtins)
 
 /**
  * The floatn value given by data is converted to
@@ -11942,7 +11873,7 @@ void __ovld vstore_half_rtn(double data, size_t offset, __private half *p);
  * The default current rounding mode is round to
  * nearest even.
  */
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_generic_address_space)
 void __ovld vstore_half2(float2 data, size_t offset, half *p);
 void __ovld vstore_half3(float3 data, size_t offset, half *p);
 void __ovld vstore_half4(float4 data, size_t offset, half *p);
@@ -11995,7 +11926,9 @@ void __ovld vstore_half4_rtn(double4 data, size_t offset, half *p);
 void __ovld vstore_half8_rtn(double8 data, size_t offset, half *p);
 void __ovld vstore_half16_rtn(double16 data, size_t offset, half *p);
 #endif //cl_khr_fp64
-#else
+#endif //defined(__opencl_c_generic_address_space)
+
+#if defined(__opencl_c_named_address_space_builtins)
 void __ovld vstore_half2(float2 data, size_t offset, __global half *p);
 void __ovld vstore_half3(float3 data, size_t offset, __global half *p);
 void __ovld vstore_half4(float4 data, size_t offset, __global half *p);
@@ -12148,7 +12081,7 @@ void __ovld vstore_half4_rtn(double4 data, size_t offset, __private half *p);
 void __ovld vstore_half8_rtn(double8 data, size_t offset, __private half *p);
 void __ovld vstore_half16_rtn(double16 data, size_t offset, __private half *p);
 #endif //cl_khr_fp64
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_named_address_space_builtins)
 
 /**
  * For n = 1, 2, 4, 8 and 16 read sizeof (halfn)
@@ -12163,39 +12096,36 @@ void __ovld vstore_half16_rtn(double16 data, size_t offset, __private half *p);
  * The address computed as (p + (offset * 4))
  * must be aligned to sizeof (half) * 4 bytes.
  */
-float __ovld vloada_half(size_t offset, const __constant half *p);
-float2 __ovld vloada_half2(size_t offset, const __constant half *p);
-float3 __ovld vloada_half3(size_t offset, const __constant half *p);
-float4 __ovld vloada_half4(size_t offset, const __constant half *p);
-float8 __ovld vloada_half8(size_t offset, const __constant half *p);
-float16 __ovld vloada_half16(size_t offset, const __constant half *p);
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
-float __ovld vloada_half(size_t offset, const half *p);
-float2 __ovld vloada_half2(size_t offset, const half *p);
-float3 __ovld vloada_half3(size_t offset, const half *p);
-float4 __ovld vloada_half4(size_t offset, const half *p);
-float8 __ovld vloada_half8(size_t offset, const half *p);
-float16 __ovld vloada_half16(size_t offset, const half *p);
-#else
-float __ovld vloada_half(size_t offset, const __global half *p);
-float2 __ovld vloada_half2(size_t offset, const __global half *p);
-float3 __ovld vloada_half3(size_t offset, const __global half *p);
-float4 __ovld vloada_half4(size_t offset, const __global half *p);
-float8 __ovld vloada_half8(size_t offset, const __global half *p);
-float16 __ovld vloada_half16(size_t offset, const __global half *p);
-float __ovld vloada_half(size_t offset, const __local half *p);
-float2 __ovld vloada_half2(size_t offset, const __local half *p);
-float3 __ovld vloada_half3(size_t offset, const __local half *p);
-float4 __ovld vloada_half4(size_t offset, const __local half *p);
-float8 __ovld vloada_half8(size_t offset, const __local half *p);
-float16 __ovld vloada_half16(size_t offset, const __local half *p);
-float __ovld vloada_half(size_t offset, const __private half *p);
-float2 __ovld vloada_half2(size_t offset, const __private half *p);
-float3 __ovld vloada_half3(size_t offset, const __private half *p);
-float4 __ovld vloada_half4(size_t offset, const __private half *p);
-float8 __ovld vloada_half8(size_t offset, const __private half *p);
-float16 __ovld vloada_half16(size_t offset, const __private half *p);
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+float2 __ovld __purefn vloada_half2(size_t offset, const __constant half *p);
+float3 __ovld __purefn vloada_half3(size_t offset, const __constant half *p);
+float4 __ovld __purefn vloada_half4(size_t offset, const __constant half *p);
+float8 __ovld __purefn vloada_half8(size_t offset, const __constant half *p);
+float16 __ovld __purefn vloada_half16(size_t offset, const __constant half *p);
+#if defined(__opencl_c_generic_address_space)
+float2 __ovld __purefn vloada_half2(size_t offset, const half *p);
+float3 __ovld __purefn vloada_half3(size_t offset, const half *p);
+float4 __ovld __purefn vloada_half4(size_t offset, const half *p);
+float8 __ovld __purefn vloada_half8(size_t offset, const half *p);
+float16 __ovld __purefn vloada_half16(size_t offset, const half *p);
+#endif //defined(__opencl_c_generic_address_space)
+
+#if defined(__opencl_c_named_address_space_builtins)
+float2 __ovld __purefn vloada_half2(size_t offset, const __global half *p);
+float3 __ovld __purefn vloada_half3(size_t offset, const __global half *p);
+float4 __ovld __purefn vloada_half4(size_t offset, const __global half *p);
+float8 __ovld __purefn vloada_half8(size_t offset, const __global half *p);
+float16 __ovld __purefn vloada_half16(size_t offset, const __global half *p);
+float2 __ovld __purefn vloada_half2(size_t offset, const __local half *p);
+float3 __ovld __purefn vloada_half3(size_t offset, const __local half *p);
+float4 __ovld __purefn vloada_half4(size_t offset, const __local half *p);
+float8 __ovld __purefn vloada_half8(size_t offset, const __local half *p);
+float16 __ovld __purefn vloada_half16(size_t offset, const __local half *p);
+float2 __ovld __purefn vloada_half2(size_t offset, const __private half *p);
+float3 __ovld __purefn vloada_half3(size_t offset, const __private half *p);
+float4 __ovld __purefn vloada_half4(size_t offset, const __private half *p);
+float8 __ovld __purefn vloada_half8(size_t offset, const __private half *p);
+float16 __ovld __purefn vloada_half16(size_t offset, const __private half *p);
+#endif //defined(__opencl_c_named_address_space_builtins)
 
 /**
  * The floatn value given by data is converted to
@@ -12213,36 +12143,31 @@ float16 __ovld vloada_half16(size_t offset, const __private half *p);
  * mode. The default current rounding mode is
  * round to nearest even.
  */
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
-void __ovld vstorea_half(float data, size_t offset, half *p);
+#if defined(__opencl_c_generic_address_space)
 void __ovld vstorea_half2(float2 data, size_t offset, half *p);
 void __ovld vstorea_half3(float3 data, size_t offset, half *p);
 void __ovld vstorea_half4(float4 data, size_t offset, half *p);
 void __ovld vstorea_half8(float8 data, size_t offset, half *p);
 void __ovld vstorea_half16(float16 data, size_t offset, half *p);
 
-void __ovld vstorea_half_rte(float data, size_t offset, half *p);
 void __ovld vstorea_half2_rte(float2 data, size_t offset, half *p);
 void __ovld vstorea_half3_rte(float3 data, size_t offset, half *p);
 void __ovld vstorea_half4_rte(float4 data, size_t offset, half *p);
 void __ovld vstorea_half8_rte(float8 data, size_t offset, half *p);
 void __ovld vstorea_half16_rte(float16 data, size_t offset, half *p);
 
-void __ovld vstorea_half_rtz(float data, size_t offset, half *p);
 void __ovld vstorea_half2_rtz(float2 data, size_t offset, half *p);
 void __ovld vstorea_half3_rtz(float3 data, size_t offset, half *p);
 void __ovld vstorea_half4_rtz(float4 data, size_t offset, half *p);
 void __ovld vstorea_half8_rtz(float8 data, size_t offset, half *p);
 void __ovld vstorea_half16_rtz(float16 data, size_t offset, half *p);
 
-void __ovld vstorea_half_rtp(float data, size_t offset, half *p);
 void __ovld vstorea_half2_rtp(float2 data, size_t offset, half *p);
 void __ovld vstorea_half3_rtp(float3 data, size_t offset, half *p);
 void __ovld vstorea_half4_rtp(float4 data, size_t offset, half *p);
 void __ovld vstorea_half8_rtp(float8 data, size_t offset, half *p);
 void __ovld vstorea_half16_rtp(float16 data, size_t offset, half *p);
 
-void __ovld vstorea_half_rtn(float data, size_t offset, half *p);
 void __ovld vstorea_half2_rtn(float2 data, size_t offset, half *p);
 void __ovld vstorea_half3_rtn(float3 data, size_t offset, half *p);
 void __ovld vstorea_half4_rtn(float4 data, size_t offset, half *p);
@@ -12250,142 +12175,123 @@ void __ovld vstorea_half8_rtn(float8 data, size_t offset, half *p);
 void __ovld vstorea_half16_rtn(float16 data, size_t offset, half *p);
 
 #ifdef cl_khr_fp64
-void __ovld vstorea_half(double data, size_t offset, half *p);
 void __ovld vstorea_half2(double2 data, size_t offset, half *p);
 void __ovld vstorea_half3(double3 data, size_t offset, half *p);
 void __ovld vstorea_half4(double4 data, size_t offset, half *p);
 void __ovld vstorea_half8(double8 data, size_t offset, half *p);
 void __ovld vstorea_half16(double16 data, size_t offset, half *p);
 
-void __ovld vstorea_half_rte(double data, size_t offset, half *p);
 void __ovld vstorea_half2_rte(double2 data, size_t offset, half *p);
 void __ovld vstorea_half3_rte(double3 data, size_t offset, half *p);
 void __ovld vstorea_half4_rte(double4 data, size_t offset, half *p);
 void __ovld vstorea_half8_rte(double8 data, size_t offset, half *p);
 void __ovld vstorea_half16_rte(double16 data, size_t offset, half *p);
 
-void __ovld vstorea_half_rtz(double data, size_t offset, half *p);
 void __ovld vstorea_half2_rtz(double2 data, size_t offset, half *p);
 void __ovld vstorea_half3_rtz(double3 data, size_t offset, half *p);
 void __ovld vstorea_half4_rtz(double4 data, size_t offset, half *p);
 void __ovld vstorea_half8_rtz(double8 data, size_t offset, half *p);
 void __ovld vstorea_half16_rtz(double16 data, size_t offset, half *p);
 
-void __ovld vstorea_half_rtp(double data, size_t offset, half *p);
 void __ovld vstorea_half2_rtp(double2 data, size_t offset, half *p);
 void __ovld vstorea_half3_rtp(double3 data, size_t offset, half *p);
 void __ovld vstorea_half4_rtp(double4 data, size_t offset, half *p);
 void __ovld vstorea_half8_rtp(double8 data, size_t offset, half *p);
 void __ovld vstorea_half16_rtp(double16 data, size_t offset, half *p);
 
-void __ovld vstorea_half_rtn(double data, size_t offset, half *p);
 void __ovld vstorea_half2_rtn(double2 data, size_t offset, half *p);
 void __ovld vstorea_half3_rtn(double3 data, size_t offset, half *p);
 void __ovld vstorea_half4_rtn(double4 data, size_t offset, half *p);
 void __ovld vstorea_half8_rtn(double8 data, size_t offset, half *p);
 void __ovld vstorea_half16_rtn(double16 data, size_t offset, half *p);
 #endif //cl_khr_fp64
+#endif //defined(__opencl_c_generic_address_space)
 
-#else
-void __ovld vstorea_half(float data, size_t offset, __global half *p);
+#if defined(__opencl_c_named_address_space_builtins)
 void __ovld vstorea_half2(float2 data, size_t offset, __global half *p);
 void __ovld vstorea_half3(float3 data, size_t offset, __global half *p);
 void __ovld vstorea_half4(float4 data, size_t offset, __global half *p);
 void __ovld vstorea_half8(float8 data, size_t offset, __global half *p);
 void __ovld vstorea_half16(float16 data, size_t offset, __global half *p);
 
-void __ovld vstorea_half_rte(float data, size_t offset, __global half *p);
 void __ovld vstorea_half2_rte(float2 data, size_t offset, __global half *p);
 void __ovld vstorea_half3_rte(float3 data, size_t offset, __global half *p);
 void __ovld vstorea_half4_rte(float4 data, size_t offset, __global half *p);
 void __ovld vstorea_half8_rte(float8 data, size_t offset, __global half *p);
 void __ovld vstorea_half16_rte(float16 data, size_t offset, __global half *p);
 
-void __ovld vstorea_half_rtz(float data, size_t offset, __global half *p);
 void __ovld vstorea_half2_rtz(float2 data, size_t offset, __global half *p);
 void __ovld vstorea_half3_rtz(float3 data, size_t offset, __global half *p);
 void __ovld vstorea_half4_rtz(float4 data, size_t offset, __global half *p);
 void __ovld vstorea_half8_rtz(float8 data, size_t offset, __global half *p);
 void __ovld vstorea_half16_rtz(float16 data, size_t offset, __global half *p);
 
-void __ovld vstorea_half_rtp(float data, size_t offset, __global half *p);
 void __ovld vstorea_half2_rtp(float2 data, size_t offset, __global half *p);
 void __ovld vstorea_half3_rtp(float3 data, size_t offset, __global half *p);
 void __ovld vstorea_half4_rtp(float4 data, size_t offset, __global half *p);
 void __ovld vstorea_half8_rtp(float8 data, size_t offset, __global half *p);
 void __ovld vstorea_half16_rtp(float16 data, size_t offset, __global half *p);
 
-void __ovld vstorea_half_rtn(float data, size_t offset, __global half *p);
 void __ovld vstorea_half2_rtn(float2 data, size_t offset, __global half *p);
 void __ovld vstorea_half3_rtn(float3 data, size_t offset, __global half *p);
 void __ovld vstorea_half4_rtn(float4 data, size_t offset, __global half *p);
 void __ovld vstorea_half8_rtn(float8 data, size_t offset, __global half *p);
 void __ovld vstorea_half16_rtn(float16 data, size_t offset, __global half *p);
 
-void __ovld vstorea_half(float data, size_t offset, __local half *p);
 void __ovld vstorea_half2(float2 data, size_t offset, __local half *p);
 void __ovld vstorea_half3(float3 data, size_t offset, __local half *p);
 void __ovld vstorea_half4(float4 data, size_t offset, __local half *p);
 void __ovld vstorea_half8(float8 data, size_t offset, __local half *p);
 void __ovld vstorea_half16(float16 data, size_t offset, __local half *p);
 
-void __ovld vstorea_half_rte(float data, size_t offset, __local half *p);
 void __ovld vstorea_half2_rte(float2 data, size_t offset, __local half *p);
 void __ovld vstorea_half3_rte(float3 data, size_t offset, __local half *p);
 void __ovld vstorea_half4_rte(float4 data, size_t offset, __local half *p);
 void __ovld vstorea_half8_rte(float8 data, size_t offset, __local half *p);
 void __ovld vstorea_half16_rte(float16 data, size_t offset, __local half *p);
 
-void __ovld vstorea_half_rtz(float data, size_t offset, __local half *p);
 void __ovld vstorea_half2_rtz(float2 data, size_t offset, __local half *p);
 void __ovld vstorea_half3_rtz(float3 data, size_t offset, __local half *p);
 void __ovld vstorea_half4_rtz(float4 data, size_t offset, __local half *p);
 void __ovld vstorea_half8_rtz(float8 data, size_t offset, __local half *p);
 void __ovld vstorea_half16_rtz(float16 data, size_t offset, __local half *p);
 
-void __ovld vstorea_half_rtp(float data, size_t offset, __local half *p);
 void __ovld vstorea_half2_rtp(float2 data, size_t offset, __local half *p);
 void __ovld vstorea_half3_rtp(float3 data, size_t offset, __local half *p);
 void __ovld vstorea_half4_rtp(float4 data, size_t offset, __local half *p);
 void __ovld vstorea_half8_rtp(float8 data, size_t offset, __local half *p);
 void __ovld vstorea_half16_rtp(float16 data, size_t offset, __local half *p);
 
-void __ovld vstorea_half_rtn(float data, size_t offset, __local half *p);
 void __ovld vstorea_half2_rtn(float2 data, size_t offset, __local half *p);
 void __ovld vstorea_half3_rtn(float3 data, size_t offset, __local half *p);
 void __ovld vstorea_half4_rtn(float4 data, size_t offset, __local half *p);
 void __ovld vstorea_half8_rtn(float8 data, size_t offset, __local half *p);
 void __ovld vstorea_half16_rtn(float16 data, size_t offset, __local half *p);
 
-void __ovld vstorea_half(float data, size_t offset, __private half *p);
 void __ovld vstorea_half2(float2 data, size_t offset, __private half *p);
 void __ovld vstorea_half3(float3 data, size_t offset, __private half *p);
 void __ovld vstorea_half4(float4 data, size_t offset, __private half *p);
 void __ovld vstorea_half8(float8 data, size_t offset, __private half *p);
 void __ovld vstorea_half16(float16 data, size_t offset, __private half *p);
 
-void __ovld vstorea_half_rte(float data, size_t offset, __private half *p);
 void __ovld vstorea_half2_rte(float2 data, size_t offset, __private half *p);
 void __ovld vstorea_half3_rte(float3 data, size_t offset, __private half *p);
 void __ovld vstorea_half4_rte(float4 data, size_t offset, __private half *p);
 void __ovld vstorea_half8_rte(float8 data, size_t offset, __private half *p);
 void __ovld vstorea_half16_rte(float16 data, size_t offset, __private half *p);
 
-void __ovld vstorea_half_rtz(float data, size_t offset, __private half *p);
 void __ovld vstorea_half2_rtz(float2 data, size_t offset, __private half *p);
 void __ovld vstorea_half3_rtz(float3 data, size_t offset, __private half *p);
 void __ovld vstorea_half4_rtz(float4 data, size_t offset, __private half *p);
 void __ovld vstorea_half8_rtz(float8 data, size_t offset, __private half *p);
 void __ovld vstorea_half16_rtz(float16 data, size_t offset, __private half *p);
 
-void __ovld vstorea_half_rtp(float data, size_t offset, __private half *p);
 void __ovld vstorea_half2_rtp(float2 data, size_t offset, __private half *p);
 void __ovld vstorea_half3_rtp(float3 data, size_t offset, __private half *p);
 void __ovld vstorea_half4_rtp(float4 data, size_t offset, __private half *p);
 void __ovld vstorea_half8_rtp(float8 data, size_t offset, __private half *p);
 void __ovld vstorea_half16_rtp(float16 data, size_t offset, __private half *p);
 
-void __ovld vstorea_half_rtn(float data, size_t offset, __private half *p);
 void __ovld vstorea_half2_rtn(float2 data, size_t offset, __private half *p);
 void __ovld vstorea_half3_rtn(float3 data, size_t offset, __private half *p);
 void __ovld vstorea_half4_rtn(float4 data, size_t offset, __private half *p);
@@ -12393,112 +12299,97 @@ void __ovld vstorea_half8_rtn(float8 data, size_t offset, __private half *p);
 void __ovld vstorea_half16_rtn(float16 data, size_t offset, __private half *p);
 
 #ifdef cl_khr_fp64
-void __ovld vstorea_half(double data, size_t offset, __global half *p);
 void __ovld vstorea_half2(double2 data, size_t offset, __global half *p);
 void __ovld vstorea_half3(double3 data, size_t offset, __global half *p);
 void __ovld vstorea_half4(double4 data, size_t offset, __global half *p);
 void __ovld vstorea_half8(double8 data, size_t offset, __global half *p);
 void __ovld vstorea_half16(double16 data, size_t offset, __global half *p);
 
-void __ovld vstorea_half_rte(double data, size_t offset, __global half *p);
 void __ovld vstorea_half2_rte(double2 data, size_t offset, __global half *p);
 void __ovld vstorea_half3_rte(double3 data, size_t offset, __global half *p);
 void __ovld vstorea_half4_rte(double4 data, size_t offset, __global half *p);
 void __ovld vstorea_half8_rte(double8 data, size_t offset, __global half *p);
 void __ovld vstorea_half16_rte(double16 data, size_t offset, __global half *p);
 
-void __ovld vstorea_half_rtz(double data, size_t offset, __global half *p);
 void __ovld vstorea_half2_rtz(double2 data, size_t offset, __global half *p);
 void __ovld vstorea_half3_rtz(double3 data, size_t offset, __global half *p);
 void __ovld vstorea_half4_rtz(double4 data, size_t offset, __global half *p);
 void __ovld vstorea_half8_rtz(double8 data, size_t offset, __global half *p);
 void __ovld vstorea_half16_rtz(double16 data, size_t offset, __global half *p);
 
-void __ovld vstorea_half_rtp(double data, size_t offset, __global half *p);
 void __ovld vstorea_half2_rtp(double2 data, size_t offset, __global half *p);
 void __ovld vstorea_half3_rtp(double3 data, size_t offset, __global half *p);
 void __ovld vstorea_half4_rtp(double4 data, size_t offset, __global half *p);
 void __ovld vstorea_half8_rtp(double8 data, size_t offset, __global half *p);
 void __ovld vstorea_half16_rtp(double16 data, size_t offset, __global half *p);
 
-void __ovld vstorea_half_rtn(double data, size_t offset, __global half *p);
 void __ovld vstorea_half2_rtn(double2 data, size_t offset, __global half *p);
 void __ovld vstorea_half3_rtn(double3 data, size_t offset, __global half *p);
 void __ovld vstorea_half4_rtn(double4 data, size_t offset, __global half *p);
 void __ovld vstorea_half8_rtn(double8 data, size_t offset, __global half *p);
 void __ovld vstorea_half16_rtn(double16 data, size_t offset, __global half *p);
 
-void __ovld vstorea_half(double data, size_t offset, __local half *p);
 void __ovld vstorea_half2(double2 data, size_t offset, __local half *p);
 void __ovld vstorea_half3(double3 data, size_t offset, __local half *p);
 void __ovld vstorea_half4(double4 data, size_t offset, __local half *p);
 void __ovld vstorea_half8(double8 data, size_t offset, __local half *p);
 void __ovld vstorea_half16(double16 data, size_t offset, __local half *p);
 
-void __ovld vstorea_half_rte(double data, size_t offset, __local half *p);
 void __ovld vstorea_half2_rte(double2 data, size_t offset, __local half *p);
 void __ovld vstorea_half3_rte(double3 data, size_t offset, __local half *p);
 void __ovld vstorea_half4_rte(double4 data, size_t offset, __local half *p);
 void __ovld vstorea_half8_rte(double8 data, size_t offset, __local half *p);
 void __ovld vstorea_half16_rte(double16 data, size_t offset, __local half *p);
 
-void __ovld vstorea_half_rtz(double data, size_t offset, __local half *p);
 void __ovld vstorea_half2_rtz(double2 data, size_t offset, __local half *p);
 void __ovld vstorea_half3_rtz(double3 data, size_t offset, __local half *p);
 void __ovld vstorea_half4_rtz(double4 data, size_t offset, __local half *p);
 void __ovld vstorea_half8_rtz(double8 data, size_t offset, __local half *p);
 void __ovld vstorea_half16_rtz(double16 data, size_t offset, __local half *p);
 
-void __ovld vstorea_half_rtp(double data, size_t offset, __local half *p);
 void __ovld vstorea_half2_rtp(double2 data, size_t offset, __local half *p);
 void __ovld vstorea_half3_rtp(double3 data, size_t offset, __local half *p);
 void __ovld vstorea_half4_rtp(double4 data, size_t offset, __local half *p);
 void __ovld vstorea_half8_rtp(double8 data, size_t offset, __local half *p);
 void __ovld vstorea_half16_rtp(double16 data, size_t offset, __local half *p);
 
-void __ovld vstorea_half_rtn(double data, size_t offset, __local half *p);
 void __ovld vstorea_half2_rtn(double2 data, size_t offset, __local half *p);
 void __ovld vstorea_half3_rtn(double3 data, size_t offset, __local half *p);
 void __ovld vstorea_half4_rtn(double4 data, size_t offset, __local half *p);
 void __ovld vstorea_half8_rtn(double8 data, size_t offset, __local half *p);
 void __ovld vstorea_half16_rtn(double16 data, size_t offset, __local half *p);
 
-void __ovld vstorea_half(double data, size_t offset, __private half *p);
 void __ovld vstorea_half2(double2 data, size_t offset, __private half *p);
 void __ovld vstorea_half3(double3 data, size_t offset, __private half *p);
 void __ovld vstorea_half4(double4 data, size_t offset, __private half *p);
 void __ovld vstorea_half8(double8 data, size_t offset, __private half *p);
 void __ovld vstorea_half16(double16 data, size_t offset, __private half *p);
 
-void __ovld vstorea_half_rte(double data, size_t offset, __private half *p);
 void __ovld vstorea_half2_rte(double2 data, size_t offset, __private half *p);
 void __ovld vstorea_half3_rte(double3 data, size_t offset, __private half *p);
 void __ovld vstorea_half4_rte(double4 data, size_t offset, __private half *p);
 void __ovld vstorea_half8_rte(double8 data, size_t offset, __private half *p);
 void __ovld vstorea_half16_rte(double16 data, size_t offset, __private half *p);
 
-void __ovld vstorea_half_rtz(double data, size_t offset, __private half *p);
 void __ovld vstorea_half2_rtz(double2 data, size_t offset, __private half *p);
 void __ovld vstorea_half3_rtz(double3 data, size_t offset, __private half *p);
 void __ovld vstorea_half4_rtz(double4 data, size_t offset, __private half *p);
 void __ovld vstorea_half8_rtz(double8 data, size_t offset, __private half *p);
 void __ovld vstorea_half16_rtz(double16 data, size_t offset, __private half *p);
 
-void __ovld vstorea_half_rtp(double data, size_t offset, __private half *p);
 void __ovld vstorea_half2_rtp(double2 data, size_t offset, __private half *p);
 void __ovld vstorea_half3_rtp(double3 data, size_t offset, __private half *p);
 void __ovld vstorea_half4_rtp(double4 data, size_t offset, __private half *p);
 void __ovld vstorea_half8_rtp(double8 data, size_t offset, __private half *p);
 void __ovld vstorea_half16_rtp(double16 data, size_t offset, __private half *p);
 
-void __ovld vstorea_half_rtn(double data, size_t offset, __private half *p);
 void __ovld vstorea_half2_rtn(double2 data,size_t offset, __private half *p);
 void __ovld vstorea_half3_rtn(double3 data,size_t offset, __private half *p);
 void __ovld vstorea_half4_rtn(double4 data,size_t offset, __private half *p);
 void __ovld vstorea_half8_rtn(double8 data,size_t offset, __private half *p);
 void __ovld vstorea_half16_rtn(double16 data,size_t offset, __private half *p);
 #endif //cl_khr_fp64
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_named_address_space_builtins)
 
 // OpenCL v1.1 s6.11.8, v1.2 s6.12.8, v2.0 s6.13.8 - Synchronization Functions
 
@@ -12582,7 +12473,7 @@ void __ovld write_mem_fence(cl_mem_fence_flags flags);
 
 // OpenCL v2.0 s6.13.9 - Address Space Qualifier Functions
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_generic_address_space)
 cl_mem_fence_flags __ovld get_fence(const void *ptr);
 cl_mem_fence_flags __ovld get_fence(void *ptr);
 
@@ -12593,7 +12484,7 @@ cl_mem_fence_flags __ovld get_fence(void *ptr);
  * where gentype is builtin type or user defined type.
  */
 
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_generic_address_space)
 
 // OpenCL v1.1 s6.11.10, v1.2 s6.12.10, v2.0 s6.13.10 - Async Copies from Global to Local Memory, Local to Global Memory, and Prefetch
 
@@ -13382,6 +13273,7 @@ unsigned long __ovld atom_xor(volatile __local unsigned long *p, unsigned long v
 #endif
 
 // atomic_init()
+#if defined(__opencl_c_generic_address_space)
 void __ovld atomic_init(volatile atomic_int *object, int value);
 void __ovld atomic_init(volatile atomic_uint *object, uint value);
 void __ovld atomic_init(volatile atomic_float *object, float value);
@@ -13392,296 +13284,1562 @@ void __ovld atomic_init(volatile atomic_ulong *object, ulong value);
 void __ovld atomic_init(volatile atomic_double *object, double value);
 #endif //cl_khr_fp64
 #endif
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+void __ovld atomic_init(volatile __global atomic_int *object, int value);
+void __ovld atomic_init(volatile __local atomic_int *object, int value);
+void __ovld atomic_init(volatile __global atomic_uint *object, uint value);
+void __ovld atomic_init(volatile __local atomic_uint *object, uint value);
+void __ovld atomic_init(volatile __global atomic_float *object, float value);
+void __ovld atomic_init(volatile __local atomic_float *object, float value);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+void __ovld atomic_init(volatile __global atomic_long *object, long value);
+void __ovld atomic_init(volatile __local atomic_long *object, long value);
+void __ovld atomic_init(volatile __global atomic_ulong *object, ulong value);
+void __ovld atomic_init(volatile __local atomic_ulong *object, ulong value);
+#ifdef cl_khr_fp64
+void __ovld atomic_init(volatile __global atomic_double *object, double value);
+void __ovld atomic_init(volatile __local atomic_double *object, double value);
+#endif //cl_khr_fp64
+#endif
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
 
 // atomic_work_item_fence()
 void __ovld atomic_work_item_fence(cl_mem_fence_flags flags, memory_order order, memory_scope scope);
 
 // atomic_fetch()
-
-int __ovld atomic_fetch_add(volatile atomic_int *object, int operand);
-int __ovld atomic_fetch_add_explicit(volatile atomic_int *object, int operand, memory_order order);
-int __ovld atomic_fetch_add_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_add(volatile atomic_uint *object, uint operand);
-uint __ovld atomic_fetch_add_explicit(volatile atomic_uint *object, uint operand, memory_order order);
-uint __ovld atomic_fetch_add_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-int __ovld atomic_fetch_sub(volatile atomic_int *object, int operand);
-int __ovld atomic_fetch_sub_explicit(volatile atomic_int *object, int operand, memory_order order);
-int __ovld atomic_fetch_sub_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_sub(volatile atomic_uint *object, uint operand);
-uint __ovld atomic_fetch_sub_explicit(volatile atomic_uint *object, uint operand, memory_order order);
-uint __ovld atomic_fetch_sub_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-int __ovld atomic_fetch_or(volatile atomic_int *object, int operand);
-int __ovld atomic_fetch_or_explicit(volatile atomic_int *object, int operand, memory_order order);
-int __ovld atomic_fetch_or_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_or(volatile atomic_uint *object, uint operand);
-uint __ovld atomic_fetch_or_explicit(volatile atomic_uint *object, uint operand, memory_order order);
-uint __ovld atomic_fetch_or_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-int __ovld atomic_fetch_xor(volatile atomic_int *object, int operand);
-int __ovld atomic_fetch_xor_explicit(volatile atomic_int *object, int operand, memory_order order);
-int __ovld atomic_fetch_xor_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_xor(volatile atomic_uint *object, uint operand);
-uint __ovld atomic_fetch_xor_explicit(volatile atomic_uint *object, uint operand, memory_order order);
-uint __ovld atomic_fetch_xor_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-int __ovld atomic_fetch_and(volatile atomic_int *object, int operand);
-int __ovld atomic_fetch_and_explicit(volatile atomic_int *object, int operand, memory_order order);
-int __ovld atomic_fetch_and_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_and(volatile atomic_uint *object, uint operand);
-uint __ovld atomic_fetch_and_explicit(volatile atomic_uint *object, uint operand, memory_order order);
-uint __ovld atomic_fetch_and_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-int __ovld atomic_fetch_min(volatile atomic_int *object, int operand);
-int __ovld atomic_fetch_min_explicit(volatile atomic_int *object, int operand, memory_order order);
-int __ovld atomic_fetch_min_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_min(volatile atomic_uint *object, uint operand);
-uint __ovld atomic_fetch_min_explicit(volatile atomic_uint *object, uint operand, memory_order order);
-uint __ovld atomic_fetch_min_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-int __ovld atomic_fetch_max(volatile atomic_int *object, int operand);
-int __ovld atomic_fetch_max_explicit(volatile atomic_int *object, int operand, memory_order order);
-int __ovld atomic_fetch_max_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
-uint __ovld atomic_fetch_max(volatile atomic_uint *object, uint operand);
-uint __ovld atomic_fetch_max_explicit(volatile atomic_uint *object, uint operand, memory_order order);
-uint __ovld atomic_fetch_max_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
-
-#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
-long __ovld atomic_fetch_add(volatile atomic_long *object, long operand);
-long __ovld atomic_fetch_add_explicit(volatile atomic_long *object, long operand, memory_order order);
-long __ovld atomic_fetch_add_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_add(volatile atomic_ulong *object, ulong operand);
-ulong __ovld atomic_fetch_add_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
-ulong __ovld atomic_fetch_add_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
-long __ovld atomic_fetch_sub(volatile atomic_long *object, long operand);
-long __ovld atomic_fetch_sub_explicit(volatile atomic_long *object, long operand, memory_order order);
-long __ovld atomic_fetch_sub_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_sub(volatile atomic_ulong *object, ulong operand);
-ulong __ovld atomic_fetch_sub_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
-ulong __ovld atomic_fetch_sub_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
-long __ovld atomic_fetch_or(volatile atomic_long *object, long operand);
-long __ovld atomic_fetch_or_explicit(volatile atomic_long *object, long operand, memory_order order);
-long __ovld atomic_fetch_or_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_or(volatile atomic_ulong *object, ulong operand);
-ulong __ovld atomic_fetch_or_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
-ulong __ovld atomic_fetch_or_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
-long __ovld atomic_fetch_xor(volatile atomic_long *object, long operand);
-long __ovld atomic_fetch_xor_explicit(volatile atomic_long *object, long operand, memory_order order);
-long __ovld atomic_fetch_xor_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_xor(volatile atomic_ulong *object, ulong operand);
-ulong __ovld atomic_fetch_xor_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
-ulong __ovld atomic_fetch_xor_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
-long __ovld atomic_fetch_and(volatile atomic_long *object, long operand);
-long __ovld atomic_fetch_and_explicit(volatile atomic_long *object, long operand, memory_order order);
-long __ovld atomic_fetch_and_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_and(volatile atomic_ulong *object, ulong operand);
-ulong __ovld atomic_fetch_and_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
-ulong __ovld atomic_fetch_and_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
-long __ovld atomic_fetch_min(volatile atomic_long *object, long operand);
-long __ovld atomic_fetch_min_explicit(volatile atomic_long *object, long operand, memory_order order);
-long __ovld atomic_fetch_min_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_min(volatile atomic_ulong *object, ulong operand);
-ulong __ovld atomic_fetch_min_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
-ulong __ovld atomic_fetch_min_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
-long __ovld atomic_fetch_max(volatile atomic_long *object, long operand);
-long __ovld atomic_fetch_max_explicit(volatile atomic_long *object, long operand, memory_order order);
-long __ovld atomic_fetch_max_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
-ulong __ovld atomic_fetch_max(volatile atomic_ulong *object, ulong operand);
-ulong __ovld atomic_fetch_max_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
-ulong __ovld atomic_fetch_max_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
-#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
-
 // OpenCL v2.0 s6.13.11.7.5:
 // add/sub: atomic type argument can be uintptr_t/intptr_t, value type argument can be ptrdiff_t.
-// or/xor/and/min/max: atomic type argument can be intptr_t/uintptr_t, value type argument can be intptr_t/uintptr_t.
+
+#if defined(__opencl_c_atomic_order_seq_cst) && defined(__opencl_c_atomic_scope_device)
+#if defined(__opencl_c_generic_address_space)
+int __ovld atomic_fetch_add(volatile atomic_int *object, int operand);
+uint __ovld atomic_fetch_add(volatile atomic_uint *object, uint operand);
+int __ovld atomic_fetch_sub(volatile atomic_int *object, int operand);
+uint __ovld atomic_fetch_sub(volatile atomic_uint *object, uint operand);
+int __ovld atomic_fetch_or(volatile atomic_int *object, int operand);
+uint __ovld atomic_fetch_or(volatile atomic_uint *object, uint operand);
+int __ovld atomic_fetch_xor(volatile atomic_int *object, int operand);
+uint __ovld atomic_fetch_xor(volatile atomic_uint *object, uint operand);
+int __ovld atomic_fetch_and(volatile atomic_int *object, int operand);
+uint __ovld atomic_fetch_and(volatile atomic_uint *object, uint operand);
+int __ovld atomic_fetch_min(volatile atomic_int *object, int operand);
+uint __ovld atomic_fetch_min(volatile atomic_uint *object, uint operand);
+int __ovld atomic_fetch_max(volatile atomic_int *object, int operand);
+uint __ovld atomic_fetch_max(volatile atomic_uint *object, uint operand);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+long __ovld atomic_fetch_add(volatile atomic_long *object, long operand);
+ulong __ovld atomic_fetch_add(volatile atomic_ulong *object, ulong operand);
+long __ovld atomic_fetch_sub(volatile atomic_long *object, long operand);
+ulong __ovld atomic_fetch_sub(volatile atomic_ulong *object, ulong operand);
+long __ovld atomic_fetch_or(volatile atomic_long *object, long operand);
+ulong __ovld atomic_fetch_or(volatile atomic_ulong *object, ulong operand);
+long __ovld atomic_fetch_xor(volatile atomic_long *object, long operand);
+ulong __ovld atomic_fetch_xor(volatile atomic_ulong *object, ulong operand);
+long __ovld atomic_fetch_and(volatile atomic_long *object, long operand);
+ulong __ovld atomic_fetch_and(volatile atomic_ulong *object, ulong operand);
+long __ovld atomic_fetch_min(volatile atomic_long *object, long operand);
+ulong __ovld atomic_fetch_min(volatile atomic_ulong *object, ulong operand);
+long __ovld atomic_fetch_max(volatile atomic_long *object, long operand);
+ulong __ovld atomic_fetch_max(volatile atomic_ulong *object, ulong operand);
+uintptr_t __ovld atomic_fetch_add(volatile atomic_uintptr_t *object, ptrdiff_t operand);
+uintptr_t __ovld atomic_fetch_sub(volatile atomic_uintptr_t *object, ptrdiff_t operand);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+int __ovld atomic_fetch_add(volatile __global atomic_int *object, int operand);
+int __ovld atomic_fetch_add(volatile __local atomic_int *object, int operand);
+uint __ovld atomic_fetch_add(volatile __global atomic_uint *object, uint operand);
+uint __ovld atomic_fetch_add(volatile __local atomic_uint *object, uint operand);
+int __ovld atomic_fetch_sub(volatile __global atomic_int *object, int operand);
+int __ovld atomic_fetch_sub(volatile __local atomic_int *object, int operand);
+uint __ovld atomic_fetch_sub(volatile __global atomic_uint *object, uint operand);
+uint __ovld atomic_fetch_sub(volatile __local atomic_uint *object, uint operand);
+int __ovld atomic_fetch_or(volatile __global atomic_int *object, int operand);
+int __ovld atomic_fetch_or(volatile __local atomic_int *object, int operand);
+uint __ovld atomic_fetch_or(volatile __global atomic_uint *object, uint operand);
+uint __ovld atomic_fetch_or(volatile __local atomic_uint *object, uint operand);
+int __ovld atomic_fetch_xor(volatile __global atomic_int *object, int operand);
+int __ovld atomic_fetch_xor(volatile __local atomic_int *object, int operand);
+uint __ovld atomic_fetch_xor(volatile __global atomic_uint *object, uint operand);
+uint __ovld atomic_fetch_xor(volatile __local atomic_uint *object, uint operand);
+int __ovld atomic_fetch_and(volatile __global atomic_int *object, int operand);
+int __ovld atomic_fetch_and(volatile __local atomic_int *object, int operand);
+uint __ovld atomic_fetch_and(volatile __global atomic_uint *object, uint operand);
+uint __ovld atomic_fetch_and(volatile __local atomic_uint *object, uint operand);
+int __ovld atomic_fetch_min(volatile __global atomic_int *object, int operand);
+int __ovld atomic_fetch_min(volatile __local atomic_int *object, int operand);
+uint __ovld atomic_fetch_min(volatile __global atomic_uint *object, uint operand);
+uint __ovld atomic_fetch_min(volatile __local atomic_uint *object, uint operand);
+int __ovld atomic_fetch_max(volatile __global atomic_int *object, int operand);
+int __ovld atomic_fetch_max(volatile __local atomic_int *object, int operand);
+uint __ovld atomic_fetch_max(volatile __global atomic_uint *object, uint operand);
+uint __ovld atomic_fetch_max(volatile __local atomic_uint *object, uint operand);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+long __ovld atomic_fetch_add(volatile __global atomic_long *object, long operand);
+long __ovld atomic_fetch_add(volatile __local atomic_long *object, long operand);
+ulong __ovld atomic_fetch_add(volatile __global atomic_ulong *object, ulong operand);
+ulong __ovld atomic_fetch_add(volatile __local atomic_ulong *object, ulong operand);
+uintptr_t __ovld atomic_fetch_add(volatile __global atomic_uintptr_t *object, ptrdiff_t operand);
+uintptr_t __ovld atomic_fetch_add(volatile __local atomic_uintptr_t *object, ptrdiff_t operand);
+long __ovld atomic_fetch_sub(volatile __global atomic_long *object, long operand);
+long __ovld atomic_fetch_sub(volatile __local atomic_long *object, long operand);
+ulong __ovld atomic_fetch_sub(volatile __global atomic_ulong *object, ulong operand);
+ulong __ovld atomic_fetch_sub(volatile __local atomic_ulong *object, ulong operand);
+uintptr_t __ovld atomic_fetch_sub(volatile __global atomic_uintptr_t *object, ptrdiff_t operand);
+uintptr_t __ovld atomic_fetch_sub(volatile __local atomic_uintptr_t *object, ptrdiff_t operand);
+long __ovld atomic_fetch_or(volatile __global atomic_long *object, long operand);
+long __ovld atomic_fetch_or(volatile __local atomic_long *object, long operand);
+ulong __ovld atomic_fetch_or(volatile __global atomic_ulong *object, ulong operand);
+ulong __ovld atomic_fetch_or(volatile __local atomic_ulong *object, ulong operand);
+uintptr_t __ovld atomic_fetch_or(volatile __global atomic_uintptr_t *object, intptr_t operand);
+uintptr_t __ovld atomic_fetch_or(volatile __local atomic_uintptr_t *object, intptr_t operand);
+intptr_t __ovld atomic_fetch_or(volatile __global atomic_intptr_t *object, uintptr_t operand);
+intptr_t __ovld atomic_fetch_or(volatile __local atomic_intptr_t *object, uintptr_t operand);
+long __ovld atomic_fetch_xor(volatile __global atomic_long *object, long operand);
+long __ovld atomic_fetch_xor(volatile __local atomic_long *object, long operand);
+ulong __ovld atomic_fetch_xor(volatile __global atomic_ulong *object, ulong operand);
+ulong __ovld atomic_fetch_xor(volatile __local atomic_ulong *object, ulong operand);
+uintptr_t __ovld atomic_fetch_xor(volatile __global atomic_uintptr_t *object, intptr_t operand);
+uintptr_t __ovld atomic_fetch_xor(volatile __local atomic_uintptr_t *object, intptr_t operand);
+intptr_t __ovld atomic_fetch_xor(volatile __global atomic_intptr_t *object, uintptr_t operand);
+intptr_t __ovld atomic_fetch_xor(volatile __local atomic_intptr_t *object, uintptr_t operand);
+long __ovld atomic_fetch_and(volatile __global atomic_long *object, long operand);
+long __ovld atomic_fetch_and(volatile __local atomic_long *object, long operand);
+ulong __ovld atomic_fetch_and(volatile __global atomic_ulong *object, ulong operand);
+ulong __ovld atomic_fetch_and(volatile __local atomic_ulong *object, ulong operand);
+uintptr_t __ovld atomic_fetch_and(volatile __global atomic_uintptr_t *object, intptr_t operand);
+uintptr_t __ovld atomic_fetch_and(volatile __local atomic_uintptr_t *object, intptr_t operand);
+intptr_t __ovld atomic_fetch_and(volatile __global atomic_intptr_t *object, uintptr_t operand);
+intptr_t __ovld atomic_fetch_and(volatile __local atomic_intptr_t *object, uintptr_t operand);
+long __ovld atomic_fetch_min(volatile __global atomic_long *object, long operand);
+long __ovld atomic_fetch_min(volatile __local atomic_long *object, long operand);
+ulong __ovld atomic_fetch_min(volatile __global atomic_ulong *object, ulong operand);
+ulong __ovld atomic_fetch_min(volatile __local atomic_ulong *object, ulong operand);
+uintptr_t __ovld atomic_fetch_min(volatile __global atomic_uintptr_t *object, intptr_t operand);
+uintptr_t __ovld atomic_fetch_min(volatile __local atomic_uintptr_t *object, intptr_t operand);
+intptr_t __ovld atomic_fetch_min(volatile __global atomic_intptr_t *object, uintptr_t operand);
+intptr_t __ovld atomic_fetch_min(volatile __local atomic_intptr_t *object, uintptr_t operand);
+long __ovld atomic_fetch_max(volatile __global atomic_long *object, long operand);
+long __ovld atomic_fetch_max(volatile __local atomic_long *object, long operand);
+ulong __ovld atomic_fetch_max(volatile __global atomic_ulong *object, ulong operand);
+ulong __ovld atomic_fetch_max(volatile __local atomic_ulong *object, ulong operand);
+uintptr_t __ovld atomic_fetch_add(volatile __global atomic_uintptr_t *object, ptrdiff_t operand);
+uintptr_t __ovld atomic_fetch_sub(volatile __local atomic_uintptr_t *object, ptrdiff_t operand);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+#endif
+
+#if defined(__opencl_c_atomic_scope_device)
+#if defined(__opencl_c_generic_address_space)
+int __ovld atomic_fetch_add_explicit(volatile atomic_int *object, int operand, memory_order order);
+uint __ovld atomic_fetch_add_explicit(volatile atomic_uint *object, uint operand, memory_order order);
+int __ovld atomic_fetch_sub_explicit(volatile atomic_int *object, int operand, memory_order order);
+uint __ovld atomic_fetch_sub_explicit(volatile atomic_uint *object, uint operand, memory_order order);
+int __ovld atomic_fetch_or_explicit(volatile atomic_int *object, int operand, memory_order order);
+uint __ovld atomic_fetch_or_explicit(volatile atomic_uint *object, uint operand, memory_order order);
+int __ovld atomic_fetch_xor_explicit(volatile atomic_int *object, int operand, memory_order order);
+uint __ovld atomic_fetch_xor_explicit(volatile atomic_uint *object, uint operand, memory_order order);
+int __ovld atomic_fetch_and_explicit(volatile atomic_int *object, int operand, memory_order order);
+uint __ovld atomic_fetch_and_explicit(volatile atomic_uint *object, uint operand, memory_order order);
+int __ovld atomic_fetch_min_explicit(volatile atomic_int *object, int operand, memory_order order);
+uint __ovld atomic_fetch_min_explicit(volatile atomic_uint *object, uint operand, memory_order order);
+int __ovld atomic_fetch_max_explicit(volatile atomic_int *object, int operand, memory_order order);
+uint __ovld atomic_fetch_max_explicit(volatile atomic_uint *object, uint operand, memory_order order);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+long __ovld atomic_fetch_add_explicit(volatile atomic_long *object, long operand, memory_order order);
+ulong __ovld atomic_fetch_add_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
+long __ovld atomic_fetch_sub_explicit(volatile atomic_long *object, long operand, memory_order order);
+ulong __ovld atomic_fetch_sub_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
+long __ovld atomic_fetch_or_explicit(volatile atomic_long *object, long operand, memory_order order);
+ulong __ovld atomic_fetch_or_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
+long __ovld atomic_fetch_xor_explicit(volatile atomic_long *object, long operand, memory_order order);
+ulong __ovld atomic_fetch_xor_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
+long __ovld atomic_fetch_and_explicit(volatile atomic_long *object, long operand, memory_order order);
+ulong __ovld atomic_fetch_and_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
+long __ovld atomic_fetch_min_explicit(volatile atomic_long *object, long operand, memory_order order);
+ulong __ovld atomic_fetch_min_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
+long __ovld atomic_fetch_max_explicit(volatile atomic_long *object, long operand, memory_order order);
+ulong __ovld atomic_fetch_max_explicit(volatile atomic_ulong *object, ulong operand, memory_order order);
+uintptr_t __ovld atomic_fetch_add_explicit(volatile atomic_uintptr_t *object, ptrdiff_t operand, memory_order order);
+uintptr_t __ovld atomic_fetch_sub_explicit(volatile atomic_uintptr_t *object, ptrdiff_t operand, memory_order order);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+int __ovld atomic_fetch_add_explicit(volatile __global atomic_int *object, int operand, memory_order order);
+int __ovld atomic_fetch_add_explicit(volatile __local atomic_int *object, int operand, memory_order order);
+uint __ovld atomic_fetch_add_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
+uint __ovld atomic_fetch_add_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
+int __ovld atomic_fetch_sub_explicit(volatile __global atomic_int *object, int operand, memory_order order);
+int __ovld atomic_fetch_sub_explicit(volatile __local atomic_int *object, int operand, memory_order order);
+uint __ovld atomic_fetch_sub_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
+uint __ovld atomic_fetch_sub_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
+int __ovld atomic_fetch_or_explicit(volatile __global atomic_int *object, int operand, memory_order order);
+int __ovld atomic_fetch_or_explicit(volatile __local atomic_int *object, int operand, memory_order order);
+uint __ovld atomic_fetch_or_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
+uint __ovld atomic_fetch_or_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
+int __ovld atomic_fetch_xor_explicit(volatile __global atomic_int *object, int operand, memory_order order);
+int __ovld atomic_fetch_xor_explicit(volatile __local atomic_int *object, int operand, memory_order order);
+uint __ovld atomic_fetch_xor_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
+uint __ovld atomic_fetch_xor_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
+int __ovld atomic_fetch_and_explicit(volatile __global atomic_int *object, int operand, memory_order order);
+int __ovld atomic_fetch_and_explicit(volatile __local atomic_int *object, int operand, memory_order order);
+uint __ovld atomic_fetch_and_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
+uint __ovld atomic_fetch_and_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
+int __ovld atomic_fetch_min_explicit(volatile __global atomic_int *object, int operand, memory_order order);
+int __ovld atomic_fetch_min_explicit(volatile __local atomic_int *object, int operand, memory_order order);
+uint __ovld atomic_fetch_min_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
+uint __ovld atomic_fetch_min_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
+int __ovld atomic_fetch_max_explicit(volatile __global atomic_int *object, int operand, memory_order order);
+int __ovld atomic_fetch_max_explicit(volatile __local atomic_int *object, int operand, memory_order order);
+uint __ovld atomic_fetch_max_explicit(volatile __global atomic_uint *object, uint operand, memory_order order);
+uint __ovld atomic_fetch_max_explicit(volatile __local atomic_uint *object, uint operand, memory_order order);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+long __ovld atomic_fetch_add_explicit(volatile __global atomic_long *object, long operand, memory_order order);
+long __ovld atomic_fetch_add_explicit(volatile __local atomic_long *object, long operand, memory_order order);
+ulong __ovld atomic_fetch_add_explicit(volatile __global atomic_ulong *object, ulong operand, memory_order order);
+ulong __ovld atomic_fetch_add_explicit(volatile __local atomic_ulong *object, ulong operand, memory_order order);
+uintptr_t __ovld atomic_fetch_add_explicit(volatile __global atomic_uintptr_t *object, ptrdiff_t operand, memory_order order);
+uintptr_t __ovld atomic_fetch_add_explicit(volatile __local atomic_uintptr_t *object, ptrdiff_t operand, memory_order order);
+long __ovld atomic_fetch_sub_explicit(volatile __global atomic_long *object, long operand, memory_order order);
+long __ovld atomic_fetch_sub_explicit(volatile __local atomic_long *object, long operand, memory_order order);
+ulong __ovld atomic_fetch_sub_explicit(volatile __global atomic_ulong *object, ulong operand, memory_order order);
+ulong __ovld atomic_fetch_sub_explicit(volatile __local atomic_ulong *object, ulong operand, memory_order order);
+uintptr_t __ovld atomic_fetch_sub_explicit(volatile __global atomic_uintptr_t *object, ptrdiff_t operand, memory_order order);
+uintptr_t __ovld atomic_fetch_sub_explicit(volatile __local atomic_uintptr_t *object, ptrdiff_t operand, memory_order order);
+long __ovld atomic_fetch_or_explicit(volatile __global atomic_long *object, long operand, memory_order order);
+long __ovld atomic_fetch_or_explicit(volatile __local atomic_long *object, long operand, memory_order order);
+ulong __ovld atomic_fetch_or_explicit(volatile __global atomic_ulong *object, ulong operand, memory_order order);
+ulong __ovld atomic_fetch_or_explicit(volatile __local atomic_ulong *object, ulong operand, memory_order order);
+uintptr_t __ovld atomic_fetch_or_explicit(volatile __global atomic_uintptr_t *object, intptr_t operand, memory_order order);
+uintptr_t __ovld atomic_fetch_or_explicit(volatile __local atomic_uintptr_t *object, intptr_t operand, memory_order order);
+intptr_t __ovld atomic_fetch_or_explicit(volatile __global atomic_intptr_t *object, uintptr_t operand, memory_order order);
+intptr_t __ovld atomic_fetch_or_explicit(volatile __local atomic_intptr_t *object, uintptr_t operand, memory_order order);
+long __ovld atomic_fetch_xor_explicit(volatile __global atomic_long *object, long operand, memory_order order);
+long __ovld atomic_fetch_xor_explicit(volatile __local atomic_long *object, long operand, memory_order order);
+ulong __ovld atomic_fetch_xor_explicit(volatile __global atomic_ulong *object, ulong operand, memory_order order);
+ulong __ovld atomic_fetch_xor_explicit(volatile __local atomic_ulong *object, ulong operand, memory_order order);
+uintptr_t __ovld atomic_fetch_xor_explicit(volatile __global atomic_uintptr_t *object, intptr_t operand, memory_order order);
+uintptr_t __ovld atomic_fetch_xor_explicit(volatile __local atomic_uintptr_t *object, intptr_t operand, memory_order order);
+intptr_t __ovld atomic_fetch_xor_explicit(volatile __global atomic_intptr_t *object, uintptr_t operand, memory_order order);
+intptr_t __ovld atomic_fetch_xor_explicit(volatile __local atomic_intptr_t *object, uintptr_t operand, memory_order order);
+long __ovld atomic_fetch_and_explicit(volatile __global atomic_long *object, long operand, memory_order order);
+long __ovld atomic_fetch_and_explicit(volatile __local atomic_long *object, long operand, memory_order order);
+ulong __ovld atomic_fetch_and_explicit(volatile __global atomic_ulong *object, ulong operand, memory_order order);
+ulong __ovld atomic_fetch_and_explicit(volatile __local atomic_ulong *object, ulong operand, memory_order order);
+uintptr_t __ovld atomic_fetch_and_explicit(volatile __global atomic_uintptr_t *object, intptr_t operand, memory_order order);
+uintptr_t __ovld atomic_fetch_and_explicit(volatile __local atomic_uintptr_t *object, intptr_t operand, memory_order order);
+intptr_t __ovld atomic_fetch_and_explicit(volatile __global atomic_intptr_t *object, uintptr_t operand, memory_order order);
+intptr_t __ovld atomic_fetch_and_explicit(volatile __local atomic_intptr_t *object, uintptr_t operand, memory_order order);
+long __ovld atomic_fetch_min_explicit(volatile __global atomic_long *object, long operand, memory_order order);
+long __ovld atomic_fetch_min_explicit(volatile __local atomic_long *object, long operand, memory_order order);
+ulong __ovld atomic_fetch_min_explicit(volatile __global atomic_ulong *object, ulong operand, memory_order order);
+ulong __ovld atomic_fetch_min_explicit(volatile __local atomic_ulong *object, ulong operand, memory_order order);
+uintptr_t __ovld atomic_fetch_min_explicit(volatile __global atomic_uintptr_t *object, intptr_t operand, memory_order order);
+uintptr_t __ovld atomic_fetch_min_explicit(volatile __local atomic_uintptr_t *object, intptr_t operand, memory_order order);
+intptr_t __ovld atomic_fetch_min_explicit(volatile __global atomic_intptr_t *object, uintptr_t operand, memory_order order);
+intptr_t __ovld atomic_fetch_min_explicit(volatile __local atomic_intptr_t *object, uintptr_t operand, memory_order order);
+long __ovld atomic_fetch_max_explicit(volatile __global atomic_long *object, long operand, memory_order order);
+long __ovld atomic_fetch_max_explicit(volatile __local atomic_long *object, long operand, memory_order order);
+ulong __ovld atomic_fetch_max_explicit(volatile __global atomic_ulong *object, ulong operand, memory_order order);
+ulong __ovld atomic_fetch_max_explicit(volatile __local atomic_ulong *object, ulong operand, memory_order order);
+uintptr_t __ovld atomic_fetch_add_explicit(volatile __global atomic_uintptr_t *object, ptrdiff_t operand, memory_order order);
+uintptr_t __ovld atomic_fetch_sub_explicit(volatile __local atomic_uintptr_t *object, ptrdiff_t operand, memory_order order);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+#endif
+
+#if defined(__opencl_c_generic_address_space)
+int __ovld atomic_fetch_add_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_add_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_sub_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_sub_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_or_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_or_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_xor_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_xor_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_and_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_and_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_min_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_min_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_max_explicit(volatile atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_max_explicit(volatile atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+long __ovld atomic_fetch_add_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_add_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_sub_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_sub_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_or_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_or_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_xor_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_xor_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_and_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_and_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_min_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_min_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_max_explicit(volatile atomic_long *object, long operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_max_explicit(volatile atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_add_explicit(volatile atomic_uintptr_t *object, ptrdiff_t operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_sub_explicit(volatile atomic_uintptr_t *object, ptrdiff_t operand, memory_order order, memory_scope scope);
+#endif
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+int __ovld atomic_fetch_add_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_add_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_add_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_add_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_sub_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_sub_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_sub_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_sub_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_or_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_or_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_or_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_or_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_xor_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_xor_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_xor_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_xor_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_and_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_and_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_and_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_and_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_min_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_min_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_min_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_min_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_max_explicit(volatile __global atomic_int *object, int operand, memory_order order, memory_scope scope);
+int __ovld atomic_fetch_max_explicit(volatile __local atomic_int *object, int operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_max_explicit(volatile __global atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+uint __ovld atomic_fetch_max_explicit(volatile __local atomic_uint *object, uint operand, memory_order order, memory_scope scope);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+long __ovld atomic_fetch_add_explicit(volatile __global atomic_long *object, long operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_add_explicit(volatile __local atomic_long *object, long operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_add_explicit(volatile __global atomic_uintptr_t *object, ptrdiff_t operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_add_explicit(volatile __local atomic_uintptr_t *object, ptrdiff_t operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_add_explicit(volatile __global atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_add_explicit(volatile __local atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_sub_explicit(volatile __global atomic_long *object, long operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_sub_explicit(volatile __local atomic_long *object, long operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_sub_explicit(volatile __global atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_sub_explicit(volatile __local atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_sub_explicit(volatile __global atomic_uintptr_t *object, ptrdiff_t operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_sub_explicit(volatile __local atomic_uintptr_t *object, ptrdiff_t operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_or_explicit(volatile __global atomic_long *object, long operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_or_explicit(volatile __local atomic_long *object, long operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_or_explicit(volatile __global atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_or_explicit(volatile __local atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_or_explicit(volatile __global atomic_uintptr_t *object, intptr_t operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_or_explicit(volatile __local atomic_uintptr_t *object, intptr_t operand, memory_order order, memory_scope scope);
+intptr_t __ovld atomic_fetch_or_explicit(volatile __global atomic_intptr_t *object, uintptr_t operand, memory_order order, memory_scope scope);
+intptr_t __ovld atomic_fetch_or_explicit(volatile __local atomic_intptr_t *object, uintptr_t operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_xor_explicit(volatile __global atomic_long *object, long operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_xor_explicit(volatile __local atomic_long *object, long operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_xor_explicit(volatile __global atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_xor_explicit(volatile __local atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_xor_explicit(volatile __global atomic_uintptr_t *object, intptr_t operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_xor_explicit(volatile __local atomic_uintptr_t *object, intptr_t operand, memory_order order, memory_scope scope);
+intptr_t __ovld atomic_fetch_xor_explicit(volatile __global atomic_intptr_t *object, uintptr_t operand, memory_order order, memory_scope scope);
+intptr_t __ovld atomic_fetch_xor_explicit(volatile __local atomic_intptr_t *object, uintptr_t operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_and_explicit(volatile __global atomic_long *object, long operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_and_explicit(volatile __local atomic_long *object, long operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_and_explicit(volatile __global atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_and_explicit(volatile __local atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_and_explicit(volatile __global atomic_uintptr_t *object, intptr_t operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_and_explicit(volatile __local atomic_uintptr_t *object, intptr_t operand, memory_order order, memory_scope scope);
+intptr_t __ovld atomic_fetch_and_explicit(volatile __global atomic_intptr_t *object, uintptr_t operand, memory_order order, memory_scope scope);
+intptr_t __ovld atomic_fetch_and_explicit(volatile __local atomic_intptr_t *object, uintptr_t operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_min_explicit(volatile __global atomic_long *object, long operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_min_explicit(volatile __local atomic_long *object, long operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_min_explicit(volatile __global atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_min_explicit(volatile __local atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_min_explicit(volatile __global atomic_uintptr_t *object, intptr_t operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_min_explicit(volatile __local atomic_uintptr_t *object, intptr_t operand, memory_order order, memory_scope scope);
+intptr_t __ovld atomic_fetch_min_explicit(volatile __global atomic_intptr_t *object, uintptr_t operand, memory_order order, memory_scope scope);
+intptr_t __ovld atomic_fetch_min_explicit(volatile __local atomic_intptr_t *object, uintptr_t operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_max_explicit(volatile __global atomic_long *object, long operand, memory_order order, memory_scope scope);
+long __ovld atomic_fetch_max_explicit(volatile __local atomic_long *object, long operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_max_explicit(volatile __global atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+ulong __ovld atomic_fetch_max_explicit(volatile __local atomic_ulong *object, ulong operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_add_explicit(volatile __global atomic_uintptr_t *object, ptrdiff_t operand, memory_order order, memory_scope scope);
+uintptr_t __ovld atomic_fetch_sub_explicit(volatile __local atomic_uintptr_t *object, ptrdiff_t operand, memory_order order, memory_scope scope);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+
+// The functionality added by cl_ext_float_atomics extension
+#if defined(cl_ext_float_atomics)
+
+#if defined(__opencl_c_ext_fp16_global_atomic_load_store)
+void __ovld atomic_store(volatile __global atomic_half *object, half operand);
+void __ovld atomic_store_explicit(volatile __global atomic_half *object,
+                                  half operand, memory_order order);
+void __ovld atomic_store_explicit(volatile __global atomic_half *object,
+                                  half operand, memory_order order,
+                                  memory_scope scope);
+half __ovld atomic_load(volatile __global atomic_half *object);
+half __ovld atomic_load_explicit(volatile __global atomic_half *object,
+                                 memory_order order);
+half __ovld atomic_load_explicit(volatile __global atomic_half *object,
+                                 memory_order order, memory_scope scope);
+half __ovld atomic_exchange(volatile __global atomic_half *object,
+                            half operand);
+half __ovld atomic_exchange_explicit(volatile __global atomic_half *object,
+                                     half operand, memory_order order);
+half __ovld atomic_exchange_explicit(volatile __global atomic_half *object,
+                                     half operand, memory_order order,
+                                     memory_scope scope);
+#endif // defined(__opencl_c_ext_fp16_global_atomic_load_store)
+
+#if defined(__opencl_c_ext_fp16_local_atomic_load_store)
+void __ovld atomic_store(volatile __local atomic_half *object, half operand);
+void __ovld atomic_store_explicit(volatile __local atomic_half *object,
+                                  half operand, memory_order order);
+void __ovld atomic_store_explicit(volatile __local atomic_half *object,
+                                  half operand, memory_order order,
+                                  memory_scope scope);
+half __ovld atomic_load(volatile __local atomic_half *object);
+half __ovld atomic_load_explicit(volatile __local atomic_half *object,
+                                 memory_order order);
+half __ovld atomic_load_explicit(volatile __local atomic_half *object,
+                                 memory_order order, memory_scope scope);
+half __ovld atomic_exchange(volatile __local atomic_half *object, half operand);
+half __ovld atomic_exchange_explicit(volatile __local atomic_half *object,
+                                     half operand, memory_order order);
+half __ovld atomic_exchange_explicit(volatile __local atomic_half *object,
+                                     half operand, memory_order order,
+                                     memory_scope scope);
+#endif // defined(__opencl_c_ext_fp16_local_atomic_load_store)
+
+#if defined(__opencl_c_ext_fp16_global_atomic_load_store) &&                   \
+    defined(__opencl_c_ext_fp16_local_atomic_load_store)
+void __ovld atomic_store(volatile atomic_half *object, half operand);
+void __ovld atomic_store_explicit(volatile atomic_half *object, half operand,
+                                  memory_order order);
+void __ovld atomic_store_explicit(volatile atomic_half *object, half operand,
+                                  memory_order order, memory_scope scope);
+half __ovld atomic_load(volatile atomic_half *object);
+half __ovld atomic_load_explicit(volatile atomic_half *object,
+                                 memory_order order);
+half __ovld atomic_load_explicit(volatile atomic_half *object,
+                                 memory_order order, memory_scope scope);
+half __ovld atomic_exchange(volatile atomic_half *object, half operand);
+half __ovld atomic_exchange_explicit(volatile atomic_half *object, half operand,
+                                     memory_order order);
+half __ovld atomic_exchange_explicit(volatile atomic_half *object, half operand,
+                                     memory_order order, memory_scope scope);
+#endif // defined(__opencl_c_ext_fp16_global_atomic_load_store) &&
+       // defined(__opencl_c_ext_fp16_local_atomic_load_store)
+
+#if defined(__opencl_c_ext_fp16_global_atomic_min_max)
+half __ovld atomic_fetch_min(volatile __global atomic_half *object,
+                             half operand);
+half __ovld atomic_fetch_max(volatile __global atomic_half *object,
+                             half operand);
+half __ovld atomic_fetch_min_explicit(volatile __global atomic_half *object,
+                                      half operand, memory_order order);
+half __ovld atomic_fetch_max_explicit(volatile __global atomic_half *object,
+                                      half operand, memory_order order);
+half __ovld atomic_fetch_min_explicit(volatile __global atomic_half *object,
+                                      half operand, memory_order order,
+                                      memory_scope scope);
+half __ovld atomic_fetch_max_explicit(volatile __global atomic_half *object,
+                                      half operand, memory_order order,
+                                      memory_scope scope);
+#endif // defined(__opencl_c_ext_fp16_global_atomic_min_max)
+
+#if defined(__opencl_c_ext_fp16_local_atomic_min_max)
+half __ovld atomic_fetch_min(volatile __local atomic_half *object,
+                             half operand);
+half __ovld atomic_fetch_max(volatile __local atomic_half *object,
+                             half operand);
+half __ovld atomic_fetch_min_explicit(volatile __local atomic_half *object,
+                                      half operand, memory_order order);
+half __ovld atomic_fetch_max_explicit(volatile __local atomic_half *object,
+                                      half operand, memory_order order);
+half __ovld atomic_fetch_min_explicit(volatile __local atomic_half *object,
+                                      half operand, memory_order order,
+                                      memory_scope scope);
+half __ovld atomic_fetch_max_explicit(volatile __local atomic_half *object,
+                                      half operand, memory_order order,
+                                      memory_scope scope);
+#endif // defined(__opencl_c_ext_fp16_local_atomic_min_max)
+
+#if defined(__opencl_c_ext_fp16_global_atomic_min_max) &&                      \
+    defined(__opencl_c_ext_fp16_local_atomic_min_max)
+half __ovld atomic_fetch_min(volatile atomic_half *object, half operand);
+half __ovld atomic_fetch_max(volatile atomic_half *object, half operand);
+half __ovld atomic_fetch_min_explicit(volatile atomic_half *object,
+                                      half operand, memory_order order);
+half __ovld atomic_fetch_max_explicit(volatile atomic_half *object,
+                                      half operand, memory_order order);
+half __ovld atomic_fetch_min_explicit(volatile atomic_half *object,
+                                      half operand, memory_order order,
+                                      memory_scope scope);
+half __ovld atomic_fetch_max_explicit(volatile atomic_half *object,
+                                      half operand, memory_order order,
+                                      memory_scope scope);
+#endif // defined(__opencl_c_ext_fp16_global_atomic_min_max) &&                \
+    defined(__opencl_c_ext_fp16_local_atomic_min_max)
+
+#if defined(__opencl_c_ext_fp32_global_atomic_min_max)
+float __ovld atomic_fetch_min(volatile __global atomic_float *object,
+                              float operand);
+float __ovld atomic_fetch_max(volatile __global atomic_float *object,
+                              float operand);
+float __ovld atomic_fetch_min_explicit(volatile __global atomic_float *object,
+                                       float operand, memory_order order);
+float __ovld atomic_fetch_max_explicit(volatile __global atomic_float *object,
+                                       float operand, memory_order order);
+float __ovld atomic_fetch_min_explicit(volatile __global atomic_float *object,
+                                       float operand, memory_order order,
+                                       memory_scope scope);
+float __ovld atomic_fetch_max_explicit(volatile __global atomic_float *object,
+                                       float operand, memory_order order,
+                                       memory_scope scope);
+#endif // defined(__opencl_c_ext_fp32_global_atomic_min_max)
+
+#if defined(__opencl_c_ext_fp32_local_atomic_min_max)
+float __ovld atomic_fetch_min(volatile __local atomic_float *object,
+                              float operand);
+float __ovld atomic_fetch_max(volatile __local atomic_float *object,
+                              float operand);
+float __ovld atomic_fetch_min_explicit(volatile __local atomic_float *object,
+                                       float operand, memory_order order);
+float __ovld atomic_fetch_max_explicit(volatile __local atomic_float *object,
+                                       float operand, memory_order order);
+float __ovld atomic_fetch_min_explicit(volatile __local atomic_float *object,
+                                       float operand, memory_order order,
+                                       memory_scope scope);
+float __ovld atomic_fetch_max_explicit(volatile __local atomic_float *object,
+                                       float operand, memory_order order,
+                                       memory_scope scope);
+#endif // defined(__opencl_c_ext_fp32_local_atomic_min_max)
+
+#if defined(__opencl_c_ext_fp32_global_atomic_min_max) &&                      \
+    defined(__opencl_c_ext_fp32_local_atomic_min_max)
+float __ovld atomic_fetch_min(volatile atomic_float *object, float operand);
+float __ovld atomic_fetch_max(volatile atomic_float *object, float operand);
+float __ovld atomic_fetch_min_explicit(volatile atomic_float *object,
+                                       float operand, memory_order order);
+float __ovld atomic_fetch_max_explicit(volatile atomic_float *object,
+                                       float operand, memory_order order);
+float __ovld atomic_fetch_min_explicit(volatile atomic_float *object,
+                                       float operand, memory_order order,
+                                       memory_scope scope);
+float __ovld atomic_fetch_max_explicit(volatile atomic_float *object,
+                                       float operand, memory_order order,
+                                       memory_scope scope);
+#endif // defined(__opencl_c_ext_fp32_global_atomic_min_max) &&                \
+    defined(__opencl_c_ext_fp32_local_atomic_min_max)
 
 #if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
-uintptr_t __ovld atomic_fetch_add(volatile atomic_uintptr_t *object, ptrdiff_t operand);
-uintptr_t __ovld atomic_fetch_add_explicit(volatile atomic_uintptr_t *object, ptrdiff_t operand, memory_order order);
-uintptr_t __ovld atomic_fetch_add_explicit(volatile atomic_uintptr_t *object, ptrdiff_t operand, memory_order order, memory_scope scope);
-uintptr_t __ovld atomic_fetch_sub(volatile atomic_uintptr_t *object, ptrdiff_t operand);
-uintptr_t __ovld atomic_fetch_sub_explicit(volatile atomic_uintptr_t *object, ptrdiff_t operand, memory_order order);
-uintptr_t __ovld atomic_fetch_sub_explicit(volatile atomic_uintptr_t *object, ptrdiff_t operand, memory_order order, memory_scope scope);
+#if defined(__opencl_c_ext_fp64_global_atomic_min_max)
+double __ovld atomic_fetch_min(volatile __global atomic_double *object,
+                               double operand);
+double __ovld atomic_fetch_max(volatile __global atomic_double *object,
+                               double operand);
+double __ovld atomic_fetch_min_explicit(volatile __global atomic_double *object,
+                                        double operand, memory_order order);
+double __ovld atomic_fetch_max_explicit(volatile __global atomic_double *object,
+                                        double operand, memory_order order);
+double __ovld atomic_fetch_min_explicit(volatile __global atomic_double *object,
+                                        double operand, memory_order order,
+                                        memory_scope scope);
+double __ovld atomic_fetch_max_explicit(volatile __global atomic_double *object,
+                                        double operand, memory_order order,
+                                        memory_scope scope);
+#endif // defined(__opencl_c_ext_fp64_global_atomic_min_max)
 
-uintptr_t __ovld atomic_fetch_or(volatile atomic_uintptr_t *object, intptr_t operand);
-uintptr_t __ovld atomic_fetch_or_explicit(volatile atomic_uintptr_t *object, intptr_t operand, memory_order order);
-uintptr_t __ovld atomic_fetch_or_explicit(volatile atomic_uintptr_t *object, intptr_t operand, memory_order order, memory_scope scope);
-uintptr_t __ovld atomic_fetch_xor(volatile atomic_uintptr_t *object, intptr_t operand);
-uintptr_t __ovld atomic_fetch_xor_explicit(volatile atomic_uintptr_t *object, intptr_t operand, memory_order order);
-uintptr_t __ovld atomic_fetch_xor_explicit(volatile atomic_uintptr_t *object, intptr_t operand, memory_order order, memory_scope scope);
-uintptr_t __ovld atomic_fetch_and(volatile atomic_uintptr_t *object, intptr_t operand);
-uintptr_t __ovld atomic_fetch_and_explicit(volatile atomic_uintptr_t *object, intptr_t operand, memory_order order);
-uintptr_t __ovld atomic_fetch_and_explicit(volatile atomic_uintptr_t *object, intptr_t operand, memory_order order, memory_scope scope);
-uintptr_t __ovld atomic_fetch_min(volatile atomic_uintptr_t *object, intptr_t opermax);
-uintptr_t __ovld atomic_fetch_min_explicit(volatile atomic_uintptr_t *object, intptr_t opermax, memory_order minder);
-uintptr_t __ovld atomic_fetch_min_explicit(volatile atomic_uintptr_t *object, intptr_t opermax, memory_order minder, memory_scope scope);
-uintptr_t __ovld atomic_fetch_max(volatile atomic_uintptr_t *object, intptr_t opermax);
-uintptr_t __ovld atomic_fetch_max_explicit(volatile atomic_uintptr_t *object, intptr_t opermax, memory_order minder);
-uintptr_t __ovld atomic_fetch_max_explicit(volatile atomic_uintptr_t *object, intptr_t opermax, memory_order minder, memory_scope scope);
+#if defined(__opencl_c_ext_fp64_local_atomic_min_max)
+double __ovld atomic_fetch_min(volatile __local atomic_double *object,
+                               double operand);
+double __ovld atomic_fetch_max(volatile __local atomic_double *object,
+                               double operand);
+double __ovld atomic_fetch_min_explicit(volatile __local atomic_double *object,
+                                        double operand, memory_order order);
+double __ovld atomic_fetch_max_explicit(volatile __local atomic_double *object,
+                                        double operand, memory_order order);
+double __ovld atomic_fetch_min_explicit(volatile __local atomic_double *object,
+                                        double operand, memory_order order,
+                                        memory_scope scope);
+double __ovld atomic_fetch_max_explicit(volatile __local atomic_double *object,
+                                        double operand, memory_order order,
+                                        memory_scope scope);
+#endif // defined(__opencl_c_ext_fp64_local_atomic_min_max)
 
-intptr_t __ovld atomic_fetch_or(volatile atomic_intptr_t *object, uintptr_t operand);
-intptr_t __ovld atomic_fetch_or_explicit(volatile atomic_intptr_t *object, uintptr_t operand, memory_order order);
-intptr_t __ovld atomic_fetch_or_explicit(volatile atomic_intptr_t *object, uintptr_t operand, memory_order order, memory_scope scope);
-intptr_t __ovld atomic_fetch_xor(volatile atomic_intptr_t *object, uintptr_t operand);
-intptr_t __ovld atomic_fetch_xor_explicit(volatile atomic_intptr_t *object, uintptr_t operand, memory_order order);
-intptr_t __ovld atomic_fetch_xor_explicit(volatile atomic_intptr_t *object, uintptr_t operand, memory_order order, memory_scope scope);
-intptr_t __ovld atomic_fetch_and(volatile atomic_intptr_t *object, uintptr_t operand);
-intptr_t __ovld atomic_fetch_and_explicit(volatile atomic_intptr_t *object, uintptr_t operand, memory_order order);
-intptr_t __ovld atomic_fetch_and_explicit(volatile atomic_intptr_t *object, uintptr_t operand, memory_order order, memory_scope scope);
-intptr_t __ovld atomic_fetch_min(volatile atomic_intptr_t *object, uintptr_t opermax);
-intptr_t __ovld atomic_fetch_min_explicit(volatile atomic_intptr_t *object, uintptr_t opermax, memory_order minder);
-intptr_t __ovld atomic_fetch_min_explicit(volatile atomic_intptr_t *object, uintptr_t opermax, memory_order minder, memory_scope scope);
-intptr_t __ovld atomic_fetch_max(volatile atomic_intptr_t *object, uintptr_t opermax);
-intptr_t __ovld atomic_fetch_max_explicit(volatile atomic_intptr_t *object, uintptr_t opermax, memory_order minder);
-intptr_t __ovld atomic_fetch_max_explicit(volatile atomic_intptr_t *object, uintptr_t opermax, memory_order minder, memory_scope scope);
-#endif
+#if defined(__opencl_c_ext_fp64_global_atomic_min_max) &&                      \
+    defined(__opencl_c_ext_fp64_local_atomic_min_max)
+double __ovld atomic_fetch_min(volatile atomic_double *object, double operand);
+double __ovld atomic_fetch_max(volatile atomic_double *object, double operand);
+double __ovld atomic_fetch_min_explicit(volatile atomic_double *object,
+                                        double operand, memory_order order);
+double __ovld atomic_fetch_max_explicit(volatile atomic_double *object,
+                                        double operand, memory_order order);
+double __ovld atomic_fetch_min_explicit(volatile atomic_double *object,
+                                        double operand, memory_order order,
+                                        memory_scope scope);
+double __ovld atomic_fetch_max_explicit(volatile atomic_double *object,
+                                        double operand, memory_order order,
+                                        memory_scope scope);
+#endif // defined(__opencl_c_ext_fp64_global_atomic_min_max) &&                \
+    defined(__opencl_c_ext_fp64_local_atomic_min_max)
+#endif // defined(cl_khr_int64_base_atomics) &&                                \
+    defined(cl_khr_int64_extended_atomics)
+
+#if defined(__opencl_c_ext_fp16_global_atomic_add)
+half __ovld atomic_fetch_add(volatile __global atomic_half *object,
+                             half operand);
+half __ovld atomic_fetch_sub(volatile __global atomic_half *object,
+                             half operand);
+half __ovld atomic_fetch_add_explicit(volatile __global atomic_half *object,
+                                      half operand, memory_order order);
+half __ovld atomic_fetch_sub_explicit(volatile __global atomic_half *object,
+                                      half operand, memory_order order);
+half __ovld atomic_fetch_add_explicit(volatile __global atomic_half *object,
+                                      half operand, memory_order order,
+                                      memory_scope scope);
+half __ovld atomic_fetch_sub_explicit(volatile __global atomic_half *object,
+                                      half operand, memory_order order,
+                                      memory_scope scope);
+#endif // defined(__opencl_c_ext_fp16_global_atomic_add)
+
+#if defined(__opencl_c_ext_fp16_local_atomic_add)
+half __ovld atomic_fetch_add(volatile __local atomic_half *object,
+                             half operand);
+half __ovld atomic_fetch_sub(volatile __local atomic_half *object,
+                             half operand);
+half __ovld atomic_fetch_add_explicit(volatile __local atomic_half *object,
+                                      half operand, memory_order order);
+half __ovld atomic_fetch_sub_explicit(volatile __local atomic_half *object,
+                                      half operand, memory_order order);
+half __ovld atomic_fetch_add_explicit(volatile __local atomic_half *object,
+                                      half operand, memory_order order,
+                                      memory_scope scope);
+half __ovld atomic_fetch_sub_explicit(volatile __local atomic_half *object,
+                                      half operand, memory_order order,
+                                      memory_scope scope);
+#endif // defined(__opencl_c_ext_fp16_local_atomic_add)
+
+#if defined(__opencl_c_ext_fp16_global_atomic_add) &&                          \
+    defined(__opencl_c_ext_fp16_local_atomic_add)
+half __ovld atomic_fetch_add(volatile atomic_half *object, half operand);
+half __ovld atomic_fetch_sub(volatile atomic_half *object, half operand);
+half __ovld atomic_fetch_add_explicit(volatile atomic_half *object,
+                                      half operand, memory_order order);
+half __ovld atomic_fetch_sub_explicit(volatile atomic_half *object,
+                                      half operand, memory_order order);
+half __ovld atomic_fetch_add_explicit(volatile atomic_half *object,
+                                      half operand, memory_order order,
+                                      memory_scope scope);
+half __ovld atomic_fetch_sub_explicit(volatile atomic_half *object,
+                                      half operand, memory_order order,
+                                      memory_scope scope);
+#endif // defined(__opencl_c_ext_fp16_global_atomic_add) &&                    \
+    defined(__opencl_c_ext_fp16_local_atomic_add)
+
+#if defined(__opencl_c_ext_fp32_global_atomic_add)
+float __ovld atomic_fetch_add(volatile __global atomic_float *object,
+                              float operand);
+float __ovld atomic_fetch_sub(volatile __global atomic_float *object,
+                              float operand);
+float __ovld atomic_fetch_add_explicit(volatile __global atomic_float *object,
+                                       float operand, memory_order order);
+float __ovld atomic_fetch_sub_explicit(volatile __global atomic_float *object,
+                                       float operand, memory_order order);
+float __ovld atomic_fetch_add_explicit(volatile __global atomic_float *object,
+                                       float operand, memory_order order,
+                                       memory_scope scope);
+float __ovld atomic_fetch_sub_explicit(volatile __global atomic_float *object,
+                                       float operand, memory_order order,
+                                       memory_scope scope);
+#endif // defined(__opencl_c_ext_fp32_global_atomic_add)
+
+#if defined(__opencl_c_ext_fp32_local_atomic_add)
+float __ovld atomic_fetch_add(volatile __local atomic_float *object,
+                              float operand);
+float __ovld atomic_fetch_sub(volatile __local atomic_float *object,
+                              float operand);
+float __ovld atomic_fetch_add_explicit(volatile __local atomic_float *object,
+                                       float operand, memory_order order);
+float __ovld atomic_fetch_sub_explicit(volatile __local atomic_float *object,
+                                       float operand, memory_order order);
+float __ovld atomic_fetch_add_explicit(volatile __local atomic_float *object,
+                                       float operand, memory_order order,
+                                       memory_scope scope);
+float __ovld atomic_fetch_sub_explicit(volatile __local atomic_float *object,
+                                       float operand, memory_order order,
+                                       memory_scope scope);
+#endif // defined(__opencl_c_ext_fp32_local_atomic_add)
+
+#if defined(__opencl_c_ext_fp32_global_atomic_add) &&                          \
+    defined(__opencl_c_ext_fp32_local_atomic_add)
+float __ovld atomic_fetch_add(volatile atomic_float *object, float operand);
+float __ovld atomic_fetch_sub(volatile atomic_float *object, float operand);
+float __ovld atomic_fetch_add_explicit(volatile atomic_float *object,
+                                       float operand, memory_order order);
+float __ovld atomic_fetch_sub_explicit(volatile atomic_float *object,
+                                       float operand, memory_order order);
+float __ovld atomic_fetch_add_explicit(volatile atomic_float *object,
+                                       float operand, memory_order order,
+                                       memory_scope scope);
+float __ovld atomic_fetch_sub_explicit(volatile atomic_float *object,
+                                       float operand, memory_order order,
+                                       memory_scope scope);
+#endif // defined(__opencl_c_ext_fp32_global_atomic_add) &&                    \
+    defined(__opencl_c_ext_fp32_local_atomic_add)
+
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#if defined(__opencl_c_ext_fp64_global_atomic_add)
+double __ovld atomic_fetch_add(volatile __global atomic_double *object,
+                               double operand);
+double __ovld atomic_fetch_sub(volatile __global atomic_double *object,
+                               double operand);
+double __ovld atomic_fetch_add_explicit(volatile __global atomic_double *object,
+                                        double operand, memory_order order);
+double __ovld atomic_fetch_sub_explicit(volatile __global atomic_double *object,
+                                        double operand, memory_order order);
+double __ovld atomic_fetch_add_explicit(volatile __global atomic_double *object,
+                                        double operand, memory_order order,
+                                        memory_scope scope);
+double __ovld atomic_fetch_sub_explicit(volatile __global atomic_double *object,
+                                        double operand, memory_order order,
+                                        memory_scope scope);
+#endif // defined(__opencl_c_ext_fp64_global_atomic_add)
+
+#if defined(__opencl_c_ext_fp64_local_atomic_add)
+double __ovld atomic_fetch_add(volatile __local atomic_double *object,
+                               double operand);
+double __ovld atomic_fetch_sub(volatile __local atomic_double *object,
+                               double operand);
+double __ovld atomic_fetch_add_explicit(volatile __local atomic_double *object,
+                                        double operand, memory_order order);
+double __ovld atomic_fetch_sub_explicit(volatile __local atomic_double *object,
+                                        double operand, memory_order order);
+double __ovld atomic_fetch_add_explicit(volatile __local atomic_double *object,
+                                        double operand, memory_order order,
+                                        memory_scope scope);
+double __ovld atomic_fetch_sub_explicit(volatile __local atomic_double *object,
+                                        double operand, memory_order order,
+                                        memory_scope scope);
+#endif // defined(__opencl_c_ext_fp64_local_atomic_add)
+
+#if defined(__opencl_c_ext_fp64_global_atomic_add) &&                          \
+    defined(__opencl_c_ext_fp64_local_atomic_add)
+double __ovld atomic_fetch_add(volatile atomic_double *object, double operand);
+double __ovld atomic_fetch_sub(volatile atomic_double *object, double operand);
+double __ovld atomic_fetch_add_explicit(volatile atomic_double *object,
+                                        double operand, memory_order order);
+double __ovld atomic_fetch_sub_explicit(volatile atomic_double *object,
+                                        double operand, memory_order order);
+double __ovld atomic_fetch_add_explicit(volatile atomic_double *object,
+                                        double operand, memory_order order,
+                                        memory_scope scope);
+double __ovld atomic_fetch_sub_explicit(volatile atomic_double *object,
+                                        double operand, memory_order order,
+                                        memory_scope scope);
+#endif // defined(__opencl_c_ext_fp64_global_atomic_add) &&                    \
+    defined(__opencl_c_ext_fp64_local_atomic_add)
+#endif // defined(cl_khr_int64_base_atomics) &&                                \
+    defined(cl_khr_int64_extended_atomics)
+
+#endif // cl_ext_float_atomics
 
 // atomic_store()
 
+#if defined(__opencl_c_atomic_order_seq_cst) && defined(__opencl_c_atomic_scope_device)
+#if defined(__opencl_c_generic_address_space)
 void __ovld atomic_store(volatile atomic_int *object, int desired);
-void __ovld atomic_store_explicit(volatile atomic_int *object, int desired, memory_order order);
-void __ovld atomic_store_explicit(volatile atomic_int *object, int desired, memory_order order, memory_scope scope);
 void __ovld atomic_store(volatile atomic_uint *object, uint desired);
-void __ovld atomic_store_explicit(volatile atomic_uint *object, uint desired, memory_order order);
-void __ovld atomic_store_explicit(volatile atomic_uint *object, uint desired, memory_order order, memory_scope scope);
 void __ovld atomic_store(volatile atomic_float *object, float desired);
-void __ovld atomic_store_explicit(volatile atomic_float *object, float desired, memory_order order);
-void __ovld atomic_store_explicit(volatile atomic_float *object, float desired, memory_order order, memory_scope scope);
+
 #if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
 #ifdef cl_khr_fp64
 void __ovld atomic_store(volatile atomic_double *object, double desired);
-void __ovld atomic_store_explicit(volatile atomic_double *object, double desired, memory_order order);
-void __ovld atomic_store_explicit(volatile atomic_double *object, double desired, memory_order order, memory_scope scope);
 #endif //cl_khr_fp64
 void __ovld atomic_store(volatile atomic_long *object, long desired);
-void __ovld atomic_store_explicit(volatile atomic_long *object, long desired, memory_order order);
-void __ovld atomic_store_explicit(volatile atomic_long *object, long desired, memory_order order, memory_scope scope);
 void __ovld atomic_store(volatile atomic_ulong *object, ulong desired);
-void __ovld atomic_store_explicit(volatile atomic_ulong *object, ulong desired, memory_order order);
-void __ovld atomic_store_explicit(volatile atomic_ulong *object, ulong desired, memory_order order, memory_scope scope);
+#endif
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+void __ovld atomic_store(volatile __global atomic_int *object, int desired);
+void __ovld atomic_store(volatile __local atomic_int *object, int desired);
+void __ovld atomic_store(volatile __global atomic_uint *object, uint desired);
+void __ovld atomic_store(volatile __local atomic_uint *object, uint desired);
+void __ovld atomic_store(volatile __global atomic_float *object, float desired);
+void __ovld atomic_store(volatile __local atomic_float *object, float desired);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+void __ovld atomic_store(volatile __global atomic_double *object, double desired);
+void __ovld atomic_store(volatile __local atomic_double *object, double desired);
+#endif //cl_khr_fp64
+void __ovld atomic_store(volatile __global atomic_long *object, long desired);
+void __ovld atomic_store(volatile __local atomic_long *object, long desired);
+void __ovld atomic_store(volatile __global atomic_ulong *object, ulong desired);
+void __ovld atomic_store(volatile __local atomic_ulong *object, ulong desired);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
 #endif
 
-// atomic_load()
+#if defined(__opencl_c_atomic_scope_device)
+#if defined(__opencl_c_generic_address_space)
+void __ovld atomic_store_explicit(volatile atomic_int *object, int desired, memory_order order);
+void __ovld atomic_store_explicit(volatile atomic_uint *object, uint desired, memory_order order);
+void __ovld atomic_store_explicit(volatile atomic_float *object, float desired, memory_order order);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+void __ovld atomic_store_explicit(volatile atomic_double *object, double desired, memory_order order);
+#endif //cl_khr_fp64
+void __ovld atomic_store_explicit(volatile atomic_long *object, long desired, memory_order order);
+void __ovld atomic_store_explicit(volatile atomic_ulong *object, ulong desired, memory_order order);
+#endif
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+void __ovld atomic_store_explicit(volatile __global atomic_int *object, int desired, memory_order order);
+void __ovld atomic_store_explicit(volatile __local atomic_int *object, int desired, memory_order order);
+void __ovld atomic_store_explicit(volatile __global atomic_uint *object, uint desired, memory_order order);
+void __ovld atomic_store_explicit(volatile __local atomic_uint *object, uint desired, memory_order order);
+void __ovld atomic_store_explicit(volatile __global atomic_float *object, float desired, memory_order order);
+void __ovld atomic_store_explicit(volatile __local atomic_float *object, float desired, memory_order order);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+void __ovld atomic_store_explicit(volatile __global atomic_double *object, double desired, memory_order order);
+void __ovld atomic_store_explicit(volatile __local atomic_double *object, double desired, memory_order order);
+#endif
+void __ovld atomic_store_explicit(volatile __global atomic_long *object, long desired, memory_order order);
+void __ovld atomic_store_explicit(volatile __local atomic_long *object, long desired, memory_order order);
+void __ovld atomic_store_explicit(volatile __global atomic_ulong *object, ulong desired, memory_order order);
+void __ovld atomic_store_explicit(volatile __local atomic_ulong *object, ulong desired, memory_order order);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+#endif
 
+#if defined(__opencl_c_generic_address_space)
+void __ovld atomic_store_explicit(volatile atomic_int *object, int desired, memory_order order, memory_scope scope);
+void __ovld atomic_store_explicit(volatile atomic_uint *object, uint desired, memory_order order, memory_scope scope);
+void __ovld atomic_store_explicit(volatile atomic_float *object, float desired, memory_order order, memory_scope scope);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+void __ovld atomic_store_explicit(volatile atomic_double *object, double desired, memory_order order, memory_scope scope);
+#endif //cl_khr_fp64
+void __ovld atomic_store_explicit(volatile atomic_long *object, long desired, memory_order order, memory_scope scope);
+void __ovld atomic_store_explicit(volatile atomic_ulong *object, ulong desired, memory_order order, memory_scope scope);
+#endif
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+void __ovld atomic_store_explicit(volatile __global atomic_int *object, int desired, memory_order order, memory_scope scope);
+void __ovld atomic_store_explicit(volatile __local atomic_int *object, int desired, memory_order order, memory_scope scope);
+void __ovld atomic_store_explicit(volatile __global atomic_uint *object, uint desired, memory_order order, memory_scope scope);
+void __ovld atomic_store_explicit(volatile __local atomic_uint *object, uint desired, memory_order order, memory_scope scope);
+void __ovld atomic_store_explicit(volatile __global atomic_float *object, float desired, memory_order order, memory_scope scope);
+void __ovld atomic_store_explicit(volatile __local atomic_float *object, float desired, memory_order order, memory_scope scope);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+void __ovld atomic_store_explicit(volatile __global atomic_double *object, double desired, memory_order order, memory_scope scope);
+void __ovld atomic_store_explicit(volatile __local atomic_double *object, double desired, memory_order order, memory_scope scope);
+#endif //cl_khr_fp64
+void __ovld atomic_store_explicit(volatile __global atomic_long *object, long desired, memory_order order, memory_scope scope);
+void __ovld atomic_store_explicit(volatile __local atomic_long *object, long desired, memory_order order, memory_scope scope);
+void __ovld atomic_store_explicit(volatile __global atomic_ulong *object, ulong desired, memory_order order, memory_scope scope);
+void __ovld atomic_store_explicit(volatile __local atomic_ulong *object, ulong desired, memory_order order, memory_scope scope);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+
+// atomic_load()
+#if defined(__opencl_c_atomic_order_seq_cst) && defined(__opencl_c_atomic_scope_device)
+#if defined(__opencl_c_generic_address_space)
 int __ovld atomic_load(volatile atomic_int *object);
-int __ovld atomic_load_explicit(volatile atomic_int *object, memory_order order);
-int __ovld atomic_load_explicit(volatile atomic_int *object, memory_order order, memory_scope scope);
 uint __ovld atomic_load(volatile atomic_uint *object);
-uint __ovld atomic_load_explicit(volatile atomic_uint *object, memory_order order);
-uint __ovld atomic_load_explicit(volatile atomic_uint *object, memory_order order, memory_scope scope);
 float __ovld atomic_load(volatile atomic_float *object);
-float __ovld atomic_load_explicit(volatile atomic_float *object, memory_order order);
-float __ovld atomic_load_explicit(volatile atomic_float *object, memory_order order, memory_scope scope);
 #if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
 #ifdef cl_khr_fp64
 double __ovld atomic_load(volatile atomic_double *object);
-double __ovld atomic_load_explicit(volatile atomic_double *object, memory_order order);
-double __ovld atomic_load_explicit(volatile atomic_double *object, memory_order order, memory_scope scope);
 #endif //cl_khr_fp64
 long __ovld atomic_load(volatile atomic_long *object);
-long __ovld atomic_load_explicit(volatile atomic_long *object, memory_order order);
-long __ovld atomic_load_explicit(volatile atomic_long *object, memory_order order, memory_scope scope);
 ulong __ovld atomic_load(volatile atomic_ulong *object);
+#endif
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+int __ovld atomic_load(volatile __global atomic_int *object);
+int __ovld atomic_load(volatile __local atomic_int *object);
+uint __ovld atomic_load(volatile __global atomic_uint *object);
+uint __ovld atomic_load(volatile __local atomic_uint *object);
+float __ovld atomic_load(volatile __global atomic_float *object);
+float __ovld atomic_load(volatile __local atomic_float *object);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+double __ovld atomic_load(volatile __global atomic_double *object);
+double __ovld atomic_load(volatile __local atomic_double *object);
+#endif //cl_khr_fp64
+long __ovld atomic_load(volatile __global atomic_long *object);
+long __ovld atomic_load(volatile __local atomic_long *object);
+ulong __ovld atomic_load(volatile __global atomic_ulong *object);
+ulong __ovld atomic_load(volatile __local atomic_ulong *object);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+#endif
+
+#if defined(__opencl_c_atomic_scope_device)
+#if defined(__opencl_c_generic_address_space)
+int __ovld atomic_load_explicit(volatile atomic_int *object, memory_order order);
+uint __ovld atomic_load_explicit(volatile atomic_uint *object, memory_order order);
+float __ovld atomic_load_explicit(volatile atomic_float *object, memory_order order);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+double __ovld atomic_load_explicit(volatile atomic_double *object, memory_order order);
+#endif //cl_khr_fp64
+long __ovld atomic_load_explicit(volatile atomic_long *object, memory_order order);
 ulong __ovld atomic_load_explicit(volatile atomic_ulong *object, memory_order order);
+#endif
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+int __ovld atomic_load_explicit(volatile __global atomic_int *object, memory_order order);
+int __ovld atomic_load_explicit(volatile __local atomic_int *object, memory_order order);
+uint __ovld atomic_load_explicit(volatile __global atomic_uint *object, memory_order order);
+uint __ovld atomic_load_explicit(volatile __local atomic_uint *object, memory_order order);
+float __ovld atomic_load_explicit(volatile __global atomic_float *object, memory_order order);
+float __ovld atomic_load_explicit(volatile __local atomic_float *object, memory_order order);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+double __ovld atomic_load_explicit(volatile __global atomic_double *object, memory_order order);
+double __ovld atomic_load_explicit(volatile __local atomic_double *object, memory_order order);
+#endif //cl_khr_fp64
+long __ovld atomic_load_explicit(volatile __global atomic_long *object, memory_order order);
+long __ovld atomic_load_explicit(volatile __local atomic_long *object, memory_order order);
+ulong __ovld atomic_load_explicit(volatile __global atomic_ulong *object, memory_order order);
+ulong __ovld atomic_load_explicit(volatile __local atomic_ulong *object, memory_order order);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+#endif
+
+#if defined(__opencl_c_generic_address_space)
+int __ovld atomic_load_explicit(volatile atomic_int *object, memory_order order, memory_scope scope);
+uint __ovld atomic_load_explicit(volatile atomic_uint *object, memory_order order, memory_scope scope);
+float __ovld atomic_load_explicit(volatile atomic_float *object, memory_order order, memory_scope scope);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+double __ovld atomic_load_explicit(volatile atomic_double *object, memory_order order, memory_scope scope);
+#endif //cl_khr_fp64
+long __ovld atomic_load_explicit(volatile atomic_long *object, memory_order order, memory_scope scope);
 ulong __ovld atomic_load_explicit(volatile atomic_ulong *object, memory_order order, memory_scope scope);
 #endif
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+int __ovld atomic_load_explicit(volatile __global atomic_int *object, memory_order order, memory_scope scope);
+int __ovld atomic_load_explicit(volatile __local atomic_int *object, memory_order order, memory_scope scope);
+uint __ovld atomic_load_explicit(volatile __global atomic_uint *object, memory_order order, memory_scope scope);
+uint __ovld atomic_load_explicit(volatile __local atomic_uint *object, memory_order order, memory_scope scope);
+float __ovld atomic_load_explicit(volatile __global atomic_float *object, memory_order order, memory_scope scope);
+float __ovld atomic_load_explicit(volatile __local atomic_float *object, memory_order order, memory_scope scope);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+double __ovld atomic_load_explicit(volatile __global atomic_double *object, memory_order order, memory_scope scope);
+double __ovld atomic_load_explicit(volatile __local atomic_double *object, memory_order order, memory_scope scope);
+#endif
+long __ovld atomic_load_explicit(volatile __global atomic_long *object, memory_order order, memory_scope scope);
+long __ovld atomic_load_explicit(volatile __local atomic_long *object, memory_order order, memory_scope scope);
+ulong __ovld atomic_load_explicit(volatile __global atomic_ulong *object, memory_order order, memory_scope scope);
+ulong __ovld atomic_load_explicit(volatile __local atomic_ulong *object, memory_order order, memory_scope scope);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
 
 // atomic_exchange()
 
+#if defined(__opencl_c_atomic_order_seq_cst) && defined(__opencl_c_atomic_scope_device)
+#if defined(__opencl_c_generic_address_space)
 int __ovld atomic_exchange(volatile atomic_int *object, int desired);
-int __ovld atomic_exchange_explicit(volatile atomic_int *object, int desired, memory_order order);
-int __ovld atomic_exchange_explicit(volatile atomic_int *object, int desired, memory_order order, memory_scope scope);
 uint __ovld atomic_exchange(volatile atomic_uint *object, uint desired);
-uint __ovld atomic_exchange_explicit(volatile atomic_uint *object, uint desired, memory_order order);
-uint __ovld atomic_exchange_explicit(volatile atomic_uint *object, uint desired, memory_order order, memory_scope scope);
 float __ovld atomic_exchange(volatile atomic_float *object, float desired);
-float __ovld atomic_exchange_explicit(volatile atomic_float *object, float desired, memory_order order);
-float __ovld atomic_exchange_explicit(volatile atomic_float *object, float desired, memory_order order, memory_scope scope);
 #if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
 #ifdef cl_khr_fp64
 double __ovld atomic_exchange(volatile atomic_double *object, double desired);
-double __ovld atomic_exchange_explicit(volatile atomic_double *object, double desired, memory_order order);
-double __ovld atomic_exchange_explicit(volatile atomic_double *object, double desired, memory_order order, memory_scope scope);
 #endif //cl_khr_fp64
 long __ovld atomic_exchange(volatile atomic_long *object, long desired);
-long __ovld atomic_exchange_explicit(volatile atomic_long *object, long desired, memory_order order);
-long __ovld atomic_exchange_explicit(volatile atomic_long *object, long desired, memory_order order, memory_scope scope);
 ulong __ovld atomic_exchange(volatile atomic_ulong *object, ulong desired);
-ulong __ovld atomic_exchange_explicit(volatile atomic_ulong *object, ulong desired, memory_order order);
-ulong __ovld atomic_exchange_explicit(volatile atomic_ulong *object, ulong desired, memory_order order, memory_scope scope);
+#endif
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+int __ovld atomic_exchange(volatile __global atomic_int *object, int desired);
+int __ovld atomic_exchange(volatile __local atomic_int *object, int desired);
+uint __ovld atomic_exchange(volatile __global atomic_uint *object, uint desired);
+uint __ovld atomic_exchange(volatile __local atomic_uint *object, uint desired);
+float __ovld atomic_exchange(volatile __global atomic_float *object, float desired);
+float __ovld atomic_exchange(volatile __local atomic_float *object, float desired);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+double __ovld atomic_exchange(volatile __global atomic_double *object, double desired);
+double __ovld atomic_exchange(volatile __local atomic_double *object, double desired);
+#endif //cl_khr_fp64
+long __ovld atomic_exchange(volatile __global atomic_long *object, long desired);
+long __ovld atomic_exchange(volatile __local atomic_long *object, long desired);
+ulong __ovld atomic_exchange(volatile __global atomic_ulong *object, ulong desired);
+ulong __ovld atomic_exchange(volatile __local atomic_ulong *object, ulong desired);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
 #endif
 
-// atomic_compare_exchange_strong() and atomic_compare_exchange_weak()
+#if defined(__opencl_c_atomic_scope_device)
+#if defined(__opencl_c_generic_address_space)
+int __ovld atomic_exchange_explicit(volatile atomic_int *object, int desired, memory_order order);
+uint __ovld atomic_exchange_explicit(volatile atomic_uint *object, uint desired, memory_order order);
+float __ovld atomic_exchange_explicit(volatile atomic_float *object, float desired, memory_order order);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+double __ovld atomic_exchange_explicit(volatile atomic_double *object, double desired, memory_order order);
+#endif //cl_khr_fp64
+long __ovld atomic_exchange_explicit(volatile atomic_long *object, long desired, memory_order order);
+ulong __ovld atomic_exchange_explicit(volatile atomic_ulong *object, ulong desired, memory_order order);
+#endif
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+int __ovld atomic_exchange_explicit(volatile __global atomic_int *object, int desired, memory_order order);
+int __ovld atomic_exchange_explicit(volatile __local atomic_int *object, int desired, memory_order order);
+uint __ovld atomic_exchange_explicit(volatile __global atomic_uint *object, uint desired, memory_order order);
+uint __ovld atomic_exchange_explicit(volatile __local atomic_uint *object, uint desired, memory_order order);
+float __ovld atomic_exchange_explicit(volatile __global atomic_float *object, float desired, memory_order order);
+float __ovld atomic_exchange_explicit(volatile __local atomic_float *object, float desired, memory_order order);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+double __ovld atomic_exchange_explicit(volatile __global atomic_double *object, double desired, memory_order order);
+double __ovld atomic_exchange_explicit(volatile __local atomic_double *object, double desired, memory_order order);
+#endif //cl_khr_fp64
+long __ovld atomic_exchange_explicit(volatile __global atomic_long *object, long desired, memory_order order);
+long __ovld atomic_exchange_explicit(volatile __local atomic_long *object, long desired, memory_order order);
+ulong __ovld atomic_exchange_explicit(volatile __global atomic_ulong *object, ulong desired, memory_order order);
+ulong __ovld atomic_exchange_explicit(volatile __local atomic_ulong *object, ulong desired, memory_order order);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)wi
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+#endif
 
+#if defined(__opencl_c_generic_address_space)
+int __ovld atomic_exchange_explicit(volatile atomic_int *object, int desired, memory_order order, memory_scope scope);
+uint __ovld atomic_exchange_explicit(volatile atomic_uint *object, uint desired, memory_order order, memory_scope scope);
+float __ovld atomic_exchange_explicit(volatile atomic_float *object, float desired, memory_order order, memory_scope scope);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+double __ovld atomic_exchange_explicit(volatile atomic_double *object, double desired, memory_order order, memory_scope scope);
+#endif //cl_khr_fp64
+long __ovld atomic_exchange_explicit(volatile atomic_long *object, long desired, memory_order order, memory_scope scope);
+ulong __ovld atomic_exchange_explicit(volatile atomic_ulong *object, ulong desired, memory_order order, memory_scope scope);
+#endif
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+int __ovld atomic_exchange_explicit(volatile __global atomic_int *object, int desired, memory_order order, memory_scope scope);
+int __ovld atomic_exchange_explicit(volatile __local atomic_int *object, int desired, memory_order order, memory_scope scope);
+uint __ovld atomic_exchange_explicit(volatile __global atomic_uint *object, uint desired, memory_order order, memory_scope scope);
+uint __ovld atomic_exchange_explicit(volatile __local atomic_uint *object, uint desired, memory_order order, memory_scope scope);
+float __ovld atomic_exchange_explicit(volatile __global atomic_float *object, float desired, memory_order order, memory_scope scope);
+float __ovld atomic_exchange_explicit(volatile __local atomic_float *object, float desired, memory_order order, memory_scope scope);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+double __ovld atomic_exchange_explicit(volatile __global atomic_double *object, double desired, memory_order order, memory_scope scope);
+double __ovld atomic_exchange_explicit(volatile __local atomic_double *object, double desired, memory_order order, memory_scope scope);
+#endif //cl_khr_fp64
+long __ovld atomic_exchange_explicit(volatile __global atomic_long *object, long desired, memory_order order, memory_scope scope);
+long __ovld atomic_exchange_explicit(volatile __local atomic_long *object, long desired, memory_order order, memory_scope scope);
+ulong __ovld atomic_exchange_explicit(volatile __global atomic_ulong *object, ulong desired, memory_order order, memory_scope scope);
+ulong __ovld atomic_exchange_explicit(volatile __local atomic_ulong *object, ulong desired, memory_order order, memory_scope scope);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+
+// atomic_compare_exchange_strong() and atomic_compare_exchange_weak()
+#if defined(__opencl_c_atomic_order_seq_cst) && defined(__opencl_c_atomic_scope_device)
+#if defined(__opencl_c_generic_address_space)
 bool __ovld atomic_compare_exchange_strong(volatile atomic_int *object, int *expected, int desired);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_int *object, int *expected,
-                                                                                 int desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_int *object, int *expected,
-                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
 bool __ovld atomic_compare_exchange_strong(volatile atomic_uint *object, uint *expected, uint desired);
+bool __ovld atomic_compare_exchange_weak(volatile atomic_int *object, int *expected, int desired);
+bool __ovld atomic_compare_exchange_weak(volatile atomic_uint *object, uint *expected, uint desired);
+bool __ovld atomic_compare_exchange_strong(volatile atomic_float *object, float *expected, float desired);
+bool __ovld atomic_compare_exchange_weak(volatile atomic_float *object, float *expected, float desired);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+bool __ovld atomic_compare_exchange_strong(volatile atomic_double *object, double *expected, double desired);
+bool __ovld atomic_compare_exchange_weak(volatile atomic_double *object, double *expected, double desired);
+#endif //cl_khr_fp64
+bool __ovld atomic_compare_exchange_strong(volatile atomic_long *object, long *expected, long desired);
+bool __ovld atomic_compare_exchange_weak(volatile atomic_long *object, long *expected, long desired);
+bool __ovld atomic_compare_exchange_strong(volatile atomic_ulong *object, ulong *expected, ulong desired);
+bool __ovld atomic_compare_exchange_weak(volatile atomic_ulong *object, ulong *expected, ulong desired);
+#endif
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_int *object, __global int *expected, int desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_int *object, __local int *expected, int desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_int *object, __private int *expected, int desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_int *object, __global int *expected, int desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_int *object, __local int *expected, int desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_int *object, __private int *expected, int desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_uint *object, __global uint *expected, uint desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_uint *object, __local uint *expected, uint desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_uint *object, __private uint *expected, uint desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_uint *object, __global uint *expected, uint desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_uint *object, __local uint *expected, uint desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_uint *object, __private uint *expected, uint desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_float *object, __global float *expected, float desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_float *object, __local float *expected, float desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_float *object, __private float *expected, float desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_float *object, __global float *expected, float desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_float *object, __local float *expected, float desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_float *object, __private float *expected, float desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_int *object, __global int *expected, int desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_int *object, __local int *expected, int desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_int *object, __private int *expected, int desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_int *object, __global int *expected, int desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_int *object, __local int *expected, int desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_int *object, __private int *expected, int desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_uint *object, __global uint *expected, uint desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_uint *object, __local uint *expected, uint desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_uint *object, __private uint *expected, uint desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_uint *object, __global uint *expected, uint desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_uint *object, __local uint *expected, uint desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_uint *object, __private uint *expected, uint desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_float *object, __global float *expected, float desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_float *object, __local float *expected, float desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_float *object, __private float *expected, float desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_float *object, __global float *expected, float desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_float *object, __local float *expected, float desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_float *object, __private float *expected, float desired);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_double *object, __global double *expected, double desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_double *object, __local double *expected, double desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_double *object, __private double *expected, double desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_double *object, __global double *expected, double desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_double *object, __local double *expected, double desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_double *object, __private double *expected, double desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_double *object, __global double *expected, double desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_double *object, __local double *expected, double desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_double *object, __private double *expected, double desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_double *object, __global double *expected, double desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_double *object, __local double *expected, double desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_double *object, __private double *expected, double desired);
+#endif //cl_khr_fp64
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_long *object, __global long *expected, long desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_long *object, __local long *expected, long desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_long *object, __private long *expected, long desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_long *object, __global long *expected, long desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_long *object, __local long *expected, long desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_long *object, __private long *expected, long desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_ulong *object, __global ulong *expected, ulong desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_ulong *object, __local ulong *expected, ulong desired);
+bool __ovld atomic_compare_exchange_strong(volatile __global atomic_ulong *object, __private ulong *expected, ulong desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_ulong *object, __global ulong *expected, ulong desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_ulong *object, __local ulong *expected, ulong desired);
+bool __ovld atomic_compare_exchange_strong(volatile __local atomic_ulong *object, __private ulong *expected, ulong desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_long *object, __global long *expected, long desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_long *object, __local long *expected, long desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_long *object, __private long *expected, long desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_long *object, __global long *expected, long desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_long *object, __local long *expected, long desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_long *object, __private long *expected, long desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_ulong *object, __global ulong *expected, ulong desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_ulong *object, __local ulong *expected, ulong desired);
+bool __ovld atomic_compare_exchange_weak(volatile __global atomic_ulong *object, __private ulong *expected, ulong desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_ulong *object, __global ulong *expected, ulong desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_ulong *object, __local ulong *expected, ulong desired);
+bool __ovld atomic_compare_exchange_weak(volatile __local atomic_ulong *object, __private ulong *expected, ulong desired);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+#endif
+
+#if defined(__opencl_c_generic_address_space)
+bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_int *object, int *expected,
+                                                                                 int desired, memory_order success, memory_order failure);
 bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_uint *object, uint *expected,
                                                                                  uint desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_uint *object, uint *expected,
-                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_weak(volatile atomic_int *object, int *expected, int desired);
 bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_int *object, int *expected,
                                                                                  int desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_int *object, int *expected,
-                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_weak(volatile atomic_uint *object, uint *expected, uint desired);
 bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_uint *object, uint *expected,
                                                                                  uint desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_uint *object, uint *expected,
-                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_strong(volatile atomic_float *object, float *expected, float desired);
 bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_float *object, float *expected,
                                                                                  float desired, memory_order success, memory_order failure);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_float *object, float *expected,
-                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_weak(volatile atomic_float *object, float *expected, float desired);
 bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_float *object, float *expected,
                                                                                  float desired, memory_order success, memory_order failure);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_double *object, double *expected,
+                                                                                 double desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_double *object, double *expected,
+                                                                                 double desired, memory_order success, memory_order failure);
+#endif //cl_khr_fp64
+bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_long *object, long *expected,
+                                                                                 long desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_long *object, long *expected,
+                                                                                 long desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_ulong *object, ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_ulong *object, ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure);
+#endif
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, __global int *expected,
+                                                                                 int desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, __local int *expected,
+                                                                                 int desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, __private int *expected,
+                                                                                 int desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_int *object, __global int *expected,
+                                                                                 int desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_int *object, __local int *expected,
+                                                                                 int desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_int *object, __private int *expected,
+                                                                                 int desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, __global uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, __local uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, __private uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_uint *object, __global uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_uint *object, __local uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_uint *object, __private uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_float *object, __global float *expected,
+                                                                                 float desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_float *object, __local float *expected,
+                                                                                 float desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_float *object, __private float *expected,
+                                                                                 float desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_float *object, __global float *expected,
+                                                                                 float desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_float *object, __local float *expected,
+                                                                                 float desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_float *object, __private float *expected,
+                                                                                 float desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_int *object, __global int *expected,
+                                                                                 int desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_int *object, __local int *expected,
+                                                                                 int desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_int *object, __private int *expected,
+                                                                                 int desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_int *object, __global int *expected,
+                                                                                 int desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_int *object, __local int *expected,
+                                                                                 int desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_int *object, __private int *expected,
+                                                                                 int desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_uint *object, __global uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_uint *object, __local uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_uint *object, __private uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_uint *object, __global uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_uint *object, __local uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_uint *object, __private uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_float *object, __global float *expected,
+                                                                                 float desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_float *object, __local float *expected,
+                                                                                 float desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_float *object, __private float *expected,
+                                                                                 float desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_float *object, __global float *expected,
+                                                                                 float desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_float *object, __local float *expected,
+                                                                                 float desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_float *object, __private float *expected,
+                                                                                 float desired, memory_order success, memory_order failure);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_double *object, __global double *expected,
+                                                                                 double desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_double *object, __local double *expected,
+                                                                                 double desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_double *object, __private double *expected,
+                                                                                 double desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_double *object, __global double *expected,
+                                                                                 double desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_double *object, __local double *expected,
+                                                                                 double desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_double *object, __private double *expected,
+                                                                                 double desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_double *object, __global double *expected,
+                                                                                 double desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_double *object, __local double *expected,
+                                                                                 double desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_double *object, __private double *expected,
+                                                                                 double desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_double *object, __global double *expected,
+                                                                                 double desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_double *object, __local double *expected,
+                                                                                 double desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_double *object, __private double *expected,
+                                                                                 double desired, memory_order success, memory_order failure);
+#endif //cl_khr_fp64
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_long *object, __global long *expected,
+                                                                                 long desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_long *object, __local long *expected,
+                                                                                 long desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_long *object, __private long *expected,
+                                                                                 long desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_long *object, __global long *expected,
+                                                                                 long desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_long *object, __local long *expected,
+                                                                                 long desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_long *object, __private long *expected,
+                                                                                 long desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_ulong *object, __global ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_ulong *object, __local ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_ulong *object, __private ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_ulong *object, __global ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_ulong *object, __local ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_ulong *object, __private ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_long *object, __global long *expected,
+                                                                                 long desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_long *object, __local long *expected,
+                                                                                 long desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_long *object, __private long *expected,
+                                                                                 long desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_long *object, __global long *expected,
+                                                                                 long desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_long *object, __local long *expected,
+                                                                                 long desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_long *object, __private long *expected,
+                                                                                 long desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_ulong *object, __global ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_ulong *object, __local ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_ulong *object, __private ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_ulong *object, __global ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_ulong *object, __local ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_ulong *object, __private ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+
+#if defined(__opencl_c_generic_address_space)
+bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_int *object, int *expected,
+                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_uint *object, uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_int *object, int *expected,
+                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_uint *object, uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_float *object, float *expected,
+                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
 bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_float *object, float *expected,
                                                                                  float desired, memory_order success, memory_order failure, memory_scope scope);
 #if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
 #ifdef cl_khr_fp64
-bool __ovld atomic_compare_exchange_strong(volatile atomic_double *object, double *expected, double desired);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_double *object, double *expected,
-                                                                                 double desired, memory_order success, memory_order failure);
 bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_double *object, double *expected,
                                                                                  double desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_weak(volatile atomic_double *object, double *expected, double desired);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_double *object, double *expected,
-                                                                                 double desired, memory_order success, memory_order failure);
 bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_double *object, double *expected,
                                                                                  double desired, memory_order success, memory_order failure, memory_scope scope);
 #endif //cl_khr_fp64
-bool __ovld atomic_compare_exchange_strong(volatile atomic_long *object, long *expected, long desired);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_long *object, long *expected,
-                                                                                 long desired, memory_order success, memory_order failure);
 bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_long *object, long *expected,
                                                                                  long desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_weak(volatile atomic_long *object, long *expected, long desired);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_long *object, long *expected,
-                                                                                 long desired, memory_order success, memory_order failure);
 bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_long *object, long *expected,
                                                                                  long desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_strong(volatile atomic_ulong *object, ulong *expected, ulong desired);
-bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_ulong *object, ulong *expected,
-                                                                                 ulong desired, memory_order success, memory_order failure);
 bool __ovld atomic_compare_exchange_strong_explicit(volatile atomic_ulong *object, ulong *expected,
                                                                                  ulong desired, memory_order success, memory_order failure, memory_scope scope);
-bool __ovld atomic_compare_exchange_weak(volatile atomic_ulong *object, ulong *expected, ulong desired);
-bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_ulong *object, ulong *expected,
-                                                                                 ulong desired, memory_order success, memory_order failure);
 bool __ovld atomic_compare_exchange_weak_explicit(volatile atomic_ulong *object, ulong *expected,
                                                                                  ulong desired, memory_order success, memory_order failure, memory_scope scope);
 #endif
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, __global int *expected,
+                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, __local int *expected,
+                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_int *object, __private int *expected,
+                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_int *object, __global int *expected,
+                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_int *object, __local int *expected,
+                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_int *object, __private int *expected,
+                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, __global uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, __local uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_uint *object, __private uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_uint *object, __global uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_uint *object, __local uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_uint *object, __private uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_float *object, __global float *expected,
+                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_float *object, __local float *expected,
+                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_float *object, __private float *expected,
+                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_float *object, __global float *expected,
+                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_float *object, __local float *expected,
+                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_float *object, __private float *expected,
+                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_int *object, __global int *expected,
+                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_int *object, __local int *expected,
+                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_int *object, __private int *expected,
+                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_int *object, __global int *expected,
+                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_int *object, __local int *expected,
+                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_int *object, __private int *expected,
+                                                                                 int desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_uint *object, __global uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_uint *object, __local uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_uint *object, __private uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_uint *object, __global uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_uint *object, __local uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_uint *object, __private uint *expected,
+                                                                                 uint desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_float *object, __global float *expected,
+                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_float *object, __local float *expected,
+                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_float *object, __private float *expected,
+                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_float *object, __global float *expected,
+                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_float *object, __local float *expected,
+                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_float *object, __private float *expected,
+                                                                                 float desired, memory_order success, memory_order failure, memory_scope scope);
+#if defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#ifdef cl_khr_fp64
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_double *object, __global double *expected,
+                                                                                 double desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_double *object, __local double *expected,
+                                                                                 double desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_double *object, __private double *expected,
+                                                                                 double desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_double *object, __global double *expected,
+                                                                                 double desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_double *object, __local double *expected,
+                                                                                 double desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_double *object, __private double *expected,
+                                                                                 double desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_double *object, __global double *expected,
+                                                                                 double desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_double *object, __local double *expected,
+                                                                                 double desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_double *object, __private double *expected,
+                                                                                 double desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_double *object, __global double *expected,
+                                                                                 double desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_double *object, __local double *expected,
+                                                                                 double desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_double *object, __private double *expected,
+                                                                                 double desired, memory_order success, memory_order failure, memory_scope scope);
+#endif //cl_khr_fp64
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_long *object, __global long *expected,
+                                                                                 long desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_long *object, __local long *expected,
+                                                                                 long desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_long *object, __private long *expected,
+                                                                                 long desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_long *object, __global long *expected,
+                                                                                 long desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_long *object, __local long *expected,
+                                                                                 long desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_long *object, __private long *expected,
+                                                                                 long desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_ulong *object, __global ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_ulong *object, __local ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __global atomic_ulong *object, __private ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_ulong *object, __global ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_ulong *object, __local ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_strong_explicit(volatile __local atomic_ulong *object, __private ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_long *object, __global long *expected,
+                                                                                 long desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_long *object, __local long *expected,
+                                                                                 long desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_long *object, __private long *expected,
+                                                                                 long desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_long *object, __global long *expected,
+                                                                                 long desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_long *object, __local long *expected,
+                                                                                 long desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_long *object, __private long *expected,
+                                                                                 long desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_ulong *object, __global ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_ulong *object, __local ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __global atomic_ulong *object, __private ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_ulong *object, __global ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_ulong *object, __local ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure, memory_scope scope);
+bool __ovld atomic_compare_exchange_weak_explicit(volatile __local atomic_ulong *object, __private ulong *expected,
+                                                                                 ulong desired, memory_order success, memory_order failure, memory_scope scope);
+#endif //defined(cl_khr_int64_base_atomics) && defined(cl_khr_int64_extended_atomics)
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
 
 // atomic_flag_test_and_set() and atomic_flag_clear()
-
+#if defined(__opencl_c_atomic_order_seq_cst) && defined(__opencl_c_atomic_scope_device)
+#if defined(__opencl_c_generic_address_space)
 bool __ovld atomic_flag_test_and_set(volatile atomic_flag *object);
-bool __ovld atomic_flag_test_and_set_explicit(volatile atomic_flag *object, memory_order order);
-bool __ovld atomic_flag_test_and_set_explicit(volatile atomic_flag *object, memory_order order, memory_scope scope);
 void __ovld atomic_flag_clear(volatile atomic_flag *object);
-void __ovld atomic_flag_clear_explicit(volatile atomic_flag *object, memory_order order);
-void __ovld atomic_flag_clear_explicit(volatile atomic_flag *object, memory_order order, memory_scope scope);
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+bool __ovld atomic_flag_test_and_set(volatile __global atomic_flag *object);
+bool __ovld atomic_flag_test_and_set(volatile __local atomic_flag *object);
+void __ovld atomic_flag_clear(volatile __global atomic_flag *object);
+void __ovld atomic_flag_clear(volatile __local atomic_flag *object);
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+#endif
 
+#if defined(__opencl_c_atomic_scope_device)
+#if defined(__opencl_c_generic_address_space)
+bool __ovld atomic_flag_test_and_set_explicit(volatile atomic_flag *object, memory_order order);
+void __ovld atomic_flag_clear_explicit(volatile atomic_flag *object, memory_order order);
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+bool __ovld atomic_flag_test_and_set_explicit(volatile __global atomic_flag *object, memory_order order);
+bool __ovld atomic_flag_test_and_set_explicit(volatile __local atomic_flag *object, memory_order order);
+void __ovld atomic_flag_clear_explicit(volatile __global atomic_flag *object, memory_order order);
+void __ovld atomic_flag_clear_explicit(volatile __local atomic_flag *object, memory_order order);
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+#endif
+
+#if defined(__opencl_c_generic_address_space)
+bool __ovld atomic_flag_test_and_set_explicit(volatile atomic_flag *object, memory_order order, memory_scope scope);
+void __ovld atomic_flag_clear_explicit(volatile atomic_flag *object, memory_order order, memory_scope scope);
+#endif //defined(__opencl_c_generic_address_space)
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
+bool __ovld atomic_flag_test_and_set_explicit(volatile __global atomic_flag *object, memory_order order, memory_scope scope);
+bool __ovld atomic_flag_test_and_set_explicit(volatile __local atomic_flag *object, memory_order order, memory_scope scope);
+void __ovld atomic_flag_clear_explicit(volatile __global atomic_flag *object, memory_order order, memory_scope scope);
+void __ovld atomic_flag_clear_explicit(volatile __local atomic_flag *object, memory_order order, memory_scope scope);
+#endif // (__OPENCL_C_VERSION__ >= CL_VERSION_3_0 || __OPENCL_CPP_VERSION__ >= 202100)
 #endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 
 // OpenCL v1.1 s6.11.12, v1.2 s6.12.12, v2.0 s6.13.12 - Miscellaneous Vector Functions
@@ -14176,12 +15334,6 @@ half16 __ovld __cnfn shuffle2(half8 x, half8 y, ushort16 mask);
 half16 __ovld __cnfn shuffle2(half16 x, half16 y, ushort16 mask);
 #endif //cl_khr_fp16
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)
-// OpenCL v1.2 s6.12.13, v2.0 s6.13.13 - printf
-
-int printf(__constant const char* st, ...) __attribute__((format(printf, 1, 2)));
-#endif
-
 // OpenCL v1.1 s6.11.3, v1.2 s6.12.14, v2.0 s6.13.14 - Image Read and Write Functions
 
 #ifdef cl_khr_gl_msaa_sharing
@@ -14465,7 +15617,7 @@ half4 __purefn __ovld read_imageh(read_only image1d_buffer_t image, int coord);
 #endif //cl_khr_fp16
 
 // Image read functions for read_write images
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 float4 __purefn __ovld read_imagef(read_write image1d_t image, int coord);
 int4 __purefn __ovld read_imagei(read_write image1d_t image, int coord);
 uint4 __purefn __ovld read_imageui(read_write image1d_t image, int coord);
@@ -14508,7 +15660,6 @@ float __purefn __ovld read_imagef(read_write image2d_msaa_depth_t image, int2 co
 float __purefn __ovld read_imagef(read_write image2d_array_msaa_depth_t image, int4 coord, int sample);
 #endif //cl_khr_gl_msaa_sharing
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 #ifdef cl_khr_mipmap_image
 float4 __purefn __ovld read_imagef(read_write image1d_t image, sampler_t sampler, float coord, float lod);
 int4 __purefn __ovld read_imagei(read_write image1d_t image, sampler_t sampler, float coord, float lod);
@@ -14559,7 +15710,6 @@ int4 __purefn __ovld read_imagei(read_write image3d_t image, sampler_t sampler, 
 uint4 __purefn __ovld read_imageui(read_write image3d_t image, sampler_t sampler, float4 coord, float4 gradientX, float4 gradientY);
 
 #endif //cl_khr_mipmap_image
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 
 // Image read functions returning half4 type
 #ifdef cl_khr_fp16
@@ -14570,7 +15720,7 @@ half4 __purefn __ovld read_imageh(read_write image1d_array_t image, int2 coord);
 half4 __purefn __ovld read_imageh(read_write image2d_array_t image, int4 coord);
 half4 __purefn __ovld read_imageh(read_write image1d_buffer_t image, int coord);
 #endif //cl_khr_fp16
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_read_write_images)
 
 /**
  * Write color value to location specified by coordinate
@@ -14714,7 +15864,7 @@ void __ovld write_imageh(write_only image1d_buffer_t image, int coord, half4 col
 #endif //cl_khr_fp16
 
 // Image write functions for read_write images
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 void __ovld write_imagef(read_write image2d_t image, int2 coord, float4 color);
 void __ovld write_imagei(read_write image2d_t image, int2 coord, int4 color);
 void __ovld write_imageui(read_write image2d_t image, int2 coord, uint4 color);
@@ -14746,7 +15896,6 @@ void __ovld write_imagef(read_write image2d_depth_t image, int2 coord, float col
 void __ovld write_imagef(read_write image2d_array_depth_t image, int4 coord, float color);
 #endif //cl_khr_depth_images
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 #if defined(cl_khr_mipmap_image_writes)
 void __ovld write_imagef(read_write image1d_t image, int coord, int lod, float4 color);
 void __ovld write_imagei(read_write image1d_t image, int coord, int lod, int4 color);
@@ -14774,7 +15923,6 @@ void __ovld write_imageui(read_write image3d_t image, int4 coord, int lod, uint4
 #endif //cl_khr_3d_image_writes
 
 #endif //cl_khr_mipmap_image_writes
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 
 // Image write functions for half4 type
 #ifdef cl_khr_fp16
@@ -14787,7 +15935,7 @@ void __ovld write_imageh(read_write image1d_array_t image, int2 coord, half4 col
 void __ovld write_imageh(read_write image2d_array_t image, int4 coord, half4 color);
 void __ovld write_imageh(read_write image1d_buffer_t image, int coord, half4 color);
 #endif //cl_khr_fp16
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_read_write_images)
 
 // Note: In OpenCL v1.0/1.1/1.2, image argument of image query builtin functions does not have
 // access qualifier, which by default assume read_only access qualifier. Image query builtin
@@ -14835,7 +15983,7 @@ int __ovld __cnfn get_image_width(write_only image2d_array_msaa_t image);
 int __ovld __cnfn get_image_width(write_only image2d_array_msaa_depth_t image);
 #endif //cl_khr_gl_msaa_sharing
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 int __ovld __cnfn get_image_width(read_write image1d_t image);
 int __ovld __cnfn get_image_width(read_write image1d_buffer_t image);
 int __ovld __cnfn get_image_width(read_write image2d_t image);
@@ -14852,7 +16000,7 @@ int __ovld __cnfn get_image_width(read_write image2d_msaa_depth_t image);
 int __ovld __cnfn get_image_width(read_write image2d_array_msaa_t image);
 int __ovld __cnfn get_image_width(read_write image2d_array_msaa_depth_t image);
 #endif //cl_khr_gl_msaa_sharing
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_read_write_images)
 
 /**
  * Return the image height in pixels.
@@ -14887,7 +16035,7 @@ int __ovld __cnfn get_image_height(write_only image2d_array_msaa_t image);
 int __ovld __cnfn get_image_height(write_only image2d_array_msaa_depth_t image);
 #endif //cl_khr_gl_msaa_sharing
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 int __ovld __cnfn get_image_height(read_write image2d_t image);
 int __ovld __cnfn get_image_height(read_write image3d_t image);
 int __ovld __cnfn get_image_height(read_write image2d_array_t image);
@@ -14901,7 +16049,7 @@ int __ovld __cnfn get_image_height(read_write image2d_msaa_depth_t image);
 int __ovld __cnfn get_image_height(read_write image2d_array_msaa_t image);
 int __ovld __cnfn get_image_height(read_write image2d_array_msaa_depth_t image);
 #endif //cl_khr_gl_msaa_sharing
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_read_write_images)
 
 /**
  * Return the image depth in pixels.
@@ -14912,9 +16060,9 @@ int __ovld __cnfn get_image_depth(read_only image3d_t image);
 int __ovld __cnfn get_image_depth(write_only image3d_t image);
 #endif
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 int __ovld __cnfn get_image_depth(read_write image3d_t image);
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_read_write_images)
 
 // OpenCL Extension v2.0 s9.18 - Mipmaps
 #if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
@@ -14933,9 +16081,11 @@ int __ovld get_image_num_mip_levels(write_only image2d_t image);
 int __ovld get_image_num_mip_levels(write_only image3d_t image);
 #endif
 
+#if defined(__opencl_c_read_write_images)
 int __ovld get_image_num_mip_levels(read_write image1d_t image);
 int __ovld get_image_num_mip_levels(read_write image2d_t image);
 int __ovld get_image_num_mip_levels(read_write image3d_t image);
+#endif //defined(__opencl_c_read_write_images)
 
 int __ovld get_image_num_mip_levels(read_only image1d_array_t image);
 int __ovld get_image_num_mip_levels(read_only image2d_array_t image);
@@ -14947,10 +16097,12 @@ int __ovld get_image_num_mip_levels(write_only image2d_array_t image);
 int __ovld get_image_num_mip_levels(write_only image2d_array_depth_t image);
 int __ovld get_image_num_mip_levels(write_only image2d_depth_t image);
 
+#if defined(__opencl_c_read_write_images)
 int __ovld get_image_num_mip_levels(read_write image1d_array_t image);
 int __ovld get_image_num_mip_levels(read_write image2d_array_t image);
 int __ovld get_image_num_mip_levels(read_write image2d_array_depth_t image);
 int __ovld get_image_num_mip_levels(read_write image2d_depth_t image);
+#endif //defined(__opencl_c_read_write_images)
 
 #endif //cl_khr_mipmap_image
 #endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
@@ -15010,7 +16162,7 @@ int __ovld __cnfn get_image_channel_data_type(write_only image2d_array_msaa_t im
 int __ovld __cnfn get_image_channel_data_type(write_only image2d_array_msaa_depth_t image);
 #endif //cl_khr_gl_msaa_sharing
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 int __ovld __cnfn get_image_channel_data_type(read_write image1d_t image);
 int __ovld __cnfn get_image_channel_data_type(read_write image1d_buffer_t image);
 int __ovld __cnfn get_image_channel_data_type(read_write image2d_t image);
@@ -15027,7 +16179,7 @@ int __ovld __cnfn get_image_channel_data_type(read_write image2d_msaa_depth_t im
 int __ovld __cnfn get_image_channel_data_type(read_write image2d_array_msaa_t image);
 int __ovld __cnfn get_image_channel_data_type(read_write image2d_array_msaa_depth_t image);
 #endif //cl_khr_gl_msaa_sharing
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_read_write_images)
 
 /**
  * Return the image channel order. Valid values are:
@@ -15082,7 +16234,7 @@ int __ovld __cnfn get_image_channel_order(write_only image2d_array_msaa_t image)
 int __ovld __cnfn get_image_channel_order(write_only image2d_array_msaa_depth_t image);
 #endif //cl_khr_gl_msaa_sharing
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 int __ovld __cnfn get_image_channel_order(read_write image1d_t image);
 int __ovld __cnfn get_image_channel_order(read_write image1d_buffer_t image);
 int __ovld __cnfn get_image_channel_order(read_write image2d_t image);
@@ -15099,7 +16251,7 @@ int __ovld __cnfn get_image_channel_order(read_write image2d_msaa_depth_t image)
 int __ovld __cnfn get_image_channel_order(read_write image2d_array_msaa_t image);
 int __ovld __cnfn get_image_channel_order(read_write image2d_array_msaa_depth_t image);
 #endif //cl_khr_gl_msaa_sharing
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_read_write_images)
 
 /**
  * Return the 2D image width and height as an int2
@@ -15132,7 +16284,7 @@ int2 __ovld __cnfn get_image_dim(write_only image2d_array_msaa_t image);
 int2 __ovld __cnfn get_image_dim(write_only image2d_array_msaa_depth_t image);
 #endif //cl_khr_gl_msaa_sharing
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 int2 __ovld __cnfn get_image_dim(read_write image2d_t image);
 int2 __ovld __cnfn get_image_dim(read_write image2d_array_t image);
 #ifdef cl_khr_depth_images
@@ -15145,7 +16297,7 @@ int2 __ovld __cnfn get_image_dim(read_write image2d_msaa_depth_t image);
 int2 __ovld __cnfn get_image_dim(read_write image2d_array_msaa_t image);
 int2 __ovld __cnfn get_image_dim(read_write image2d_array_msaa_depth_t image);
 #endif //cl_khr_gl_msaa_sharing
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_read_write_images)
 
 /**
  * Return the 3D image width, height, and depth as an
@@ -15157,9 +16309,9 @@ int4 __ovld __cnfn get_image_dim(read_only image3d_t image);
 #ifdef cl_khr_3d_image_writes
 int4 __ovld __cnfn get_image_dim(write_only image3d_t image);
 #endif
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 int4 __ovld __cnfn get_image_dim(read_write image3d_t image);
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_read_write_images)
 
 /**
  * Return the image array size.
@@ -15185,7 +16337,7 @@ size_t __ovld __cnfn get_image_array_size(write_only image2d_array_msaa_t image_
 size_t __ovld __cnfn get_image_array_size(write_only image2d_array_msaa_depth_t image_array);
 #endif //cl_khr_gl_msaa_sharing
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 size_t __ovld __cnfn get_image_array_size(read_write image1d_array_t image_array);
 size_t __ovld __cnfn get_image_array_size(read_write image2d_array_t image_array);
 #ifdef cl_khr_depth_images
@@ -15195,7 +16347,7 @@ size_t __ovld __cnfn get_image_array_size(read_write image2d_array_depth_t image
 size_t __ovld __cnfn get_image_array_size(read_write image2d_array_msaa_t image_array);
 size_t __ovld __cnfn get_image_array_size(read_write image2d_array_msaa_depth_t image_array);
 #endif //cl_khr_gl_msaa_sharing
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_read_write_images)
 
 /**
 * Return the number of samples associated with image
@@ -15211,17 +16363,17 @@ int __ovld get_image_num_samples(write_only image2d_msaa_depth_t image);
 int __ovld get_image_num_samples(write_only image2d_array_msaa_t image);
 int __ovld get_image_num_samples(write_only image2d_array_msaa_depth_t image);
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 int __ovld get_image_num_samples(read_write image2d_msaa_t image);
 int __ovld get_image_num_samples(read_write image2d_msaa_depth_t image);
 int __ovld get_image_num_samples(read_write image2d_array_msaa_t image);
 int __ovld get_image_num_samples(read_write image2d_array_msaa_depth_t image);
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_read_write_images)
 #endif
 
 // OpenCL v2.0 s6.13.15 - Work-group Functions
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_work_group_collective_functions)
 int __ovld __conv work_group_all(int predicate);
 int __ovld __conv work_group_any(int predicate);
 
@@ -15319,17 +16471,18 @@ double __ovld __conv work_group_scan_inclusive_min(double x);
 double __ovld __conv work_group_scan_inclusive_max(double x);
 #endif //cl_khr_fp64
 
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_work_group_collective_functions)
 
 // OpenCL v2.0 s6.13.16 - Pipe Functions
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_pipes)
 bool __ovld is_valid_reserve_id(reserve_id_t reserve_id);
-#endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif //defined(__opencl_c_pipes)
 
 
 // OpenCL v2.0 s6.13.17 - Enqueue Kernels
 #if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 
+#ifdef __opencl_c_device_enqueue
 ndrange_t __ovld ndrange_1D(size_t);
 ndrange_t __ovld ndrange_1D(size_t, size_t);
 ndrange_t __ovld ndrange_1D(size_t, size_t, size_t);
@@ -15357,11 +16510,12 @@ bool __ovld is_valid_event (clk_event_t event);
 void __ovld capture_event_profiling_info(clk_event_t, clk_profiling_info, __global void* value);
 
 queue_t __ovld get_default_queue(void);
+#endif //__opencl_c_device_enqueue
 #endif //defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 
 // OpenCL Extension v2.0 s9.17 - Sub-groups
 
-#if defined(cl_intel_subgroups) || defined(cl_khr_subgroups)
+#if defined(cl_intel_subgroups) || defined(cl_khr_subgroups) || defined(__opencl_c_subgroups)
 // Shared Sub Group Functions
 uint    __ovld get_sub_group_size(void);
 uint    __ovld get_max_sub_group_size(void);
@@ -15460,7 +16614,7 @@ double  __ovld __conv sub_group_scan_inclusive_min(double x);
 double  __ovld __conv sub_group_scan_inclusive_max(double x);
 #endif //cl_khr_fp64
 
-#endif //cl_khr_subgroups cl_intel_subgroups
+#endif //cl_khr_subgroups cl_intel_subgroups __opencl_c_subgroups
 
 #if defined(cl_khr_subgroup_extended_types)
 char __ovld __conv sub_group_broadcast( char value, uint index );
@@ -16130,6 +17284,230 @@ double  __ovld sub_group_clustered_reduce_max( double value, uint clustersize );
 
 #endif // cl_khr_subgroup_clustered_reduce
 
+#if defined(cl_khr_extended_bit_ops)
+char __ovld __cnfn bitfield_insert(char, char, uint, uint);
+uchar __ovld __cnfn bitfield_insert(uchar, uchar, uint, uint);
+short __ovld __cnfn bitfield_insert(short, short, uint, uint);
+ushort __ovld __cnfn bitfield_insert(ushort, ushort, uint, uint);
+int __ovld __cnfn bitfield_insert(int, int, uint, uint);
+uint __ovld __cnfn bitfield_insert(uint, uint, uint, uint);
+long __ovld __cnfn bitfield_insert(long, long, uint, uint);
+ulong __ovld __cnfn bitfield_insert(ulong, ulong, uint, uint);
+char2 __ovld __cnfn bitfield_insert(char2, char2, uint, uint);
+uchar2 __ovld __cnfn bitfield_insert(uchar2, uchar2, uint, uint);
+short2 __ovld __cnfn bitfield_insert(short2, short2, uint, uint);
+ushort2 __ovld __cnfn bitfield_insert(ushort2, ushort2, uint, uint);
+int2 __ovld __cnfn bitfield_insert(int2, int2, uint, uint);
+uint2 __ovld __cnfn bitfield_insert(uint2, uint2, uint, uint);
+long2 __ovld __cnfn bitfield_insert(long2, long2, uint, uint);
+ulong2 __ovld __cnfn bitfield_insert(ulong2, ulong2, uint, uint);
+char3 __ovld __cnfn bitfield_insert(char3, char3, uint, uint);
+uchar3 __ovld __cnfn bitfield_insert(uchar3, uchar3, uint, uint);
+short3 __ovld __cnfn bitfield_insert(short3, short3, uint, uint);
+ushort3 __ovld __cnfn bitfield_insert(ushort3, ushort3, uint, uint);
+int3 __ovld __cnfn bitfield_insert(int3, int3, uint, uint);
+uint3 __ovld __cnfn bitfield_insert(uint3, uint3, uint, uint);
+long3 __ovld __cnfn bitfield_insert(long3, long3, uint, uint);
+ulong3 __ovld __cnfn bitfield_insert(ulong3, ulong3, uint, uint);
+char4 __ovld __cnfn bitfield_insert(char4, char4, uint, uint);
+uchar4 __ovld __cnfn bitfield_insert(uchar4, uchar4, uint, uint);
+short4 __ovld __cnfn bitfield_insert(short4, short4, uint, uint);
+ushort4 __ovld __cnfn bitfield_insert(ushort4, ushort4, uint, uint);
+int4 __ovld __cnfn bitfield_insert(int4, int4, uint, uint);
+uint4 __ovld __cnfn bitfield_insert(uint4, uint4, uint, uint);
+long4 __ovld __cnfn bitfield_insert(long4, long4, uint, uint);
+ulong4 __ovld __cnfn bitfield_insert(ulong4, ulong4, uint, uint);
+char8 __ovld __cnfn bitfield_insert(char8, char8, uint, uint);
+uchar8 __ovld __cnfn bitfield_insert(uchar8, uchar8, uint, uint);
+short8 __ovld __cnfn bitfield_insert(short8, short8, uint, uint);
+ushort8 __ovld __cnfn bitfield_insert(ushort8, ushort8, uint, uint);
+int8 __ovld __cnfn bitfield_insert(int8, int8, uint, uint);
+uint8 __ovld __cnfn bitfield_insert(uint8, uint8, uint, uint);
+long8 __ovld __cnfn bitfield_insert(long8, long8, uint, uint);
+ulong8 __ovld __cnfn bitfield_insert(ulong8, ulong8, uint, uint);
+char16 __ovld __cnfn bitfield_insert(char16, char16, uint, uint);
+uchar16 __ovld __cnfn bitfield_insert(uchar16, uchar16, uint, uint);
+short16 __ovld __cnfn bitfield_insert(short16, short16, uint, uint);
+ushort16 __ovld __cnfn bitfield_insert(ushort16, ushort16, uint, uint);
+int16 __ovld __cnfn bitfield_insert(int16, int16, uint, uint);
+uint16 __ovld __cnfn bitfield_insert(uint16, uint16, uint, uint);
+long16 __ovld __cnfn bitfield_insert(long16, long16, uint, uint);
+ulong16 __ovld __cnfn bitfield_insert(ulong16, ulong16, uint, uint);
+
+char __ovld __cnfn bitfield_extract_signed(char, uint, uint);
+short __ovld __cnfn bitfield_extract_signed(short, uint, uint);
+int __ovld __cnfn bitfield_extract_signed(int, uint, uint);
+long __ovld __cnfn bitfield_extract_signed(long, uint, uint);
+char2 __ovld __cnfn bitfield_extract_signed(char2, uint, uint);
+short2 __ovld __cnfn bitfield_extract_signed(short2, uint, uint);
+int2 __ovld __cnfn bitfield_extract_signed(int2, uint, uint);
+long2 __ovld __cnfn bitfield_extract_signed(long2, uint, uint);
+char3 __ovld __cnfn bitfield_extract_signed(char3, uint, uint);
+short3 __ovld __cnfn bitfield_extract_signed(short3, uint, uint);
+int3 __ovld __cnfn bitfield_extract_signed(int3, uint, uint);
+long3 __ovld __cnfn bitfield_extract_signed(long3, uint, uint);
+char4 __ovld __cnfn bitfield_extract_signed(char4, uint, uint);
+short4 __ovld __cnfn bitfield_extract_signed(short4, uint, uint);
+int4 __ovld __cnfn bitfield_extract_signed(int4, uint, uint);
+long4 __ovld __cnfn bitfield_extract_signed(long4, uint, uint);
+char8 __ovld __cnfn bitfield_extract_signed(char8, uint, uint);
+short8 __ovld __cnfn bitfield_extract_signed(short8, uint, uint);
+int8 __ovld __cnfn bitfield_extract_signed(int8, uint, uint);
+long8 __ovld __cnfn bitfield_extract_signed(long8, uint, uint);
+char16 __ovld __cnfn bitfield_extract_signed(char16, uint, uint);
+short16 __ovld __cnfn bitfield_extract_signed(short16, uint, uint);
+int16 __ovld __cnfn bitfield_extract_signed(int16, uint, uint);
+long16 __ovld __cnfn bitfield_extract_signed(long16, uint, uint);
+
+char __ovld __cnfn bitfield_extract_signed(uchar, uint, uint);
+short __ovld __cnfn bitfield_extract_signed(ushort, uint, uint);
+int __ovld __cnfn bitfield_extract_signed(uint, uint, uint);
+long __ovld __cnfn bitfield_extract_signed(ulong, uint, uint);
+char2 __ovld __cnfn bitfield_extract_signed(uchar2, uint, uint);
+short2 __ovld __cnfn bitfield_extract_signed(ushort2, uint, uint);
+int2 __ovld __cnfn bitfield_extract_signed(uint2, uint, uint);
+long2 __ovld __cnfn bitfield_extract_signed(ulong2, uint, uint);
+char3 __ovld __cnfn bitfield_extract_signed(uchar3, uint, uint);
+short3 __ovld __cnfn bitfield_extract_signed(ushort3, uint, uint);
+int3 __ovld __cnfn bitfield_extract_signed(uint3, uint, uint);
+long3 __ovld __cnfn bitfield_extract_signed(ulong3, uint, uint);
+char4 __ovld __cnfn bitfield_extract_signed(uchar4, uint, uint);
+short4 __ovld __cnfn bitfield_extract_signed(ushort4, uint, uint);
+int4 __ovld __cnfn bitfield_extract_signed(uint4, uint, uint);
+long4 __ovld __cnfn bitfield_extract_signed(ulong4, uint, uint);
+char8 __ovld __cnfn bitfield_extract_signed(uchar8, uint, uint);
+short8 __ovld __cnfn bitfield_extract_signed(ushort8, uint, uint);
+int8 __ovld __cnfn bitfield_extract_signed(uint8, uint, uint);
+long8 __ovld __cnfn bitfield_extract_signed(ulong8, uint, uint);
+char16 __ovld __cnfn bitfield_extract_signed(uchar16, uint, uint);
+short16 __ovld __cnfn bitfield_extract_signed(ushort16, uint, uint);
+int16 __ovld __cnfn bitfield_extract_signed(uint16, uint, uint);
+long16 __ovld __cnfn bitfield_extract_signed(ulong16, uint, uint);
+
+uchar __ovld __cnfn bitfield_extract_unsigned(char, uint, uint);
+ushort __ovld __cnfn bitfield_extract_unsigned(short, uint, uint);
+uint __ovld __cnfn bitfield_extract_unsigned(int, uint, uint);
+ulong __ovld __cnfn bitfield_extract_unsigned(long, uint, uint);
+uchar2 __ovld __cnfn bitfield_extract_unsigned(char2, uint, uint);
+ushort2 __ovld __cnfn bitfield_extract_unsigned(short2, uint, uint);
+uint2 __ovld __cnfn bitfield_extract_unsigned(int2, uint, uint);
+ulong2 __ovld __cnfn bitfield_extract_unsigned(long2, uint, uint);
+uchar3 __ovld __cnfn bitfield_extract_unsigned(char3, uint, uint);
+ushort3 __ovld __cnfn bitfield_extract_unsigned(short3, uint, uint);
+uint3 __ovld __cnfn bitfield_extract_unsigned(int3, uint, uint);
+ulong3 __ovld __cnfn bitfield_extract_unsigned(long3, uint, uint);
+uchar4 __ovld __cnfn bitfield_extract_unsigned(char4, uint, uint);
+ushort4 __ovld __cnfn bitfield_extract_unsigned(short4, uint, uint);
+uint4 __ovld __cnfn bitfield_extract_unsigned(int4, uint, uint);
+ulong4 __ovld __cnfn bitfield_extract_unsigned(long4, uint, uint);
+uchar8 __ovld __cnfn bitfield_extract_unsigned(char8, uint, uint);
+ushort8 __ovld __cnfn bitfield_extract_unsigned(short8, uint, uint);
+uint8 __ovld __cnfn bitfield_extract_unsigned(int8, uint, uint);
+ulong8 __ovld __cnfn bitfield_extract_unsigned(long8, uint, uint);
+uchar16 __ovld __cnfn bitfield_extract_unsigned(char16, uint, uint);
+ushort16 __ovld __cnfn bitfield_extract_unsigned(short16, uint, uint);
+uint16 __ovld __cnfn bitfield_extract_unsigned(int16, uint, uint);
+ulong16 __ovld __cnfn bitfield_extract_unsigned(long16, uint, uint);
+
+uchar __ovld __cnfn bitfield_extract_unsigned(uchar, uint, uint);
+ushort __ovld __cnfn bitfield_extract_unsigned(ushort, uint, uint);
+uint __ovld __cnfn bitfield_extract_unsigned(uint, uint, uint);
+ulong __ovld __cnfn bitfield_extract_unsigned(ulong, uint, uint);
+uchar2 __ovld __cnfn bitfield_extract_unsigned(uchar2, uint, uint);
+ushort2 __ovld __cnfn bitfield_extract_unsigned(ushort2, uint, uint);
+uint2 __ovld __cnfn bitfield_extract_unsigned(uint2, uint, uint);
+ulong2 __ovld __cnfn bitfield_extract_unsigned(ulong2, uint, uint);
+uchar3 __ovld __cnfn bitfield_extract_unsigned(uchar3, uint, uint);
+ushort3 __ovld __cnfn bitfield_extract_unsigned(ushort3, uint, uint);
+uint3 __ovld __cnfn bitfield_extract_unsigned(uint3, uint, uint);
+ulong3 __ovld __cnfn bitfield_extract_unsigned(ulong3, uint, uint);
+uchar4 __ovld __cnfn bitfield_extract_unsigned(uchar4, uint, uint);
+ushort4 __ovld __cnfn bitfield_extract_unsigned(ushort4, uint, uint);
+uint4 __ovld __cnfn bitfield_extract_unsigned(uint4, uint, uint);
+ulong4 __ovld __cnfn bitfield_extract_unsigned(ulong4, uint, uint);
+uchar8 __ovld __cnfn bitfield_extract_unsigned(uchar8, uint, uint);
+ushort8 __ovld __cnfn bitfield_extract_unsigned(ushort8, uint, uint);
+uint8 __ovld __cnfn bitfield_extract_unsigned(uint8, uint, uint);
+ulong8 __ovld __cnfn bitfield_extract_unsigned(ulong8, uint, uint);
+uchar16 __ovld __cnfn bitfield_extract_unsigned(uchar16, uint, uint);
+ushort16 __ovld __cnfn bitfield_extract_unsigned(ushort16, uint, uint);
+uint16 __ovld __cnfn bitfield_extract_unsigned(uint16, uint, uint);
+ulong16 __ovld __cnfn bitfield_extract_unsigned(ulong16, uint, uint);
+
+char __ovld __cnfn bit_reverse(char);
+uchar __ovld __cnfn bit_reverse(uchar);
+short __ovld __cnfn bit_reverse(short);
+ushort __ovld __cnfn bit_reverse(ushort);
+int __ovld __cnfn bit_reverse(int);
+uint __ovld __cnfn bit_reverse(uint);
+long __ovld __cnfn bit_reverse(long);
+ulong __ovld __cnfn bit_reverse(ulong);
+char2 __ovld __cnfn bit_reverse(char2);
+uchar2 __ovld __cnfn bit_reverse(uchar2);
+short2 __ovld __cnfn bit_reverse(short2);
+ushort2 __ovld __cnfn bit_reverse(ushort2);
+int2 __ovld __cnfn bit_reverse(int2);
+uint2 __ovld __cnfn bit_reverse(uint2);
+long2 __ovld __cnfn bit_reverse(long2);
+ulong2 __ovld __cnfn bit_reverse(ulong2);
+char3 __ovld __cnfn bit_reverse(char3);
+uchar3 __ovld __cnfn bit_reverse(uchar3);
+short3 __ovld __cnfn bit_reverse(short3);
+ushort3 __ovld __cnfn bit_reverse(ushort3);
+int3 __ovld __cnfn bit_reverse(int3);
+uint3 __ovld __cnfn bit_reverse(uint3);
+long3 __ovld __cnfn bit_reverse(long3);
+ulong3 __ovld __cnfn bit_reverse(ulong3);
+char4 __ovld __cnfn bit_reverse(char4);
+uchar4 __ovld __cnfn bit_reverse(uchar4);
+short4 __ovld __cnfn bit_reverse(short4);
+ushort4 __ovld __cnfn bit_reverse(ushort4);
+int4 __ovld __cnfn bit_reverse(int4);
+uint4 __ovld __cnfn bit_reverse(uint4);
+long4 __ovld __cnfn bit_reverse(long4);
+ulong4 __ovld __cnfn bit_reverse(ulong4);
+char8 __ovld __cnfn bit_reverse(char8);
+uchar8 __ovld __cnfn bit_reverse(uchar8);
+short8 __ovld __cnfn bit_reverse(short8);
+ushort8 __ovld __cnfn bit_reverse(ushort8);
+int8 __ovld __cnfn bit_reverse(int8);
+uint8 __ovld __cnfn bit_reverse(uint8);
+long8 __ovld __cnfn bit_reverse(long8);
+ulong8 __ovld __cnfn bit_reverse(ulong8);
+char16 __ovld __cnfn bit_reverse(char16);
+uchar16 __ovld __cnfn bit_reverse(uchar16);
+short16 __ovld __cnfn bit_reverse(short16);
+ushort16 __ovld __cnfn bit_reverse(ushort16);
+int16 __ovld __cnfn bit_reverse(int16);
+uint16 __ovld __cnfn bit_reverse(uint16);
+long16 __ovld __cnfn bit_reverse(long16);
+ulong16 __ovld __cnfn bit_reverse(ulong16);
+#endif // cl_khr_extended_bit_ops
+
+#if defined(__opencl_c_integer_dot_product_input_4x8bit)
+uint __ovld __cnfn dot(uchar4, uchar4);
+int __ovld __cnfn dot(char4, char4);
+int __ovld __cnfn dot(uchar4, char4);
+int __ovld __cnfn dot(char4, uchar4);
+
+uint __ovld __cnfn dot_acc_sat(uchar4, uchar4, uint);
+int __ovld __cnfn dot_acc_sat(char4, char4, int);
+int __ovld __cnfn dot_acc_sat(uchar4, char4, int);
+int __ovld __cnfn dot_acc_sat(char4, uchar4, int);
+#endif // __opencl_c_integer_dot_product_input_4x8bit
+
+#if defined(__opencl_c_integer_dot_product_input_4x8bit_packed)
+uint __ovld __cnfn dot_4x8packed_uu_uint(uint, uint);
+int __ovld __cnfn dot_4x8packed_ss_int(uint, uint);
+int __ovld __cnfn dot_4x8packed_us_int(uint, uint);
+int __ovld __cnfn dot_4x8packed_su_int(uint, uint);
+
+uint __ovld __cnfn dot_acc_sat_4x8packed_uu_uint(uint, uint, uint);
+int __ovld __cnfn dot_acc_sat_4x8packed_ss_int(uint, uint, int);
+int __ovld __cnfn dot_acc_sat_4x8packed_us_int(uint, uint, int);
+int __ovld __cnfn dot_acc_sat_4x8packed_su_int(uint, uint, int);
+#endif // __opencl_c_integer_dot_product_input_4x8bit_packed
+
 #if defined(cl_intel_subgroups)
 // Intel-Specific Sub Group Functions
 float   __ovld __conv intel_sub_group_shuffle( float  x, uint c );
@@ -16228,34 +17606,38 @@ uint16  __ovld __conv intel_sub_group_shuffle_xor( uint16 x, uint c );
 long    __ovld __conv intel_sub_group_shuffle_xor( long x, uint c );
 ulong   __ovld __conv intel_sub_group_shuffle_xor( ulong x, uint c );
 
+#if defined(__opencl_c_images)
 uint    __ovld __conv intel_sub_group_block_read( read_only image2d_t image, int2 coord );
 uint2   __ovld __conv intel_sub_group_block_read2( read_only image2d_t image, int2 coord );
 uint4   __ovld __conv intel_sub_group_block_read4( read_only image2d_t image, int2 coord );
 uint8   __ovld __conv intel_sub_group_block_read8( read_only image2d_t image, int2 coord );
+#endif
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 uint    __ovld __conv intel_sub_group_block_read(read_write image2d_t image, int2 coord);
 uint2   __ovld __conv intel_sub_group_block_read2(read_write image2d_t image, int2 coord);
 uint4   __ovld __conv intel_sub_group_block_read4(read_write image2d_t image, int2 coord);
 uint8   __ovld __conv intel_sub_group_block_read8(read_write image2d_t image, int2 coord);
-#endif // defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif // defined(__opencl_c_read_write_images)
 
 uint    __ovld __conv intel_sub_group_block_read( const __global uint* p );
 uint2   __ovld __conv intel_sub_group_block_read2( const __global uint* p );
 uint4   __ovld __conv intel_sub_group_block_read4( const __global uint* p );
 uint8   __ovld __conv intel_sub_group_block_read8( const __global uint* p );
 
+#if defined(__opencl_c_images)
 void    __ovld __conv intel_sub_group_block_write(write_only image2d_t image, int2 coord, uint data);
 void    __ovld __conv intel_sub_group_block_write2(write_only image2d_t image, int2 coord, uint2 data);
 void    __ovld __conv intel_sub_group_block_write4(write_only image2d_t image, int2 coord, uint4 data);
 void    __ovld __conv intel_sub_group_block_write8(write_only image2d_t image, int2 coord, uint8 data);
+#endif // defined(__opencl_c_images)
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 void    __ovld __conv intel_sub_group_block_write(read_write image2d_t image, int2 coord, uint data);
 void    __ovld __conv intel_sub_group_block_write2(read_write image2d_t image, int2 coord, uint2 data);
 void    __ovld __conv intel_sub_group_block_write4(read_write image2d_t image, int2 coord, uint4 data);
 void    __ovld __conv intel_sub_group_block_write8(read_write image2d_t image, int2 coord, uint8 data);
-#endif // defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif // defined(__opencl_c_read_write_images)
 
 void    __ovld __conv intel_sub_group_block_write( __global uint* p, uint data );
 void    __ovld __conv intel_sub_group_block_write2( __global uint* p, uint2 data );
@@ -16368,68 +17750,76 @@ ushort      __ovld __conv intel_sub_group_scan_inclusive_min( ushort  x );
 short       __ovld __conv intel_sub_group_scan_inclusive_max( short   x );
 ushort      __ovld __conv intel_sub_group_scan_inclusive_max( ushort  x );
 
+#if defined(__opencl_c_images)
 uint       __ovld __conv intel_sub_group_block_read_ui( read_only image2d_t image, int2 byte_coord );
 uint2      __ovld __conv intel_sub_group_block_read_ui2( read_only image2d_t image, int2 byte_coord );
 uint4      __ovld __conv intel_sub_group_block_read_ui4( read_only image2d_t image, int2 byte_coord );
 uint8      __ovld __conv intel_sub_group_block_read_ui8( read_only image2d_t image, int2 byte_coord );
+#endif // defined(__opencl_c_images)
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 uint       __ovld __conv intel_sub_group_block_read_ui( read_write image2d_t image, int2 byte_coord );
 uint2      __ovld __conv intel_sub_group_block_read_ui2( read_write image2d_t image, int2 byte_coord );
 uint4      __ovld __conv intel_sub_group_block_read_ui4( read_write image2d_t image, int2 byte_coord );
 uint8      __ovld __conv intel_sub_group_block_read_ui8( read_write image2d_t image, int2 byte_coord );
-#endif // defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif // defined(__opencl_c_read_write_images)
 
 uint       __ovld __conv intel_sub_group_block_read_ui( const __global uint* p );
 uint2      __ovld __conv intel_sub_group_block_read_ui2( const __global uint* p );
 uint4      __ovld __conv intel_sub_group_block_read_ui4( const __global uint* p );
 uint8      __ovld __conv intel_sub_group_block_read_ui8( const __global uint* p );
 
+#if defined(__opencl_c_images)
 void       __ovld __conv intel_sub_group_block_write_ui( read_only image2d_t image, int2 byte_coord, uint data );
 void       __ovld __conv intel_sub_group_block_write_ui2( read_only image2d_t image, int2 byte_coord, uint2 data );
 void       __ovld __conv intel_sub_group_block_write_ui4( read_only image2d_t image, int2 byte_coord, uint4 data );
 void       __ovld __conv intel_sub_group_block_write_ui8( read_only image2d_t image, int2 byte_coord, uint8 data );
+#endif //defined(__opencl_c_images)
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 void       __ovld __conv intel_sub_group_block_write_ui( read_write image2d_t image, int2 byte_coord, uint data );
 void       __ovld __conv intel_sub_group_block_write_ui2( read_write image2d_t image, int2 byte_coord, uint2 data );
 void       __ovld __conv intel_sub_group_block_write_ui4( read_write image2d_t image, int2 byte_coord, uint4 data );
 void       __ovld __conv intel_sub_group_block_write_ui8( read_write image2d_t image, int2 byte_coord, uint8 data );
-#endif // defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif // defined(__opencl_c_read_write_images)
 
 void       __ovld __conv intel_sub_group_block_write_ui( __global uint* p, uint data );
 void       __ovld __conv intel_sub_group_block_write_ui2( __global uint* p, uint2 data );
 void       __ovld __conv intel_sub_group_block_write_ui4( __global uint* p, uint4 data );
 void       __ovld __conv intel_sub_group_block_write_ui8( __global uint* p, uint8 data );
 
+#if defined(__opencl_c_images)
 ushort      __ovld __conv intel_sub_group_block_read_us( read_only image2d_t image, int2 coord );
 ushort2     __ovld __conv intel_sub_group_block_read_us2( read_only image2d_t image, int2 coord );
 ushort4     __ovld __conv intel_sub_group_block_read_us4( read_only image2d_t image, int2 coord );
 ushort8     __ovld __conv intel_sub_group_block_read_us8( read_only image2d_t image, int2 coord );
+#endif // defined(__opencl_c_images)
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 ushort      __ovld __conv intel_sub_group_block_read_us(read_write image2d_t image, int2 coord);
 ushort2     __ovld __conv intel_sub_group_block_read_us2(read_write image2d_t image, int2 coord);
 ushort4     __ovld __conv intel_sub_group_block_read_us4(read_write image2d_t image, int2 coord);
 ushort8     __ovld __conv intel_sub_group_block_read_us8(read_write image2d_t image, int2 coord);
-#endif // defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif // defined(__opencl_c_read_write_images)
 
 ushort      __ovld __conv intel_sub_group_block_read_us(  const __global ushort* p );
 ushort2     __ovld __conv intel_sub_group_block_read_us2( const __global ushort* p );
 ushort4     __ovld __conv intel_sub_group_block_read_us4( const __global ushort* p );
 ushort8     __ovld __conv intel_sub_group_block_read_us8( const __global ushort* p );
 
+#if defined(__opencl_c_images)
 void        __ovld __conv intel_sub_group_block_write_us(write_only image2d_t image, int2 coord, ushort  data);
 void        __ovld __conv intel_sub_group_block_write_us2(write_only image2d_t image, int2 coord, ushort2 data);
 void        __ovld __conv intel_sub_group_block_write_us4(write_only image2d_t image, int2 coord, ushort4 data);
 void        __ovld __conv intel_sub_group_block_write_us8(write_only image2d_t image, int2 coord, ushort8 data);
+#endif // defined(__opencl_c_images)
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#if defined(__opencl_c_read_write_images)
 void        __ovld __conv intel_sub_group_block_write_us(read_write image2d_t image, int2 coord, ushort  data);
 void        __ovld __conv intel_sub_group_block_write_us2(read_write image2d_t image, int2 coord, ushort2 data);
 void        __ovld __conv intel_sub_group_block_write_us4(read_write image2d_t image, int2 coord, ushort4 data);
 void        __ovld __conv intel_sub_group_block_write_us8(read_write image2d_t image, int2 coord, ushort8 data);
-#endif // defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif // defined(__opencl_c_read_write_images)
 
 void        __ovld __conv intel_sub_group_block_write_us(  __global ushort* p, ushort  data );
 void        __ovld __conv intel_sub_group_block_write_us2( __global ushort* p, ushort2 data );
@@ -16547,6 +17937,7 @@ short2 __ovld intel_sub_group_avc_ime_adjust_ref_offset(
     short2 ref_offset, ushort2 src_coord, ushort2 ref_window_size,
     ushort2 image_size);
 
+#if defined(__opencl_c_images)
 intel_sub_group_avc_ime_result_t __ovld
 intel_sub_group_avc_ime_evaluate_with_single_reference(
     read_only image2d_t src_image, read_only image2d_t ref_image,
@@ -16587,6 +17978,7 @@ intel_sub_group_avc_ime_evaluate_with_dual_reference_streaminout(
     read_only image2d_t bwd_ref_image, sampler_t vme_media_sampler,
     intel_sub_group_avc_ime_payload_t payload,
     intel_sub_group_avc_ime_dual_reference_streamin_t streamin_components);
+#endif
 
 intel_sub_group_avc_ime_single_reference_streamin_t __ovld
 intel_sub_group_avc_ime_get_single_reference_streamin(
@@ -16651,6 +18043,7 @@ intel_sub_group_avc_ref_payload_t __ovld
 intel_sub_group_avc_ref_set_bilinear_filter_enable(
     intel_sub_group_avc_ref_payload_t payload);
 
+#if defined(__opencl_c_images)
 intel_sub_group_avc_ref_result_t __ovld
 intel_sub_group_avc_ref_evaluate_with_single_reference(
     read_only image2d_t src_image, read_only image2d_t ref_image,
@@ -16669,6 +18062,7 @@ intel_sub_group_avc_ref_evaluate_with_multi_reference(
     read_only image2d_t src_image, uint packed_reference_ids,
     uchar packed_reference_field_polarities, sampler_t vme_media_sampler,
     intel_sub_group_avc_ref_payload_t payload);
+#endif //defined(__opencl_c_images)
 
 // SIC built-in functions
 intel_sub_group_avc_sic_payload_t __ovld
@@ -16719,6 +18113,7 @@ intel_sub_group_avc_sic_set_block_based_raw_skip_sad(
     uchar block_based_skip_type,
     intel_sub_group_avc_sic_payload_t payload);
 
+#if defined(__opencl_c_images)
 intel_sub_group_avc_sic_result_t __ovld
 intel_sub_group_avc_sic_evaluate_ipe(
     read_only image2d_t src_image, sampler_t vme_media_sampler,
@@ -16741,6 +18136,7 @@ intel_sub_group_avc_sic_evaluate_with_multi_reference(
     read_only image2d_t src_image, uint packed_reference_ids,
     uchar packed_reference_field_polarities, sampler_t vme_media_sampler,
     intel_sub_group_avc_sic_payload_t payload);
+#endif //defined(__opencl_c_images)
 
 uchar __ovld intel_sub_group_avc_sic_get_ipe_luma_shape(
     intel_sub_group_avc_sic_result_t result);
@@ -17127,35 +18523,29 @@ uint16 __ovld amd_sadw(uint16 src0, uint16 src1, uint16 src2);
 #endif // cl_amd_media_ops2
 
 #if defined(cl_arm_integer_dot_product_int8)
-#pragma OPENCL EXTENSION cl_arm_integer_dot_product_int8 : begin
 uint __ovld arm_dot(uchar4 a, uchar4 b);
 int __ovld arm_dot(char4 a, char4 b);
-#pragma OPENCL EXTENSION cl_arm_integer_dot_product_int8 : end
 #endif // defined(cl_arm_integer_dot_product_int8)
 
 #if defined(cl_arm_integer_dot_product_accumulate_int8)
-#pragma OPENCL EXTENSION cl_arm_integer_dot_product_accumulate_int8 : begin
 uint __ovld arm_dot_acc(uchar4 a, uchar4 b, uint c);
 int __ovld arm_dot_acc(char4 a, char4 b, int c);
-#pragma OPENCL EXTENSION cl_arm_integer_dot_product_accumulate_int8 : end
 #endif // defined(cl_arm_integer_dot_product_accumulate_int8)
 
 #if defined(cl_arm_integer_dot_product_accumulate_int16)
-#pragma OPENCL EXTENSION cl_arm_integer_dot_product_accumulate_int16 : begin
 uint __ovld arm_dot_acc(ushort2 a, ushort2 b, uint c);
 int __ovld arm_dot_acc(short2 a, short2 b, int c);
-#pragma OPENCL EXTENSION cl_arm_integer_dot_product_accumulate_int16 : end
 #endif // defined(cl_arm_integer_dot_product_accumulate_int16)
 
 #if defined(cl_arm_integer_dot_product_accumulate_saturate_int8)
-#pragma OPENCL EXTENSION cl_arm_integer_dot_product_accumulate_saturate_int8 : begin
 uint __ovld arm_dot_acc_sat(uchar4 a, uchar4 b, uint c);
 int __ovld arm_dot_acc_sat(char4 a, char4 b, int c);
-#pragma OPENCL EXTENSION cl_arm_integer_dot_product_accumulate_saturate_int8 : end
 #endif // defined(cl_arm_integer_dot_product_accumulate_saturate_int8)
 
 // Disable any extensions we may have enabled previously.
 #pragma OPENCL EXTENSION all : disable
+
+#undef __opencl_c_named_address_space_builtins
 
 #undef __cnfn
 #undef __ovld

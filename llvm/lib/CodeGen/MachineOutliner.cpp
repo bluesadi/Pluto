@@ -518,9 +518,8 @@ void MachineOutliner::findCandidates(
   // First, find all of the repeated substrings in the tree of minimum length
   // 2.
   std::vector<Candidate> CandidatesForRepeatedSeq;
-  for (auto It = ST.begin(), Et = ST.end(); It != Et; ++It) {
+  for (const SuffixTree::RepeatedSubstring &RS : ST) {
     CandidatesForRepeatedSeq.clear();
-    SuffixTree::RepeatedSubstring RS = *It;
     unsigned StringLen = RS.Length;
     for (const unsigned &StartIdx : RS.StartIndices) {
       unsigned EndIdx = StartIdx + StringLen - 1;
@@ -618,20 +617,11 @@ MachineFunction *MachineOutliner::createOutlinedFunction(
   F->addFnAttr(Attribute::OptimizeForSize);
   F->addFnAttr(Attribute::MinSize);
 
-  // Include target features from an arbitrary candidate for the outlined
-  // function. This makes sure the outlined function knows what kinds of
-  // instructions are going into it. This is fine, since all parent functions
-  // must necessarily support the instructions that are in the outlined region.
   Candidate &FirstCand = OF.Candidates.front();
-  const Function &ParentFn = FirstCand.getMF()->getFunction();
-  if (ParentFn.hasFnAttribute("target-features"))
-    F->addFnAttr(ParentFn.getFnAttribute("target-features"));
+  const TargetInstrInfo &TII =
+      *FirstCand.getMF()->getSubtarget().getInstrInfo();
 
-  // Set nounwind, so we don't generate eh_frame.
-  if (llvm::all_of(OF.Candidates, [](const outliner::Candidate &C) {
-        return C.getMF()->getFunction().hasFnAttribute(Attribute::NoUnwind);
-      }))
-    F->addFnAttr(Attribute::NoUnwind);
+  TII.mergeOutliningCandidateAttributes(*F, OF.Candidates);
 
   BasicBlock *EntryBB = BasicBlock::Create(C, "entry", F);
   IRBuilder<> Builder(EntryBB);
@@ -640,8 +630,6 @@ MachineFunction *MachineOutliner::createOutlinedFunction(
   MachineModuleInfo &MMI = getAnalysis<MachineModuleInfoWrapperPass>().getMMI();
   MachineFunction &MF = MMI.getOrCreateMachineFunction(*F);
   MachineBasicBlock &MBB = *MF.CreateMachineBasicBlock();
-  const TargetSubtargetInfo &STI = MF.getSubtarget();
-  const TargetInstrInfo &TII = *STI.getInstrInfo();
 
   // Insert the new function into the module.
   MF.insert(MF.begin(), &MBB);
@@ -799,6 +787,7 @@ bool MachineOutliner::outline(Module &M,
                  Last = std::next(CallInst.getReverse());
              Iter != Last; Iter++) {
           MachineInstr *MI = &*Iter;
+          SmallSet<Register, 2> InstrUseRegs;
           for (MachineOperand &MOP : MI->operands()) {
             // Skip over anything that isn't a register.
             if (!MOP.isReg())
@@ -807,7 +796,8 @@ bool MachineOutliner::outline(Module &M,
             if (MOP.isDef()) {
               // Introduce DefRegs set to skip the redundant register.
               DefRegs.insert(MOP.getReg());
-              if (UseRegs.count(MOP.getReg()))
+              if (UseRegs.count(MOP.getReg()) &&
+                  !InstrUseRegs.count(MOP.getReg()))
                 // Since the regiester is modeled as defined,
                 // it is not necessary to be put in use register set.
                 UseRegs.erase(MOP.getReg());
@@ -815,6 +805,7 @@ bool MachineOutliner::outline(Module &M,
               // Any register which is not undefined should
               // be put in the use register set.
               UseRegs.insert(MOP.getReg());
+              InstrUseRegs.insert(MOP.getReg());
             }
           }
           if (MI->isCandidateForCallSiteEntry())

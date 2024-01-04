@@ -463,17 +463,15 @@ bool MergeFunctions::runOnModule(Module &M) {
 // Replace direct callers of Old with New.
 void MergeFunctions::replaceDirectCallers(Function *Old, Function *New) {
   Constant *BitcastNew = ConstantExpr::getBitCast(New, Old->getType());
-  for (auto UI = Old->use_begin(), UE = Old->use_end(); UI != UE;) {
-    Use *U = &*UI;
-    ++UI;
-    CallBase *CB = dyn_cast<CallBase>(U->getUser());
-    if (CB && CB->isCallee(U)) {
+  for (Use &U : llvm::make_early_inc_range(Old->uses())) {
+    CallBase *CB = dyn_cast<CallBase>(U.getUser());
+    if (CB && CB->isCallee(&U)) {
       // Do not copy attributes from the called function to the call-site.
       // Function comparison ensures that the attributes are the same up to
       // type congruences in byval(), in which case we need to keep the byval
       // type of the call-site, not the callee function.
       remove(CB->getFunction());
-      U->set(BitcastNew);
+      U.set(BitcastNew);
     }
   }
 }
@@ -529,10 +527,9 @@ void MergeFunctions::eraseInstsUnrelatedToPDI(
 // Reduce G to its entry block.
 void MergeFunctions::eraseTail(Function *G) {
   std::vector<BasicBlock *> WorklistBB;
-  for (Function::iterator BBI = std::next(G->begin()), BBE = G->end();
-       BBI != BBE; ++BBI) {
-    BBI->dropAllReferences();
-    WorklistBB.push_back(&*BBI);
+  for (BasicBlock &BB : drop_begin(*G)) {
+    BB.dropAllReferences();
+    WorklistBB.push_back(&BB);
   }
   while (!WorklistBB.empty()) {
     BasicBlock *BB = WorklistBB.back();
@@ -585,7 +582,7 @@ void MergeFunctions::filterInstsUnrelatedToPDI(
           for (User *U : AI->users()) {
             if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
               if (Value *Arg = SI->getValueOperand()) {
-                if (dyn_cast<Argument>(Arg)) {
+                if (isa<Argument>(Arg)) {
                   LLVM_DEBUG(dbgs() << "  Include: ");
                   LLVM_DEBUG(AI->print(dbgs()));
                   LLVM_DEBUG(dbgs() << "\n");
@@ -634,18 +631,15 @@ void MergeFunctions::filterInstsUnrelatedToPDI(
   LLVM_DEBUG(
       dbgs()
       << " Report parameter debug info related/related instructions: {\n");
-  for (BasicBlock::iterator BI = GEntryBlock->begin(), BE = GEntryBlock->end();
-       BI != BE; ++BI) {
-
-    Instruction *I = &*BI;
-    if (PDIRelated.find(I) == PDIRelated.end()) {
+  for (Instruction &I : *GEntryBlock) {
+    if (PDIRelated.find(&I) == PDIRelated.end()) {
       LLVM_DEBUG(dbgs() << "  !PDIRelated: ");
-      LLVM_DEBUG(I->print(dbgs()));
+      LLVM_DEBUG(I.print(dbgs()));
       LLVM_DEBUG(dbgs() << "\n");
-      PDIUnrelatedWL.push_back(I);
+      PDIUnrelatedWL.push_back(&I);
     } else {
       LLVM_DEBUG(dbgs() << "   PDIRelated: ");
-      LLVM_DEBUG(I->print(dbgs()));
+      LLVM_DEBUG(I.print(dbgs()));
       LLVM_DEBUG(dbgs() << "\n");
     }
   }
@@ -713,7 +707,10 @@ void MergeFunctions::writeThunk(Function *F, Function *G) {
 
   CallInst *CI = Builder.CreateCall(F, Args);
   ReturnInst *RI = nullptr;
-  CI->setTailCall();
+  bool isSwiftTailCall = F->getCallingConv() == CallingConv::SwiftTail &&
+                         G->getCallingConv() == CallingConv::SwiftTail;
+  CI->setTailCallKind(isSwiftTailCall ? llvm::CallInst::TCK_MustTail
+                                      : llvm::CallInst::TCK_Tail);
   CI->setCallingConv(F->getCallingConv());
   CI->setAttributes(F->getAttributes());
   if (H->getReturnType()->isVoidTy()) {
@@ -768,9 +765,8 @@ static bool canCreateAliasFor(Function *F) {
 void MergeFunctions::writeAlias(Function *F, Function *G) {
   Constant *BitcastF = ConstantExpr::getBitCast(F, G->getType());
   PointerType *PtrType = G->getType();
-  auto *GA = GlobalAlias::create(
-      PtrType->getElementType(), PtrType->getAddressSpace(),
-      G->getLinkage(), "", BitcastF, G->getParent());
+  auto *GA = GlobalAlias::create(G->getValueType(), PtrType->getAddressSpace(),
+                                 G->getLinkage(), "", BitcastF, G->getParent());
 
   F->setAlignment(MaybeAlign(std::max(F->getAlignment(), G->getAlignment())));
   GA->takeName(G);

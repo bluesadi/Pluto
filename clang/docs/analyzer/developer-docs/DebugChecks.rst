@@ -120,7 +120,7 @@ ExprInspection checks
       clang_analyzer_checkInlined(true); // expected-warning{{TRUE}}
       return 42;
     }
-    
+
     void topLevel() {
       clang_analyzer_checkInlined(false); // no-warning (not inlined)
       int value = inlined();
@@ -295,6 +295,19 @@ ExprInspection checks
       clang_analyzer_isTainted(n > 0); // expected-warning{{YES}}
       int next_tainted_value = n; // no-warning
       return n;
+    }
+
+- ``clang_analyzer_dumpExtent(a single argument of any type)``
+- ``clang_analyzer_dumpElementCount(a single argument of any type)``
+
+  Dumps out the extent and the element count of the argument.
+
+  Example usage::
+
+    void array() {
+      int a[] = {1, 3};
+      clang_analyzer_dumpExtent(a);       // expected-warning {{8 S64b}}
+      clang_analyzer_dumpElementCount(a); // expected-warning {{2 S64b}}
     }
 
 Statistics

@@ -448,22 +448,22 @@ define amdgpu_ps <4 x float> @load_3d_tfe_lwe(<8 x i32> inreg %rsrc, i32 addrspa
 ;
 ; GFX10-LABEL: load_3d_tfe_lwe:
 ; GFX10:       ; %bb.0: ; %main_body
-; GFX10-NEXT:    v_mov_b32_e32 v11, 0 ; encoding: [0x80,0x02,0x16,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v8, 0 ; encoding: [0x80,0x02,0x10,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v7, v2 ; encoding: [0x02,0x03,0x0e,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v6, v1 ; encoding: [0x01,0x03,0x0c,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v5, v0 ; encoding: [0x00,0x03,0x0a,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v12, v11 ; encoding: [0x0b,0x03,0x18,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v13, v11 ; encoding: [0x0b,0x03,0x1a,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v14, v11 ; encoding: [0x0b,0x03,0x1c,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v15, v11 ; encoding: [0x0b,0x03,0x1e,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v0, v11 ; encoding: [0x0b,0x03,0x00,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v1, v12 ; encoding: [0x0c,0x03,0x02,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v2, v13 ; encoding: [0x0d,0x03,0x04,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v3, v14 ; encoding: [0x0e,0x03,0x06,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v4, v15 ; encoding: [0x0f,0x03,0x08,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v9, v8 ; encoding: [0x08,0x03,0x12,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v10, v8 ; encoding: [0x08,0x03,0x14,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v11, v8 ; encoding: [0x08,0x03,0x16,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v12, v8 ; encoding: [0x08,0x03,0x18,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v0, v8 ; encoding: [0x08,0x03,0x00,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v1, v9 ; encoding: [0x09,0x03,0x02,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v2, v10 ; encoding: [0x0a,0x03,0x04,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v3, v11 ; encoding: [0x0b,0x03,0x06,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v4, v12 ; encoding: [0x0c,0x03,0x08,0x7e]
 ; GFX10-NEXT:    image_load v[0:4], v[5:7], s[0:7] dmask:0xf dim:SQ_RSRC_IMG_3D unorm tfe lwe ; encoding: [0x10,0x1f,0x03,0xf0,0x05,0x00,0x00,0x00]
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) ; encoding: [0x70,0x3f,0x8c,0xbf]
-; GFX10-NEXT:    global_store_dword v11, v4, s[8:9] ; encoding: [0x00,0x80,0x70,0xdc,0x0b,0x04,0x08,0x00]
+; GFX10-NEXT:    global_store_dword v8, v4, s[8:9] ; encoding: [0x00,0x80,0x70,0xdc,0x08,0x04,0x08,0x00]
 ; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    ; return to shader part epilog
 main_body:
@@ -579,22 +579,22 @@ define amdgpu_ps <4 x float> @load_cube_lwe(<8 x i32> inreg %rsrc, i32 addrspace
 ;
 ; GFX10-LABEL: load_cube_lwe:
 ; GFX10:       ; %bb.0: ; %main_body
-; GFX10-NEXT:    v_mov_b32_e32 v11, 0 ; encoding: [0x80,0x02,0x16,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v8, 0 ; encoding: [0x80,0x02,0x10,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v7, v2 ; encoding: [0x02,0x03,0x0e,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v6, v1 ; encoding: [0x01,0x03,0x0c,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v5, v0 ; encoding: [0x00,0x03,0x0a,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v12, v11 ; encoding: [0x0b,0x03,0x18,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v13, v11 ; encoding: [0x0b,0x03,0x1a,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v14, v11 ; encoding: [0x0b,0x03,0x1c,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v15, v11 ; encoding: [0x0b,0x03,0x1e,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v0, v11 ; encoding: [0x0b,0x03,0x00,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v1, v12 ; encoding: [0x0c,0x03,0x02,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v2, v13 ; encoding: [0x0d,0x03,0x04,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v3, v14 ; encoding: [0x0e,0x03,0x06,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v4, v15 ; encoding: [0x0f,0x03,0x08,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v9, v8 ; encoding: [0x08,0x03,0x12,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v10, v8 ; encoding: [0x08,0x03,0x14,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v11, v8 ; encoding: [0x08,0x03,0x16,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v12, v8 ; encoding: [0x08,0x03,0x18,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v0, v8 ; encoding: [0x08,0x03,0x00,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v1, v9 ; encoding: [0x09,0x03,0x02,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v2, v10 ; encoding: [0x0a,0x03,0x04,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v3, v11 ; encoding: [0x0b,0x03,0x06,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v4, v12 ; encoding: [0x0c,0x03,0x08,0x7e]
 ; GFX10-NEXT:    image_load v[0:4], v[5:7], s[0:7] dmask:0xf dim:SQ_RSRC_IMG_CUBE unorm lwe ; encoding: [0x18,0x1f,0x02,0xf0,0x05,0x00,0x00,0x00]
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) ; encoding: [0x70,0x3f,0x8c,0xbf]
-; GFX10-NEXT:    global_store_dword v11, v4, s[8:9] ; encoding: [0x00,0x80,0x70,0xdc,0x0b,0x04,0x08,0x00]
+; GFX10-NEXT:    global_store_dword v8, v4, s[8:9] ; encoding: [0x00,0x80,0x70,0xdc,0x08,0x04,0x08,0x00]
 ; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    ; return to shader part epilog
 main_body:
@@ -837,22 +837,22 @@ define amdgpu_ps <4 x float> @load_2darray_lwe(<8 x i32> inreg %rsrc, i32 addrsp
 ;
 ; GFX10-LABEL: load_2darray_lwe:
 ; GFX10:       ; %bb.0: ; %main_body
-; GFX10-NEXT:    v_mov_b32_e32 v11, 0 ; encoding: [0x80,0x02,0x16,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v8, 0 ; encoding: [0x80,0x02,0x10,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v7, v2 ; encoding: [0x02,0x03,0x0e,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v6, v1 ; encoding: [0x01,0x03,0x0c,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v5, v0 ; encoding: [0x00,0x03,0x0a,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v12, v11 ; encoding: [0x0b,0x03,0x18,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v13, v11 ; encoding: [0x0b,0x03,0x1a,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v14, v11 ; encoding: [0x0b,0x03,0x1c,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v15, v11 ; encoding: [0x0b,0x03,0x1e,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v0, v11 ; encoding: [0x0b,0x03,0x00,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v1, v12 ; encoding: [0x0c,0x03,0x02,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v2, v13 ; encoding: [0x0d,0x03,0x04,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v3, v14 ; encoding: [0x0e,0x03,0x06,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v4, v15 ; encoding: [0x0f,0x03,0x08,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v9, v8 ; encoding: [0x08,0x03,0x12,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v10, v8 ; encoding: [0x08,0x03,0x14,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v11, v8 ; encoding: [0x08,0x03,0x16,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v12, v8 ; encoding: [0x08,0x03,0x18,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v0, v8 ; encoding: [0x08,0x03,0x00,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v1, v9 ; encoding: [0x09,0x03,0x02,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v2, v10 ; encoding: [0x0a,0x03,0x04,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v3, v11 ; encoding: [0x0b,0x03,0x06,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v4, v12 ; encoding: [0x0c,0x03,0x08,0x7e]
 ; GFX10-NEXT:    image_load v[0:4], v[5:7], s[0:7] dmask:0xf dim:SQ_RSRC_IMG_2D_ARRAY unorm lwe ; encoding: [0x28,0x1f,0x02,0xf0,0x05,0x00,0x00,0x00]
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) ; encoding: [0x70,0x3f,0x8c,0xbf]
-; GFX10-NEXT:    global_store_dword v11, v4, s[8:9] ; encoding: [0x00,0x80,0x70,0xdc,0x0b,0x04,0x08,0x00]
+; GFX10-NEXT:    global_store_dword v8, v4, s[8:9] ; encoding: [0x00,0x80,0x70,0xdc,0x08,0x04,0x08,0x00]
 ; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    ; return to shader part epilog
 main_body:
@@ -968,22 +968,22 @@ define amdgpu_ps <4 x float> @load_2dmsaa_both(<8 x i32> inreg %rsrc, i32 addrsp
 ;
 ; GFX10-LABEL: load_2dmsaa_both:
 ; GFX10:       ; %bb.0: ; %main_body
-; GFX10-NEXT:    v_mov_b32_e32 v11, 0 ; encoding: [0x80,0x02,0x16,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v8, 0 ; encoding: [0x80,0x02,0x10,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v7, v2 ; encoding: [0x02,0x03,0x0e,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v6, v1 ; encoding: [0x01,0x03,0x0c,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v5, v0 ; encoding: [0x00,0x03,0x0a,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v12, v11 ; encoding: [0x0b,0x03,0x18,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v13, v11 ; encoding: [0x0b,0x03,0x1a,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v14, v11 ; encoding: [0x0b,0x03,0x1c,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v15, v11 ; encoding: [0x0b,0x03,0x1e,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v0, v11 ; encoding: [0x0b,0x03,0x00,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v1, v12 ; encoding: [0x0c,0x03,0x02,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v2, v13 ; encoding: [0x0d,0x03,0x04,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v3, v14 ; encoding: [0x0e,0x03,0x06,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v4, v15 ; encoding: [0x0f,0x03,0x08,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v9, v8 ; encoding: [0x08,0x03,0x12,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v10, v8 ; encoding: [0x08,0x03,0x14,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v11, v8 ; encoding: [0x08,0x03,0x16,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v12, v8 ; encoding: [0x08,0x03,0x18,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v0, v8 ; encoding: [0x08,0x03,0x00,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v1, v9 ; encoding: [0x09,0x03,0x02,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v2, v10 ; encoding: [0x0a,0x03,0x04,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v3, v11 ; encoding: [0x0b,0x03,0x06,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v4, v12 ; encoding: [0x0c,0x03,0x08,0x7e]
 ; GFX10-NEXT:    image_load v[0:4], v[5:7], s[0:7] dmask:0xf dim:SQ_RSRC_IMG_2D_MSAA unorm tfe lwe ; encoding: [0x30,0x1f,0x03,0xf0,0x05,0x00,0x00,0x00]
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) ; encoding: [0x70,0x3f,0x8c,0xbf]
-; GFX10-NEXT:    global_store_dword v11, v4, s[8:9] ; encoding: [0x00,0x80,0x70,0xdc,0x0b,0x04,0x08,0x00]
+; GFX10-NEXT:    global_store_dword v8, v4, s[8:9] ; encoding: [0x00,0x80,0x70,0xdc,0x08,0x04,0x08,0x00]
 ; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    ; return to shader part epilog
 main_body:
@@ -1361,22 +1361,22 @@ define amdgpu_ps <4 x float> @load_mip_2d_tfe(<8 x i32> inreg %rsrc, i32 addrspa
 ;
 ; GFX10-LABEL: load_mip_2d_tfe:
 ; GFX10:       ; %bb.0: ; %main_body
-; GFX10-NEXT:    v_mov_b32_e32 v11, 0 ; encoding: [0x80,0x02,0x16,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v8, 0 ; encoding: [0x80,0x02,0x10,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v7, v2 ; encoding: [0x02,0x03,0x0e,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v6, v1 ; encoding: [0x01,0x03,0x0c,0x7e]
 ; GFX10-NEXT:    v_mov_b32_e32 v5, v0 ; encoding: [0x00,0x03,0x0a,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v12, v11 ; encoding: [0x0b,0x03,0x18,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v13, v11 ; encoding: [0x0b,0x03,0x1a,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v14, v11 ; encoding: [0x0b,0x03,0x1c,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v15, v11 ; encoding: [0x0b,0x03,0x1e,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v0, v11 ; encoding: [0x0b,0x03,0x00,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v1, v12 ; encoding: [0x0c,0x03,0x02,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v2, v13 ; encoding: [0x0d,0x03,0x04,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v3, v14 ; encoding: [0x0e,0x03,0x06,0x7e]
-; GFX10-NEXT:    v_mov_b32_e32 v4, v15 ; encoding: [0x0f,0x03,0x08,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v9, v8 ; encoding: [0x08,0x03,0x12,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v10, v8 ; encoding: [0x08,0x03,0x14,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v11, v8 ; encoding: [0x08,0x03,0x16,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v12, v8 ; encoding: [0x08,0x03,0x18,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v0, v8 ; encoding: [0x08,0x03,0x00,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v1, v9 ; encoding: [0x09,0x03,0x02,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v2, v10 ; encoding: [0x0a,0x03,0x04,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v3, v11 ; encoding: [0x0b,0x03,0x06,0x7e]
+; GFX10-NEXT:    v_mov_b32_e32 v4, v12 ; encoding: [0x0c,0x03,0x08,0x7e]
 ; GFX10-NEXT:    image_load_mip v[0:4], v[5:7], s[0:7] dmask:0xf dim:SQ_RSRC_IMG_2D unorm tfe ; encoding: [0x08,0x1f,0x05,0xf0,0x05,0x00,0x00,0x00]
 ; GFX10-NEXT:    s_waitcnt vmcnt(0) ; encoding: [0x70,0x3f,0x8c,0xbf]
-; GFX10-NEXT:    global_store_dword v11, v4, s[8:9] ; encoding: [0x00,0x80,0x70,0xdc,0x0b,0x04,0x08,0x00]
+; GFX10-NEXT:    global_store_dword v8, v4, s[8:9] ; encoding: [0x00,0x80,0x70,0xdc,0x08,0x04,0x08,0x00]
 ; GFX10-NEXT:    s_waitcnt_vscnt null, 0x0 ; encoding: [0x00,0x00,0xfd,0xbb]
 ; GFX10-NEXT:    ; return to shader part epilog
 main_body:
@@ -3424,11 +3424,11 @@ define amdgpu_ps float @image_load_mmo(<8 x i32> inreg %rsrc, float addrspace(3)
 ; VERDE-LABEL: image_load_mmo:
 ; VERDE:       ; %bb.0:
 ; VERDE-NEXT:    image_load v1, v[1:2], s[0:7] dmask:0x1 unorm
-; VERDE-NEXT:    v_mov_b32_e32 v3, 0
+; VERDE-NEXT:    v_mov_b32_e32 v2, 0
 ; VERDE-NEXT:    s_mov_b32 m0, -1
-; VERDE-NEXT:    ds_write_b32 v0, v3
+; VERDE-NEXT:    ds_write_b32 v0, v2
 ; VERDE-NEXT:    v_add_i32_e32 v0, vcc, 16, v0
-; VERDE-NEXT:    ds_write_b32 v0, v3
+; VERDE-NEXT:    ds_write_b32 v0, v2
 ; VERDE-NEXT:    s_waitcnt vmcnt(0)
 ; VERDE-NEXT:    v_mov_b32_e32 v0, v1
 ; VERDE-NEXT:    s_waitcnt lgkmcnt(0)
@@ -3437,9 +3437,9 @@ define amdgpu_ps float @image_load_mmo(<8 x i32> inreg %rsrc, float addrspace(3)
 ; FIJI-LABEL: image_load_mmo:
 ; FIJI:       ; %bb.0:
 ; FIJI-NEXT:    image_load v1, v[1:2], s[0:7] dmask:0x1 unorm
-; FIJI-NEXT:    v_mov_b32_e32 v3, 0
+; FIJI-NEXT:    v_mov_b32_e32 v2, 0
 ; FIJI-NEXT:    s_mov_b32 m0, -1
-; FIJI-NEXT:    ds_write2_b32 v0, v3, v3 offset1:4
+; FIJI-NEXT:    ds_write2_b32 v0, v2, v2 offset1:4
 ; FIJI-NEXT:    s_waitcnt vmcnt(0)
 ; FIJI-NEXT:    v_mov_b32_e32 v0, v1
 ; FIJI-NEXT:    s_waitcnt lgkmcnt(0)
@@ -3448,8 +3448,8 @@ define amdgpu_ps float @image_load_mmo(<8 x i32> inreg %rsrc, float addrspace(3)
 ; GFX6789-LABEL: image_load_mmo:
 ; GFX6789:       ; %bb.0:
 ; GFX6789-NEXT:    image_load v1, v[1:2], s[0:7] dmask:0x1 unorm
-; GFX6789-NEXT:    v_mov_b32_e32 v3, 0
-; GFX6789-NEXT:    ds_write2_b32 v0, v3, v3 offset1:4
+; GFX6789-NEXT:    v_mov_b32_e32 v2, 0
+; GFX6789-NEXT:    ds_write2_b32 v0, v2, v2 offset1:4
 ; GFX6789-NEXT:    s_waitcnt vmcnt(0)
 ; GFX6789-NEXT:    v_mov_b32_e32 v0, v1
 ; GFX6789-NEXT:    s_waitcnt lgkmcnt(0)
@@ -3458,8 +3458,8 @@ define amdgpu_ps float @image_load_mmo(<8 x i32> inreg %rsrc, float addrspace(3)
 ; NOPRT-LABEL: image_load_mmo:
 ; NOPRT:       ; %bb.0:
 ; NOPRT-NEXT:    image_load v1, v[1:2], s[0:7] dmask:0x1 unorm
-; NOPRT-NEXT:    v_mov_b32_e32 v3, 0
-; NOPRT-NEXT:    ds_write2_b32 v0, v3, v3 offset1:4
+; NOPRT-NEXT:    v_mov_b32_e32 v2, 0
+; NOPRT-NEXT:    ds_write2_b32 v0, v2, v2 offset1:4
 ; NOPRT-NEXT:    s_waitcnt vmcnt(0)
 ; NOPRT-NEXT:    v_mov_b32_e32 v0, v1
 ; NOPRT-NEXT:    s_waitcnt lgkmcnt(0)

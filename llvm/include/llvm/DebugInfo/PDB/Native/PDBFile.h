@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_DEBUGINFO_PDB_RAW_PDBFILE_H
-#define LLVM_DEBUGINFO_PDB_RAW_PDBFILE_H
+#ifndef LLVM_DEBUGINFO_PDB_NATIVE_PDBFILE_H
+#define LLVM_DEBUGINFO_PDB_NATIVE_PDBFILE_H
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/DebugInfo/MSF/IMSFFile.h"
@@ -65,7 +65,7 @@ public:
   uint32_t getStreamByteSize(uint32_t StreamIndex) const override;
   ArrayRef<support::ulittle32_t>
   getStreamBlockList(uint32_t StreamIndex) const override;
-  uint32_t getFileSize() const;
+  uint64_t getFileSize() const;
 
   Expected<ArrayRef<uint8_t>> getBlockData(uint32_t BlockIndex,
                                            uint32_t NumBytes) const override;

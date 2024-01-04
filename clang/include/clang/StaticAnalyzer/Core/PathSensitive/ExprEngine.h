@@ -77,13 +77,9 @@ namespace ento {
 
 class AnalysisManager;
 class BasicValueFactory;
-class BlockCounter;
-class BranchNodeBuilder;
 class CallEvent;
 class CheckerManager;
 class ConstraintManager;
-class CXXTempObjectRegion;
-class EndOfFunctionNodeBuilder;
 class ExplodedNodeSet;
 class ExplodedNode;
 class IndirectGotoNodeBuilder;
@@ -428,8 +424,7 @@ public:
   SymbolManager &getSymbolManager() { return SymMgr; }
   MemRegionManager &getRegionManager() { return MRMgr; }
 
-  NoteTag::Factory &getNoteTags() { return Engine.getNoteTags(); }
-
+  DataTag::Factory &getDataTags() { return Engine.getDataTags(); }
 
   // Functions for external checking of whether we have unfinished work
   bool wasBlocksExhausted() const { return Engine.wasBlocksExhausted(); }

@@ -14,6 +14,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
@@ -98,9 +99,13 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
-    if (EnableMSSALoopDependency)
-      AU.addPreserved<MemorySSAWrapperPass>();
+    AU.addPreserved<MemorySSAWrapperPass>();
     getLoopAnalysisUsage(AU);
+
+    // Lazy BFI and BPI are marked as preserved here so LoopRotate
+    // can remain part of the same loop pass manager as LICM.
+    AU.addPreserved<LazyBlockFrequencyInfoPass>();
+    AU.addPreserved<LazyBranchProbabilityInfoPass>();
   }
 
   bool runOnLoop(Loop *L, LPPassManager &LPM) override {
@@ -115,13 +120,11 @@ public:
     auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     const SimplifyQuery SQ = getBestSimplifyQuery(*this, F);
     Optional<MemorySSAUpdater> MSSAU;
-    if (EnableMSSALoopDependency) {
-      // Not requiring MemorySSA and getting it only if available will split
-      // the loop pass pipeline when LoopRotate is being run first.
-      auto *MSSAA = getAnalysisIfAvailable<MemorySSAWrapperPass>();
-      if (MSSAA)
-        MSSAU = MemorySSAUpdater(&MSSAA->getMSSA());
-    }
+    // Not requiring MemorySSA and getting it only if available will split
+    // the loop pass pipeline when LoopRotate is being run first.
+    auto *MSSAA = getAnalysisIfAvailable<MemorySSAWrapperPass>();
+    if (MSSAA)
+      MSSAU = MemorySSAUpdater(&MSSAA->getMSSA());
     // Vectorization requires loop-rotation. Use default threshold for loops the
     // user explicitly marked for vectorization, even when header duplication is
     // disabled.

@@ -16,9 +16,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/Format.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/SourceMgr.h"
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
 #include <algorithm>
@@ -31,8 +28,6 @@ using namespace llvm;
 #define DEBUG_TYPE "searchable-table-emitter"
 
 namespace {
-
-struct GenericTable;
 
 int getAsInt(Init *B) {
   return cast<IntInit>(B->convertInitializerTo(IntRecTy::get()))->getValue();
@@ -348,17 +343,13 @@ void SearchableTableEmitter::emitLookupFunction(const GenericTable &Table,
       IndexRowsStorage.push_back(Entry.first);
 
       OS << "    { ";
-      bool NeedComma = false;
+      ListSeparator LS;
       for (const auto &Field : Index.Fields) {
-        if (NeedComma)
-          OS << ", ";
-        NeedComma = true;
-
         std::string Repr = primaryRepresentation(
             Index.Loc, Field, Entry.first->getValueInit(Field.Name));
         if (isa<StringRecTy>(Field.RecType))
           Repr = StringRef(Repr).upper();
-        OS << Repr;
+        OS << LS << Repr;
       }
       OS << ", " << Entry.second << " },\n";
     }
@@ -414,13 +405,9 @@ void SearchableTableEmitter::emitLookupFunction(const GenericTable &Table,
   }
   OS << "  };\n";
   OS << "  KeyType Key = {";
-  bool NeedComma = false;
+  ListSeparator LS;
   for (const auto &Field : Index.Fields) {
-    if (NeedComma)
-      OS << ", ";
-    NeedComma = true;
-
-    OS << Field.Name;
+    OS << LS << Field.Name;
     if (isa<StringRecTy>(Field.RecType)) {
       OS << ".upper()";
       if (IsPrimary)
@@ -482,15 +469,10 @@ void SearchableTableEmitter::emitLookupDeclaration(const GenericTable &Table,
                                                    raw_ostream &OS) {
   OS << "const " << Table.CppTypeName << " *" << Index.Name << "(";
 
-  bool NeedComma = false;
-  for (const auto &Field : Index.Fields) {
-    if (NeedComma)
-      OS << ", ";
-    NeedComma = true;
-
-    OS << searchableFieldType(Table, Index, Field, TypeInArgument) << " "
+  ListSeparator LS;
+  for (const auto &Field : Index.Fields)
+    OS << LS << searchableFieldType(Table, Index, Field, TypeInArgument) << " "
        << Field.Name;
-  }
   OS << ")";
 }
 
@@ -518,15 +500,11 @@ void SearchableTableEmitter::emitGenericTable(const GenericTable &Table,
     Record *Entry = Table.Entries[i];
     OS << "  { ";
 
-    bool NeedComma = false;
-    for (const auto &Field : Table.Fields) {
-      if (NeedComma)
-        OS << ", ";
-      NeedComma = true;
-
-      OS << primaryRepresentation(Table.Locs[0], Field,
+    ListSeparator LS;
+    for (const auto &Field : Table.Fields)
+      OS << LS
+         << primaryRepresentation(Table.Locs[0], Field,
                                   Entry->getValueInit(Field.Name));
-    }
 
     OS << " }, // " << i << "\n";
   }
@@ -666,6 +644,12 @@ void SearchableTableEmitter::collectTableEntries(
         Field.IsInstruction = true;
     }
   }
+
+  SearchIndex Idx;
+  std::copy(Table.Fields.begin(), Table.Fields.end(),
+            std::back_inserter(Idx.Fields));
+  std::sort(Table.Entries.begin(), Table.Entries.end(),
+            [&](Record *LHS, Record *RHS) { return compareBy(LHS, RHS, Idx); });
 }
 
 void SearchableTableEmitter::run(raw_ostream &OS) {

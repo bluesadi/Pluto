@@ -158,7 +158,7 @@ TEST_F(InstrProfTest, get_profile_summary) {
     ASSERT_EQ(2305843009213693952U, IPS.getMaxCount());
     ASSERT_EQ(10U, IPS.getNumCounts());
     ASSERT_EQ(4539628424389557499U, IPS.getTotalCount());
-    std::vector<ProfileSummaryEntry> &Details = IPS.getDetailedSummary();
+    const std::vector<ProfileSummaryEntry> &Details = IPS.getDetailedSummary();
     uint32_t Cutoff = 800000;
     auto Predicate = [&Cutoff](const ProfileSummaryEntry &PE) {
       return PE.Cutoff == Cutoff;
@@ -1041,8 +1041,8 @@ TEST_F(SparseInstrProfTest, preserve_no_records) {
   ASSERT_TRUE(I == E);
 }
 
-INSTANTIATE_TEST_CASE_P(MaybeSparse, MaybeSparseInstrProfTest,
-                        ::testing::Bool(),);
+INSTANTIATE_TEST_SUITE_P(MaybeSparse, MaybeSparseInstrProfTest,
+                         ::testing::Bool());
 
 #if defined(_LP64) && defined(EXPENSIVE_CHECKS)
 TEST(ProfileReaderTest, ReadsLargeFiles) {

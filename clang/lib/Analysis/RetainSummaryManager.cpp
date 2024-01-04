@@ -145,15 +145,19 @@ static bool isSubclass(const Decl *D,
   return !(match(SubclassM, *D, D->getASTContext()).empty());
 }
 
-static bool isOSObjectSubclass(const Decl *D) {
-  // OSSymbols are particular OSObjects that are allocated globally
-  // and therefore aren't really refcounted, so we ignore them.
-  return D && isSubclass(D, "OSMetaClassBase") && !isSubclass(D, "OSSymbol");
+static bool isExactClass(const Decl *D, StringRef ClassName) {
+  using namespace ast_matchers;
+  DeclarationMatcher sameClassM =
+      cxxRecordDecl(hasName(std::string(ClassName)));
+  return !(match(sameClassM, *D, D->getASTContext()).empty());
 }
 
-static bool isOSObjectDynamicCast(StringRef S) {
-  return S == "safeMetaCast";
+static bool isOSObjectSubclass(const Decl *D) {
+  return D && isSubclass(D, "OSMetaClassBase") &&
+         !isExactClass(D, "OSMetaClass");
 }
+
+static bool isOSObjectDynamicCast(StringRef S) { return S == "safeMetaCast"; }
 
 static bool isOSObjectRequiredCast(StringRef S) {
   return S == "requiredMetaCast";
@@ -185,20 +189,22 @@ static bool hasRCAnnotation(const Decl *D, StringRef rcAnnotation) {
 }
 
 static bool isRetain(const FunctionDecl *FD, StringRef FName) {
-  return FName.startswith_lower("retain") || FName.endswith_lower("retain");
+  return FName.startswith_insensitive("retain") ||
+         FName.endswith_insensitive("retain");
 }
 
 static bool isRelease(const FunctionDecl *FD, StringRef FName) {
-  return FName.startswith_lower("release") || FName.endswith_lower("release");
+  return FName.startswith_insensitive("release") ||
+         FName.endswith_insensitive("release");
 }
 
 static bool isAutorelease(const FunctionDecl *FD, StringRef FName) {
-  return FName.startswith_lower("autorelease") ||
-         FName.endswith_lower("autorelease");
+  return FName.startswith_insensitive("autorelease") ||
+         FName.endswith_insensitive("autorelease");
 }
 
 static bool isMakeCollectable(StringRef FName) {
-  return FName.contains_lower("MakeCollectable");
+  return FName.contains_insensitive("MakeCollectable");
 }
 
 /// A function is OSObject related if it is declared on a subclass
@@ -391,8 +397,7 @@ const RetainSummary *RetainSummaryManager::getSummaryForObjCOrCFObject(
                                 ArgEffect(DoNothing), ArgEffect(DoNothing));
   } else if (FName.startswith("NSLog")) {
     return getDoNothingSummary();
-  } else if (FName.startswith("NS") &&
-             (FName.find("Insert") != StringRef::npos)) {
+  } else if (FName.startswith("NS") && FName.contains("Insert")) {
     // Whitelist NSXXInsertXX, for example NSMapInsertIfAbsent, since they can
     // be deallocated by NSMapRemove. (radar://11152419)
     ScratchArgs = AF.add(ScratchArgs, 1, ArgEffect(StopTracking));
@@ -786,7 +791,7 @@ RetainSummaryManager::getUnarySummary(const FunctionType* FT,
   // Unary functions have no arg effects by definition.
   ArgEffects ScratchArgs(AF.getEmptyMap());
 
-  // Sanity check that this is *really* a unary function.  This can
+  // Verify that this is *really* a unary function.  This can
   // happen if people do weird things.
   const FunctionProtoType* FTP = dyn_cast<FunctionProtoType>(FT);
   if (!FTP || FTP->getNumParams() != 1)
@@ -883,8 +888,8 @@ RetainSummaryManager::getRetEffectFromAnnotations(QualType RetTy,
   return None;
 }
 
-/// \return Whether the chain of typedefs starting from {@code QT}
-/// has a typedef with a given name {@code Name}.
+/// \return Whether the chain of typedefs starting from @c QT
+/// has a typedef with a given name @c Name.
 static bool hasTypedefNamed(QualType QT,
                             StringRef Name) {
   while (auto *T = dyn_cast<TypedefType>(QT)) {
@@ -1096,7 +1101,7 @@ RetainSummaryManager::getStandardMethodSummary(const ObjCMethodDecl *MD,
   if (S.isKeywordSelector()) {
     for (unsigned i = 0, e = S.getNumArgs(); i != e; ++i) {
       StringRef Slot = S.getNameForSlot(i);
-      if (Slot.substr(Slot.size() - 8).equals_lower("delegate")) {
+      if (Slot.substr(Slot.size() - 8).equals_insensitive("delegate")) {
         if (ResultEff == ObjCInitRetE)
           ResultEff = RetEffect::MakeNoRetHard();
         else

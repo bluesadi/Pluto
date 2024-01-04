@@ -5,21 +5,22 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-// This file defines the 'Statistic' class, which is designed to be an easy way
-// to expose various metrics from passes.  These statistics are printed at the
-// end of a run (from llvm_shutdown), when the -stats command line option is
-// passed on the command line.
-//
-// This is useful for reporting information like the number of instructions
-// simplified, optimized or removed by various transformations, like this:
-//
-// static Statistic NumInstsKilled("gcse", "Number of instructions killed");
-//
-// Later, in the code: ++NumInstsKilled;
-//
-// NOTE: Statistics *must* be declared as global variables.
-//
+///
+/// \file
+/// This file defines the 'Statistic' class, which is designed to be an easy way
+/// to expose various metrics from passes.  These statistics are printed at the
+/// end of a run (from llvm_shutdown), when the -stats command line option is
+/// passed on the command line.
+///
+/// This is useful for reporting information like the number of instructions
+/// simplified, optimized or removed by various transformations, like this:
+///
+/// static Statistic NumInstsKilled("gcse", "Number of instructions killed");
+///
+/// Later, in the code: ++NumInstsKilled;
+///
+/// NOTE: Statistics *must* be declared as global variables.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_STATISTIC_H
@@ -46,27 +47,23 @@ class raw_ostream;
 class raw_fd_ostream;
 class StringRef;
 
-class StatisticBase {
+class TrackingStatistic {
 public:
-  const char *DebugType;
-  const char *Name;
-  const char *Desc;
+  const char *const DebugType;
+  const char *const Name;
+  const char *const Desc;
 
-  StatisticBase(const char *DebugType, const char *Name, const char *Desc)
-      : DebugType(DebugType), Name(Name), Desc(Desc) {}
+  std::atomic<unsigned> Value;
+  std::atomic<bool> Initialized;
+
+  constexpr TrackingStatistic(const char *DebugType, const char *Name,
+                              const char *Desc)
+      : DebugType(DebugType), Name(Name), Desc(Desc), Value(0),
+        Initialized(false) {}
 
   const char *getDebugType() const { return DebugType; }
   const char *getName() const { return Name; }
   const char *getDesc() const { return Desc; }
-};
-
-class TrackingStatistic : public StatisticBase {
-public:
-  std::atomic<unsigned> Value;
-  std::atomic<bool> Initialized;
-
-  TrackingStatistic(const char *DebugType, const char *Name, const char *Desc)
-      : StatisticBase(DebugType, Name, Desc), Value(0), Initialized(false) {}
 
   unsigned getValue() const { return Value.load(std::memory_order_relaxed); }
 
@@ -132,9 +129,10 @@ protected:
   void RegisterStatistic();
 };
 
-class NoopStatistic : public StatisticBase {
+class NoopStatistic {
 public:
-  using StatisticBase::StatisticBase;
+  NoopStatistic(const char * /*DebugType*/, const char * /*Name*/,
+                const char * /*Desc*/) {}
 
   unsigned getValue() const { return 0; }
 

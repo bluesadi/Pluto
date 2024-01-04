@@ -23,7 +23,6 @@
 namespace llvm {
 
 class ARMTargetLowering;
-class MachineFunction;
 class MachineInstrBuilder;
 class MachineIRBuilder;
 class Value;
@@ -47,12 +46,6 @@ private:
   bool lowerReturnVal(MachineIRBuilder &MIRBuilder, const Value *Val,
                       ArrayRef<Register> VRegs,
                       MachineInstrBuilder &Ret) const;
-
-  /// Split an argument into one or more arguments that the CC lowering can cope
-  /// with.
-  void splitToValueTypes(const ArgInfo &OrigArg,
-                         SmallVectorImpl<ArgInfo> &SplitArgs,
-                         MachineFunction &MF) const;
 };
 
 } // end namespace llvm

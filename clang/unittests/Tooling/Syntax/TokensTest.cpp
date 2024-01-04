@@ -40,7 +40,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Testing/Support/Annotations.h"
 #include "llvm/Testing/Support/SupportHelpers.h"
-#include "gmock/gmock.h"
 #include <cassert>
 #include <cstdlib>
 #include <gmock/gmock.h>
@@ -106,6 +105,7 @@ public:
       void EndSourceFileAction() override {
         assert(Collector && "BeginSourceFileAction was never called");
         Result = std::move(*Collector).consume();
+        Result.indexExpandedTokens();
       }
 
       std::unique_ptr<ASTConsumer>
@@ -632,7 +632,7 @@ TEST_F(TokenBufferTest, SpelledByExpanded) {
     a1 a2 a3 b1 b2
   )cpp");
 
-  // Sanity check: expanded and spelled tokens are stored separately.
+  // Expanded and spelled tokens are stored separately.
   EXPECT_THAT(findExpanded("a1 a2"), Not(SameRange(findSpelled("a1 a2"))));
   // Searching for subranges of expanded tokens should give the corresponding
   // spelled ones.
@@ -750,7 +750,7 @@ TEST_F(TokenBufferTest, ExpandedTokensForRange) {
 
   SourceRange R(findExpanded("C").front().location(),
                 findExpanded("F_washere").front().location());
-  // Sanity check: expanded and spelled tokens are stored separately.
+  // Expanded and spelled tokens are stored separately.
   EXPECT_THAT(Buffer.expandedTokens(R),
               SameRange(findExpanded("C D_washere E F_washere")));
   EXPECT_THAT(Buffer.expandedTokens(SourceRange()), testing::IsEmpty());
@@ -934,7 +934,7 @@ TEST_F(TokenBufferTest, ExpandedBySpelled) {
   recordTokens(R"cpp(
     a1 a2 a3 b1 b2
   )cpp");
-  // Sanity check: expanded and spelled tokens are stored separately.
+  // Expanded and spelled tokens are stored separately.
   EXPECT_THAT(findExpanded("a1 a2"), Not(SameRange(findSpelled("a1 a2"))));
   // Searching for subranges of expanded tokens should give the corresponding
   // spelled ones.
@@ -1037,4 +1037,13 @@ TEST_F(TokenBufferTest, ExpandedBySpelled) {
               IsEmpty());
 }
 
+TEST_F(TokenCollectorTest, Pragmas) {
+  // Tokens coming from concatenations.
+  recordTokens(R"cpp(
+    void foo() {
+      #pragma unroll 4
+      for(int i=0;i<4;++i);
+    }
+  )cpp");
+}
 } // namespace

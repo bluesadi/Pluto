@@ -74,7 +74,10 @@ static Error getRelocationValueString(const ELFObjectFile<ELFT> *Obj,
     const typename ELFT::Rela *ERela = Obj->getRela(Rel);
     Addend = ERela->r_addend;
     Undef = ERela->getSymbol(false) == 0;
-  } else if ((*SecOrErr)->sh_type != ELF::SHT_REL) {
+  } else if ((*SecOrErr)->sh_type == ELF::SHT_REL) {
+    const typename ELFT::Rel *ERel = Obj->getRel(Rel);
+    Undef = ERel->getSymbol(false) == 0;
+  } else {
     return make_error<BinaryError>();
   }
 
@@ -142,7 +145,7 @@ static uint64_t getSectionLMA(const ELFFile<ELFT> &Obj,
                               const object::ELFSectionRef &Sec) {
   auto PhdrRangeOrErr = Obj.program_headers();
   if (!PhdrRangeOrErr)
-    report_fatal_error(toString(PhdrRangeOrErr.takeError()));
+    report_fatal_error(Twine(toString(PhdrRangeOrErr.takeError())));
 
   // Search for a PT_LOAD segment containing the requested section. Use this
   // segment's p_addr to calculate the section's LMA.
@@ -168,8 +171,12 @@ uint64_t objdump::getELFSectionLMA(const object::ELFSectionRef &Sec) {
 
 template <class ELFT>
 static void printDynamicSection(const ELFFile<ELFT> &Elf, StringRef Filename) {
-  ArrayRef<typename ELFT::Dyn> DynamicEntries =
-      unwrapOrError(Elf.dynamicEntries(), Filename);
+  auto DynamicEntriesOrErr = Elf.dynamicEntries();
+  if (!DynamicEntriesOrErr) {
+    reportWarning(toString(DynamicEntriesOrErr.takeError()), Filename);
+    return;
+  }
+  ArrayRef<typename ELFT::Dyn> DynamicEntries = *DynamicEntriesOrErr;
 
   // Find the maximum tag name length to format the value column properly.
   size_t MaxLen = 0;
@@ -177,7 +184,7 @@ static void printDynamicSection(const ELFFile<ELFT> &Elf, StringRef Filename) {
     MaxLen = std::max(MaxLen, Elf.getDynamicTagAsString(Dyn.d_tag).size());
   std::string TagFmt = "  %-" + std::to_string(MaxLen) + "s ";
 
-  outs() << "Dynamic Section:\n";
+  outs() << "\nDynamic Section:\n";
   for (const typename ELFT::Dyn &Dyn : DynamicEntries) {
     if (Dyn.d_tag == ELF::DT_NULL)
       continue;
@@ -205,7 +212,7 @@ static void printDynamicSection(const ELFFile<ELFT> &Elf, StringRef Filename) {
 
 template <class ELFT>
 static void printProgramHeaders(const ELFFile<ELFT> &Obj, StringRef FileName) {
-  outs() << "Program Header:\n";
+  outs() << "\nProgram Header:\n";
   auto ProgramHeaderOrError = Obj.program_headers();
   if (!ProgramHeaderOrError) {
     reportWarning("unable to read program headers: " +
@@ -272,13 +279,12 @@ static void printProgramHeaders(const ELFFile<ELFT> &Obj, StringRef FileName) {
            << ((Phdr.p_flags & ELF::PF_W) ? "w" : "-")
            << ((Phdr.p_flags & ELF::PF_X) ? "x" : "-") << "\n";
   }
-  outs() << "\n";
 }
 
 template <class ELFT>
 static void printSymbolVersionDependency(ArrayRef<uint8_t> Contents,
                                          StringRef StrTab) {
-  outs() << "Version References:\n";
+  outs() << "\nVersion References:\n";
 
   const uint8_t *Buf = Contents.data();
   while (Buf) {
@@ -304,7 +310,7 @@ template <class ELFT>
 static void printSymbolVersionDefinition(const typename ELFT::Shdr &Shdr,
                                          ArrayRef<uint8_t> Contents,
                                          StringRef StrTab) {
-  outs() << "Version definitions:\n";
+  outs() << "\nVersion definitions:\n";
 
   const uint8_t *Buf = Contents.data();
   uint32_t VerdefIndex = 1;

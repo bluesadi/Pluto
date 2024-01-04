@@ -850,11 +850,9 @@ getRegClassForUnfoldedLoad(MachineFunction &MF, const X86InstrInfo &TII,
 void X86SpeculativeLoadHardeningPass::unfoldCallAndJumpLoads(
     MachineFunction &MF) {
   for (MachineBasicBlock &MBB : MF)
-    for (auto MII = MBB.instr_begin(), MIE = MBB.instr_end(); MII != MIE;) {
-      // Grab a reference and increment the iterator so we can remove this
-      // instruction if needed without disturbing the iteration.
-      MachineInstr &MI = *MII++;
-
+    // We use make_early_inc_range here so we can remove instructions if needed
+    // without disturbing the iteration.
+    for (MachineInstr &MI : llvm::make_early_inc_range(MBB.instrs())) {
       // Must either be a call or a branch.
       if (!MI.isCall() && !MI.isBranch())
         continue;
@@ -1141,7 +1139,7 @@ X86SpeculativeLoadHardeningPass::tracePredStateThroughIndirectBranches(
     // branch back to itself. We can do this here because at this point, every
     // predecessor of this block has an available value. This is basically just
     // automating the construction of a PHI node for this target.
-    unsigned TargetReg = TargetAddrSSA.GetValueInMiddleOfBlock(&MBB);
+    Register TargetReg = TargetAddrSSA.GetValueInMiddleOfBlock(&MBB);
 
     // Insert a comparison of the incoming target register with this block's
     // address. This also requires us to mark the block as having its address
@@ -1574,7 +1572,7 @@ void X86SpeculativeLoadHardeningPass::hardenLoadAddr(
     MachineInstr &MI, MachineOperand &BaseMO, MachineOperand &IndexMO,
     SmallDenseMap<unsigned, unsigned, 32> &AddrRegToHardenedReg) {
   MachineBasicBlock &MBB = *MI.getParent();
-  DebugLoc Loc = MI.getDebugLoc();
+  const DebugLoc &Loc = MI.getDebugLoc();
 
   // Check if EFLAGS are alive by seeing if there is a def of them or they
   // live-in, and then seeing if that def is in turn used.
@@ -1644,7 +1642,7 @@ void X86SpeculativeLoadHardeningPass::hardenLoadAddr(
     return;
 
   // Compute the current predicate state.
-  unsigned StateReg = PS->SSA.GetValueAtEndOfBlock(&MBB);
+  Register StateReg = PS->SSA.GetValueAtEndOfBlock(&MBB);
 
   auto InsertPt = MI.getIterator();
 
@@ -1915,8 +1913,9 @@ unsigned X86SpeculativeLoadHardeningPass::hardenValueInRegister(
 
   auto *RC = MRI->getRegClass(Reg);
   int Bytes = TRI->getRegSizeInBits(*RC) / 8;
-
-  unsigned StateReg = PS->SSA.GetValueAtEndOfBlock(&MBB);
+  Register StateReg = PS->SSA.GetValueAtEndOfBlock(&MBB);
+  assert((Bytes == 1 || Bytes == 2 || Bytes == 4 || Bytes == 8) &&
+         "Unknown register size");
 
   // FIXME: Need to teach this about 32-bit mode.
   if (Bytes != 8) {
@@ -1959,7 +1958,7 @@ unsigned X86SpeculativeLoadHardeningPass::hardenValueInRegister(
 /// Returns the newly hardened register.
 unsigned X86SpeculativeLoadHardeningPass::hardenPostLoad(MachineInstr &MI) {
   MachineBasicBlock &MBB = *MI.getParent();
-  DebugLoc Loc = MI.getDebugLoc();
+  const DebugLoc &Loc = MI.getDebugLoc();
 
   auto &DefOp = MI.getOperand(0);
   Register OldDefReg = DefOp.getReg();
@@ -2010,7 +2009,7 @@ unsigned X86SpeculativeLoadHardeningPass::hardenPostLoad(MachineInstr &MI) {
 /// predicate state from the stack pointer and continue to harden loads.
 void X86SpeculativeLoadHardeningPass::hardenReturnInstr(MachineInstr &MI) {
   MachineBasicBlock &MBB = *MI.getParent();
-  DebugLoc Loc = MI.getDebugLoc();
+  const DebugLoc &Loc = MI.getDebugLoc();
   auto InsertPt = MI.getIterator();
 
   if (FenceCallAndRet)
@@ -2059,7 +2058,7 @@ void X86SpeculativeLoadHardeningPass::tracePredStateThroughCall(
   MachineBasicBlock &MBB = *MI.getParent();
   MachineFunction &MF = *MBB.getParent();
   auto InsertPt = MI.getIterator();
-  DebugLoc Loc = MI.getDebugLoc();
+  const DebugLoc &Loc = MI.getDebugLoc();
 
   if (FenceCallAndRet) {
     if (MI.isReturn())
@@ -2079,7 +2078,7 @@ void X86SpeculativeLoadHardeningPass::tracePredStateThroughCall(
 
   // First, we transfer the predicate state into the called function by merging
   // it into the stack pointer. This will kill the current def of the state.
-  unsigned StateReg = PS->SSA.GetValueAtEndOfBlock(&MBB);
+  Register StateReg = PS->SSA.GetValueAtEndOfBlock(&MBB);
   mergePredStateIntoSP(MBB, InsertPt, Loc, StateReg);
 
   // If this call is also a return, it is a tail call and we don't need anything

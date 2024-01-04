@@ -22,17 +22,13 @@ namespace clang {
 namespace format {
 
 namespace {
-// The maximal number of unwrapped lines that a short namespace spans.
-// Short namespaces don't need an end comment.
-static const int kShortNamespaceMaxLines = 1;
-
 // Computes the name of a namespace given the namespace token.
 // Returns "" for anonymous namespace.
 std::string computeName(const FormatToken *NamespaceTok) {
   assert(NamespaceTok &&
          NamespaceTok->isOneOf(tok::kw_namespace, TT_NamespaceMacro) &&
          "expecting a namespace token");
-  std::string name = "";
+  std::string name;
   const FormatToken *Tok = NamespaceTok->getNextNonComment();
   if (NamespaceTok->is(TT_NamespaceMacro)) {
     // Collects all the non-comment tokens between opening parenthesis
@@ -66,8 +62,10 @@ std::string computeName(const FormatToken *NamespaceTok) {
 }
 
 std::string computeEndCommentText(StringRef NamespaceName, bool AddNewline,
-                                  const FormatToken *NamespaceTok) {
-  std::string text = "// ";
+                                  const FormatToken *NamespaceTok,
+                                  unsigned SpacesToAdd) {
+  std::string text = "//";
+  text.append(SpacesToAdd, ' ');
   text += NamespaceTok->TokenText;
   if (NamespaceTok->is(TT_NamespaceMacro))
     text += "(";
@@ -182,9 +180,13 @@ getNamespaceToken(const AnnotatedLine *Line,
   if (NamespaceTok->is(tok::l_brace)) {
     // "namespace" keyword can be on the line preceding '{', e.g. in styles
     // where BraceWrapping.AfterNamespace is true.
-    if (StartLineIndex > 0)
+    if (StartLineIndex > 0) {
       NamespaceTok = AnnotatedLines[StartLineIndex - 1]->First;
+      if (AnnotatedLines[StartLineIndex - 1]->endsWith(tok::semi))
+        return nullptr;
+    }
   }
+
   return NamespaceTok->getNamespaceToken();
 }
 
@@ -208,8 +210,8 @@ std::pair<tooling::Replacements, unsigned> NamespaceEndCommentsFixer::analyze(
 
   // Spin through the lines and ensure we have balanced braces.
   int Braces = 0;
-  for (size_t I = 0, E = AnnotatedLines.size(); I != E; ++I) {
-    FormatToken *Tok = AnnotatedLines[I]->First;
+  for (AnnotatedLine *Line : AnnotatedLines) {
+    FormatToken *Tok = Line->First;
     while (Tok) {
       Braces += Tok->is(tok::l_brace) ? 1 : Tok->is(tok::r_brace) ? -1 : 0;
       Tok = Tok->Next;
@@ -222,7 +224,7 @@ std::pair<tooling::Replacements, unsigned> NamespaceEndCommentsFixer::analyze(
     return {Fixes, 0};
   }
 
-  std::string AllNamespaceNames = "";
+  std::string AllNamespaceNames;
   size_t StartLineIndex = SIZE_MAX;
   StringRef NamespaceTokenText;
   unsigned int CompactedNamespacesCount = 0;
@@ -258,8 +260,9 @@ std::pair<tooling::Replacements, unsigned> NamespaceEndCommentsFixer::analyze(
           // remove end comment, it will be merged in next one
           updateEndComment(EndCommentPrevTok, std::string(), SourceMgr, &Fixes);
         }
-        CompactedNamespacesCount++;
-        AllNamespaceNames = "::" + NamespaceName + AllNamespaceNames;
+        ++CompactedNamespacesCount;
+        if (!NamespaceName.empty())
+          AllNamespaceNames = "::" + NamespaceName + AllNamespaceNames;
         continue;
       }
       NamespaceName += AllNamespaceNames;
@@ -278,9 +281,10 @@ std::pair<tooling::Replacements, unsigned> NamespaceEndCommentsFixer::analyze(
                       EndCommentNextTok->NewlinesBefore == 0 &&
                       EndCommentNextTok->isNot(tok::eof);
     const std::string EndCommentText =
-        computeEndCommentText(NamespaceName, AddNewline, NamespaceTok);
+        computeEndCommentText(NamespaceName, AddNewline, NamespaceTok,
+                              Style.SpacesInLineCommentPrefix.Minimum);
     if (!hasEndComment(EndCommentPrevTok)) {
-      bool isShort = I - StartLineIndex <= kShortNamespaceMaxLines + 1;
+      bool isShort = I - StartLineIndex <= Style.ShortNamespaceLines + 1;
       if (!isShort)
         addEndComment(EndCommentPrevTok, EndCommentText, SourceMgr, &Fixes);
     } else if (!validEndComment(EndCommentPrevTok, NamespaceName,

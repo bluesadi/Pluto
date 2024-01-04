@@ -24,6 +24,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Scalar.h"
 
@@ -41,15 +42,15 @@ STATISTIC(ExpectIntrinsicsHandled,
 // only be used in extreme cases, we could make this ratio higher. As it stands,
 // programmers may be using __builtin_expect() / llvm.expect to annotate that a
 // branch is likely or unlikely to be taken.
-//
-// There is a known dependency on this ratio in CodeGenPrepare when transforming
-// 'select' instructions. It may be worthwhile to hoist these values to some
-// shared space, so they can be used directly by other passes.
 
-cl::opt<uint32_t> llvm::LikelyBranchWeight(
+// WARNING: these values are internal implementation detail of the pass.
+// They should not be exposed to the outside of the pass, front-end codegen
+// should emit @llvm.expect intrinsics instead of using these weights directly.
+// Transforms should use TargetTransformInfo's getPredictableBranchThreshold().
+static cl::opt<uint32_t> LikelyBranchWeight(
     "likely-branch-weight", cl::Hidden, cl::init(2000),
     cl::desc("Weight of the branch likely to be taken (default = 2000)"));
-cl::opt<uint32_t> llvm::UnlikelyBranchWeight(
+static cl::opt<uint32_t> UnlikelyBranchWeight(
     "unlikely-branch-weight", cl::Hidden, cl::init(1),
     cl::desc("Weight of the branch unlikely to be taken (default = 1)"));
 
@@ -63,7 +64,7 @@ getBranchWeight(Intrinsic::ID IntrinsicID, CallInst *CI, int BranchCount) {
     // __builtin_expect_with_probability
     assert(CI->getNumOperands() >= 3 &&
            "expect with probability must have 3 arguments");
-    ConstantFP *Confidence = dyn_cast<ConstantFP>(CI->getArgOperand(2));
+    auto *Confidence = cast<ConstantFP>(CI->getArgOperand(2));
     double TrueProb = Confidence->getValueAPF().convertToDouble();
     assert((TrueProb >= 0.0 && TrueProb <= 1.0) &&
            "probability value must be in the range [0.0, 1.0]");
@@ -356,11 +357,10 @@ static bool lowerExpectIntrinsic(Function &F) {
     // Remove llvm.expect intrinsics. Iterate backwards in order
     // to process select instructions before the intrinsic gets
     // removed.
-    for (auto BI = BB.rbegin(), BE = BB.rend(); BI != BE;) {
-      Instruction *Inst = &*BI++;
-      CallInst *CI = dyn_cast<CallInst>(Inst);
+    for (Instruction &Inst : llvm::make_early_inc_range(llvm::reverse(BB))) {
+      CallInst *CI = dyn_cast<CallInst>(&Inst);
       if (!CI) {
-        if (SelectInst *SI = dyn_cast<SelectInst>(Inst)) {
+        if (SelectInst *SI = dyn_cast<SelectInst>(&Inst)) {
           if (handleBrSelExpect(*SI))
             ExpectIntrinsicsHandled++;
         }

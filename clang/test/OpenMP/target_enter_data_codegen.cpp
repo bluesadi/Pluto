@@ -224,7 +224,7 @@ void foo(int arg) {
 }
 
 
-// CK1:     define internal {{.*}}i32 [[OMP_TASK_ENTRY]](i32 {{.*}}%0, [[KMP_TASK_T_WITH_PRIVATES]]* noalias %1)
+// CK1:     define internal {{.*}}i32 [[OMP_TASK_ENTRY]](i32 {{.*}}%0, [[KMP_TASK_T_WITH_PRIVATES]]* noalias noundef %1)
 // CK1-DAG: call void @__tgt_target_data_begin_nowait_mapper(%struct.ident_t* @{{.+}}, i64 %{{[^,]+}}, i32 1, i8** [[BPADDR:%[^,]+]], i8** [[PADDR:%[^,]+]], i64* [[SZADDR:%[^,]+]], i64* getelementptr inbounds ([1 x i64], [1 x i64]* [[MTYPE00]], i32 0, i32 0), i8** null, i8** null)
 // CK1-DAG: [[BPADDR]] = getelementptr inbounds [1 x i8*], [1 x i8*]* [[FPBPADDR:%[^,]+]], i{{32|64}} 0, i{{32|64}} 0
 // CK1-DAG: [[PADDR]] = getelementptr inbounds [1 x i8*], [1 x i8*]* [[FPPADDR:%[^,]+]], i{{32|64}} 0, i{{32|64}} 0
@@ -232,7 +232,8 @@ void foo(int arg) {
 // CK1-DAG: [[FPBPADDR]] = load [1 x i8*]*, [1 x i8*]** [[FPBP:%[^,]+]], align
 // CK1-DAG: [[FPPADDR]] = load [1 x i8*]*, [1 x i8*]** [[FPP:%[^,]+]], align
 // CK1-DAG: [[FPSZADDR]] = load [1 x i64]*, [1 x i64]** [[FPSZ:%[^,]+]], align
-// CK1-DAG: call void (i8*, ...) %{{.+}}(i8* %{{[^,]+}}, [1 x i8*]** [[FPBP]], [1 x i8*]** [[FPP]], [1 x i64]** [[FPSZ]])
+// CK1-DAG: [[FN:%.+]] = bitcast void (i8*, ...)* {{%.*}} to void (i8*,
+// CK1-DAG: call void [[FN]](i8* %{{[^,]+}}, [1 x i8*]** [[FPBP]], [1 x i8*]** [[FPP]], [1 x i64]** [[FPSZ]])
 // CK1:   ret i32 0
 // CK1: }
 
@@ -267,7 +268,7 @@ double gc[100];
 // PRESENT=0x1000 | TO=0x1 = 0x1001
 // CK1A: [[MTYPE00:@.+]] = {{.+}}constant [1 x i64] [i64 [[#0x1001]]]
 
-// PRESENT=0x1000 | CLOSE=0x400 | ALWAYS=0x4 | TO=0x1 = 0x1425
+// PRESENT=0x1000 | CLOSE=0x400 | ALWAYS=0x4 | TO=0x1 = 0x1405
 // CK1A: [[MTYPE01:@.+]] = {{.+}}constant [1 x i64] [i64 [[#0x1405]]]
 
 // CK1A-LABEL: _Z3fooi

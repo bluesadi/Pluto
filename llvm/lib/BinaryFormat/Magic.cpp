@@ -10,10 +10,8 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/COFF.h"
-#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/BinaryFormat/MachO.h"
 #include "llvm/Support/Endian.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 
 #if !defined(_MSC_VER) && !defined(__MINGW32__)
@@ -71,6 +69,11 @@ file_magic llvm::identify_magic(StringRef Magic) {
       return file_magic::xcoff_object_64;
     break;
 
+  case 0x03:
+    if (startswith(Magic, "\x03\xF0\x00"))
+      return file_magic::goff_object;
+    break;
+
   case 0xDE: // 0x0B17C0DE = BC wraper
     if (startswith(Magic, "\xDE\xC0\x17\x0B"))
       return file_magic::bitcode;
@@ -83,7 +86,10 @@ file_magic llvm::identify_magic(StringRef Magic) {
     if (startswith(Magic, "!<arch>\n") || startswith(Magic, "!<thin>\n"))
       return file_magic::archive;
     break;
-
+  case '<':
+    if (startswith(Magic, "<bigaf>\n"))
+      return file_magic::archive;
+    break;
   case '\177':
     if (startswith(Magic, "\177ELF") && Magic.size() >= 18) {
       bool Data2MSB = Magic[5] == 2;
@@ -223,7 +229,8 @@ file_magic llvm::identify_magic(StringRef Magic) {
 }
 
 std::error_code llvm::identify_magic(const Twine &Path, file_magic &Result) {
-  auto FileOrError = MemoryBuffer::getFile(Path, -1LL, false);
+  auto FileOrError = MemoryBuffer::getFile(Path, /*IsText=*/false,
+                                           /*RequiresNullTerminator=*/false);
   if (!FileOrError)
     return FileOrError.getError();
 

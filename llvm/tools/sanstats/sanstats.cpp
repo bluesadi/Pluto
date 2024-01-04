@@ -69,7 +69,7 @@ static const char *ReadModule(char SizeofPtr, const char *Begin,
   SymbolizerOptions.UseSymbolTable = true;
   symbolize::LLVMSymbolizer Symbolizer(SymbolizerOptions);
 
-  while (1) {
+  while (true) {
     uint64_t Addr = ReadLE(SizeofPtr, Begin, End);
     Begin += SizeofPtr;
     uint64_t Data = ReadLE(SizeofPtr, Begin, End);
@@ -125,8 +125,8 @@ int main(int argc, char **argv) {
   cl::ParseCommandLineOptions(argc, argv,
                               "Sanitizer Statistics Processing Tool");
 
-  ErrorOr<std::unique_ptr<MemoryBuffer>> MBOrErr =
-      MemoryBuffer::getFile(ClInputFile, -1, false);
+  ErrorOr<std::unique_ptr<MemoryBuffer>> MBOrErr = MemoryBuffer::getFile(
+      ClInputFile, /*IsText=*/false, /*RequiresNullTerminator=*/false);
   if (!MBOrErr) {
     errs() << argv[0] << ": " << ClInputFile << ": "
            << MBOrErr.getError().message() << '\n';

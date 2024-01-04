@@ -21,9 +21,21 @@
 // clusters of basic blocks. Every cluster will be emitted into a separate
 // section with its basic blocks sequenced in the given order. To get the
 // optimized performance, the clusters must form an optimal BB layout for the
-// function. Every cluster's section is labeled with a symbol to allow the
-// linker to reorder the sections in any arbitrary sequence. A global order of
-// these sections would encapsulate the function layout.
+// function. We insert a symbol at the beginning of every cluster's section to
+// allow the linker to reorder the sections in any arbitrary sequence. A global
+// order of these sections would encapsulate the function layout.
+// For example, consider the following clusters for a function foo (consisting
+// of 6 basic blocks 0, 1, ..., 5).
+//
+// 0 2
+// 1 3 5
+//
+// * Basic blocks 0 and 2 are placed in one section with symbol `foo`
+//   referencing the beginning of this section.
+// * Basic blocks 1, 3, 5 are placed in a separate section. A new symbol
+//   `foo.__part.1` will reference the beginning of this section.
+// * Basic block 4 (note that it is not referenced in the list) is placed in
+//   one section, and a new symbol `foo.cold` will point to it.
 //
 // There are a couple of challenges to be addressed:
 //
@@ -87,6 +99,12 @@ cl::opt<std::string> llvm::BBSectionsColdTextPrefix(
     "bbsections-cold-text-prefix",
     cl::desc("The text prefix to use for cold basic block clusters"),
     cl::init(".text.split."), cl::Hidden);
+
+cl::opt<bool> BBSectionsDetectSourceDrift(
+    "bbsections-detect-source-drift",
+    cl::desc("This checks if there is a fdo instr. profile hash "
+             "mismatch for this function"),
+    cl::init(true), cl::Hidden);
 
 namespace {
 
@@ -303,20 +321,51 @@ static bool avoidZeroOffsetLandingPad(MachineFunction &MF) {
       MachineBasicBlock::iterator MI = MBB.begin();
       while (!MI->isEHLabel())
         ++MI;
-      MCInst Noop;
-      MF.getSubtarget().getInstrInfo()->getNoop(Noop);
+      MCInst Nop = MF.getSubtarget().getInstrInfo()->getNop();
       BuildMI(MBB, MI, DebugLoc(),
-              MF.getSubtarget().getInstrInfo()->get(Noop.getOpcode()));
+              MF.getSubtarget().getInstrInfo()->get(Nop.getOpcode()));
       return false;
     }
   }
   return true;
 }
 
+// This checks if the source of this function has drifted since this binary was
+// profiled previously.  For now, we are piggy backing on what PGO does to
+// detect this with instrumented profiles.  PGO emits an hash of the IR and
+// checks if the hash has changed.  Advanced basic block layout is usually done
+// on top of PGO optimized binaries and hence this check works well in practice.
+static bool hasInstrProfHashMismatch(MachineFunction &MF) {
+  if (!BBSectionsDetectSourceDrift)
+    return false;
+
+  const char MetadataName[] = "instr_prof_hash_mismatch";
+  auto *Existing = MF.getFunction().getMetadata(LLVMContext::MD_annotation);
+  if (Existing) {
+    MDTuple *Tuple = cast<MDTuple>(Existing);
+    for (auto &N : Tuple->operands())
+      if (cast<MDString>(N.get())->getString() == MetadataName)
+        return true;
+  }
+
+  return false;
+}
+
 bool BasicBlockSections::runOnMachineFunction(MachineFunction &MF) {
   auto BBSectionsType = MF.getTarget().getBBSectionsType();
   assert(BBSectionsType != BasicBlockSection::None &&
          "BB Sections not enabled!");
+
+  // Check for source drift.  If the source has changed since the profiles
+  // were obtained, optimizing basic blocks might be sub-optimal.
+  // This only applies to BasicBlockSection::List as it creates
+  // clusters of basic blocks using basic block ids. Source drift can
+  // invalidate these groupings leading to sub-optimal code generation with
+  // regards to performance.
+  if (BBSectionsType == BasicBlockSection::List &&
+      hasInstrProfHashMismatch(MF))
+    return true;
+
   // Renumber blocks before sorting them for basic block sections.  This is
   // useful during sorting, basic blocks in the same section will retain the
   // default order.  This renumbering should also be done for basic block

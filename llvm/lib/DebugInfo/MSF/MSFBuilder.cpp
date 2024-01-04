@@ -15,6 +15,7 @@
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileOutputBuffer.h"
+#include "llvm/Support/FormatVariadic.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -341,7 +342,28 @@ Expected<FileBufferByteStream> MSFBuilder::commit(StringRef Path,
 
   Layout = std::move(*L);
 
-  uint64_t FileSize = Layout.SB->BlockSize * Layout.SB->NumBlocks;
+  uint64_t FileSize = uint64_t(Layout.SB->BlockSize) * Layout.SB->NumBlocks;
+  // Ensure that the file size is under the limit for the specified block size.
+  if (FileSize > getMaxFileSizeFromBlockSize(Layout.SB->BlockSize)) {
+    msf_error_code error_code = [](uint32_t BlockSize) {
+      switch (BlockSize) {
+      case 8192:
+        return msf_error_code::size_overflow_8192;
+      case 16384:
+        return msf_error_code::size_overflow_16384;
+      case 32768:
+        return msf_error_code::size_overflow_32768;
+      default:
+        return msf_error_code::size_overflow_4096;
+      }
+    }(Layout.SB->BlockSize);
+
+    return make_error<MSFError>(
+        error_code,
+        formatv("File size {0,1:N} too large for current PDB page size {1}",
+                FileSize, Layout.SB->BlockSize));
+  }
+
   auto OutFileOrError = FileOutputBuffer::create(Path, FileSize);
   if (auto EC = OutFileOrError.takeError())
     return std::move(EC);

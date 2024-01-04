@@ -40,8 +40,9 @@
 // RUN:   | FileCheck --check-prefix=CHECK-MIPS64-LD %s
 // RUN: %clang -no-canonical-prefixes -target mips64el-unknown-openbsd %s -### 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-MIPS64EL-LD %s
-// CHECK-LD-R: clang{{.*}}" "-cc1" "-triple" "i686-pc-openbsd"
-// CHECK-LD-R: ld{{.*}}" "-e" "__start" "--eh-frame-hdr" "-Bdynamic" "-dynamic-linker" "{{.*}}ld.so" "-o" "a.out" "{{.*}}crt0.o" "{{.*}}crtbegin.o" "-L{{.*}}" "-r" "{{.*}}.o" "-lcompiler_rt" "-lc" "-lcompiler_rt" "{{.*}}crtend.o"
+// CHECK-LD-R:     "-r"
+// CHECK-LD-R-NOT: "-l
+// CHECK-LD-R-NOT: crt{{[^.]+}}.o
 // CHECK-LD-S: clang{{.*}}" "-cc1" "-triple" "i686-pc-openbsd"
 // CHECK-LD-S: ld{{.*}}" "-e" "__start" "--eh-frame-hdr" "-Bdynamic" "-dynamic-linker" "{{.*}}ld.so" "-o" "a.out" "{{.*}}crt0.o" "{{.*}}crtbegin.o" "-L{{.*}}" "-s" "{{.*}}.o" "-lcompiler_rt" "-lc" "-lcompiler_rt" "{{.*}}crtend.o"
 // CHECK-LD-T: clang{{.*}}" "-cc1" "-triple" "i686-pc-openbsd"
@@ -56,6 +57,8 @@
 // Check passing options to the assembler for various OpenBSD targets
 // RUN: %clang -target amd64-pc-openbsd -m32 -### -no-integrated-as -c %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHECK-AMD64-M32 %s
+// RUN: %clang -target arm-unknown-openbsd -### -no-integrated-as -c %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK-ARM %s
 // RUN: %clang -target powerpc-unknown-openbsd -### -no-integrated-as -c %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHECK-POWERPC %s
 // RUN: %clang -target sparc64-unknown-openbsd -### -no-integrated-as -c %s 2>&1 \
@@ -69,10 +72,11 @@
 // RUN: %clang -target mips64el-unknown-openbsd -fPIC -### -no-integrated-as -c %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHECK-MIPS64EL-PIC %s
 // CHECK-AMD64-M32: as{{.*}}" "--32"
+// CHECK-ARM: as{{.*}}" "-mcpu=cortex-a8"
 // CHECK-POWERPC: as{{.*}}" "-mppc" "-many"
 // CHECK-SPARC64: as{{.*}}" "-64" "-Av9a"
-// CHECK-MIPS64: as{{.*}}" "-mabi" "64" "-EB"
-// CHECK-MIPS64-PIC: as{{.*}}" "-mabi" "64" "-EB" "-KPIC"
+// CHECK-MIPS64: as{{.*}}" "-march" "mips3" "-mabi" "64" "-EB"
+// CHECK-MIPS64-PIC: as{{.*}}" "-march" "mips3" "-mabi" "64" "-EB" "-KPIC"
 // CHECK-MIPS64EL: as{{.*}}" "-mabi" "64" "-EL"
 // CHECK-MIPS64EL-PIC: as{{.*}}" "-mabi" "64" "-EL" "-KPIC"
 
@@ -117,3 +121,11 @@
 // RUN: %clang -target powerpc-unknown-openbsd -### -c %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHECK-POWERPC-SECUREPLT %s
 // CHECK-POWERPC-SECUREPLT: "-target-feature" "+secure-plt"
+
+// Check that unwind tables are enabled
+// RUN: %clang -target arm-unknown-openbsd -### -S %s 2>&1 | \
+// RUN: FileCheck -check-prefix=NO-UNWIND-TABLES %s
+// RUN: %clang -target mips64-unknown-openbsd -### -S %s 2>&1 | \
+// RUN: FileCheck -check-prefix=UNWIND-TABLES %s
+// UNWIND-TABLES: "-funwind-tables=2"
+// NO-UNWIND-TABLES-NOT: "-funwind-tables=2"

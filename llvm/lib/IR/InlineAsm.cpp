@@ -22,18 +22,17 @@
 #include <algorithm>
 #include <cassert>
 #include <cctype>
-#include <cstddef>
 #include <cstdlib>
 
 using namespace llvm;
 
 InlineAsm::InlineAsm(FunctionType *FTy, const std::string &asmString,
                      const std::string &constraints, bool hasSideEffects,
-                     bool isAlignStack, AsmDialect asmDialect)
+                     bool isAlignStack, AsmDialect asmDialect, bool canThrow)
     : Value(PointerType::getUnqual(FTy), Value::InlineAsmVal),
       AsmString(asmString), Constraints(constraints), FTy(FTy),
       HasSideEffects(hasSideEffects), IsAlignStack(isAlignStack),
-      Dialect(asmDialect) {
+      Dialect(asmDialect), CanThrow(canThrow) {
   // Do various checks on the constraint string and type.
   assert(Verify(getFunctionType(), constraints) &&
          "Function type not legal for constraints!");
@@ -41,9 +40,10 @@ InlineAsm::InlineAsm(FunctionType *FTy, const std::string &asmString,
 
 InlineAsm *InlineAsm::get(FunctionType *FTy, StringRef AsmString,
                           StringRef Constraints, bool hasSideEffects,
-                          bool isAlignStack, AsmDialect asmDialect) {
+                          bool isAlignStack, AsmDialect asmDialect,
+                          bool canThrow) {
   InlineAsmKeyType Key(AsmString, Constraints, FTy, hasSideEffects,
-                       isAlignStack, asmDialect);
+                       isAlignStack, asmDialect, canThrow);
   LLVMContextImpl *pImpl = FTy->getContext().pImpl;
   return pImpl->InlineAsms.getOrCreate(PointerType::getUnqual(FTy), Key);
 }
@@ -261,12 +261,12 @@ bool InlineAsm::Verify(FunctionType *Ty, StringRef ConstStr) {
   unsigned NumOutputs = 0, NumInputs = 0, NumClobbers = 0;
   unsigned NumIndirect = 0;
 
-  for (unsigned i = 0, e = Constraints.size(); i != e; ++i) {
-    switch (Constraints[i].Type) {
+  for (const ConstraintInfo &Constraint : Constraints) {
+    switch (Constraint.Type) {
     case InlineAsm::isOutput:
       if ((NumInputs-NumIndirect) != 0 || NumClobbers != 0)
         return false;  // outputs before inputs and clobbers.
-      if (!Constraints[i].isIndirect) {
+      if (!Constraint.isIndirect) {
         ++NumOutputs;
         break;
       }

@@ -9,12 +9,9 @@
 #ifndef LLVM_DEBUGINFO_GSYM_STRINGTABLE_H
 #define LLVM_DEBUGINFO_GSYM_STRINGTABLE_H
 
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/DebugInfo/GSYM/Range.h"
 #include <stdint.h>
-#include <string>
-
 
 namespace llvm {
 namespace gsym {
@@ -23,7 +20,7 @@ namespace gsym {
 /// string at offset zero. Strings must be UTF8 NULL terminated strings.
 struct StringTable {
   StringRef Data;
-  StringTable() : Data() {}
+  StringTable() = default;
   StringTable(StringRef D) : Data(D) {}
   StringRef operator[](size_t Offset) const { return getString(Offset); }
   StringRef getString(uint32_t Offset) const {
@@ -50,4 +47,4 @@ inline raw_ostream &operator<<(raw_ostream &OS, const StringTable &S) {
 
 } // namespace gsym
 } // namespace llvm
-#endif // #ifndef LLVM_DEBUGINFO_GSYM_STRINGTABLE_H
+#endif // LLVM_DEBUGINFO_GSYM_STRINGTABLE_H

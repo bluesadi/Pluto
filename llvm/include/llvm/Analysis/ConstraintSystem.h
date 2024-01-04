@@ -30,9 +30,6 @@ class ConstraintSystem {
   // Eliminate constraints from the system using Fourier–Motzkin elimination.
   bool eliminateUsingFM();
 
-  /// Print the constraints in the system, using \p Names as variable names.
-  void dump(ArrayRef<std::string> Names) const;
-
   /// Print the constraints in the system, using x0...xn as variable names.
   void dump() const;
 
@@ -76,12 +73,15 @@ public:
     return R;
   }
 
-  bool isConditionImplied(SmallVector<int64_t, 8> R);
+  bool isConditionImplied(SmallVector<int64_t, 8> R) const;
 
   void popLastConstraint() { Constraints.pop_back(); }
 
   /// Returns the number of rows in the constraint system.
   unsigned size() const { return Constraints.size(); }
+
+  /// Print the constraints in the system, using \p Names as variable names.
+  void dump(ArrayRef<std::string> Names) const;
 };
 } // namespace llvm
 

@@ -159,9 +159,9 @@ Parser::ParseExpressionWithLeadingExtension(SourceLocation ExtLoc) {
 /// Parse an expr that doesn't include (top-level) commas.
 ExprResult Parser::ParseAssignmentExpression(TypeCastState isTypeCast) {
   if (Tok.is(tok::code_completion)) {
+    cutOffParsing();
     Actions.CodeCompleteExpression(getCurScope(),
                                    PreferredType.get(Tok.getLocation()));
-    cutOffParsing();
     return ExprError();
   }
 
@@ -400,7 +400,7 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
   SourceLocation ColonLoc;
 
   auto SavedType = PreferredType;
-  while (1) {
+  while (true) {
     // Every iteration may rely on a preferred type for the whole expression.
     PreferredType = SavedType;
     // If this token has a lower precedence than we are allowed to parse (e.g.
@@ -1156,9 +1156,9 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
       ConsumeToken();
 
       if (Tok.is(tok::code_completion) && &II != Ident_super) {
+        cutOffParsing();
         Actions.CodeCompleteObjCClassPropertyRefExpr(
             getCurScope(), II, ILoc, ExprStatementTokLoc == ILoc);
-        cutOffParsing();
         return ExprError();
       }
       // Allow either an identifier or the keyword 'class' (in C++).
@@ -1469,6 +1469,9 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
   case tok::kw_this:
     Res = ParseCXXThis();
     break;
+  case tok::kw___builtin_sycl_unique_stable_name:
+    Res = ParseSYCLUniqueStableNameExpression();
+    break;
 
   case tok::annot_typename:
     if (isStartOfObjCClassMessageMissingOpenBracket()) {
@@ -1510,6 +1513,7 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
   case tok::kw___int64:
   case tok::kw___int128:
   case tok::kw__ExtInt:
+  case tok::kw__BitInt:
   case tok::kw_signed:
   case tok::kw_unsigned:
   case tok::kw_half:
@@ -1518,6 +1522,7 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
   case tok::kw___bf16:
   case tok::kw__Float16:
   case tok::kw___float128:
+  case tok::kw___ibm128:
   case tok::kw_void:
   case tok::kw_typename:
   case tok::kw_typeof:
@@ -1583,7 +1588,7 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
         // cast expression.
         CXXScopeSpec SS;
         ParseOptionalCXXScopeSpecifier(SS, /*ObjectType=*/nullptr,
-                                       /*ObjectHadErrors=*/false,
+                                       /*ObjectHasErrors=*/false,
                                        /*EnteringContext=*/false);
         AnnotateTemplateIdTokenAsType(SS);
         return ParseCastExpression(ParseKind, isAddressOfOperand, NotCastExpr,
@@ -1724,9 +1729,9 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
     Res = ParseBlockLiteralExpression();
     break;
   case tok::code_completion: {
+    cutOffParsing();
     Actions.CodeCompleteExpression(getCurScope(),
                                    PreferredType.get(Tok.getLocation()));
-    cutOffParsing();
     return ExprError();
   }
   case tok::l_square:
@@ -1807,7 +1812,9 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
   // These can be followed by postfix-expr pieces.
   PreferredType = SavedType;
   Res = ParsePostfixExpressionSuffix(Res);
-  if (getLangOpts().OpenCL)
+  if (getLangOpts().OpenCL &&
+      !getActions().getOpenCLOptions().isAvailableOption(
+          "__cl_clang_function_pointers", getLangOpts()))
     if (Expr *PostfixExpr = Res.get()) {
       QualType Ty = PostfixExpr->getType();
       if (!Ty.isNull() && Ty->isFunctionType()) {
@@ -1846,7 +1853,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
   // parsed, see if there are any postfix-expression pieces here.
   SourceLocation Loc;
   auto SavedType = PreferredType;
-  while (1) {
+  while (true) {
     // Each iteration relies on preferred type for the whole expression.
     PreferredType = SavedType;
     switch (Tok.getKind()) {
@@ -1854,9 +1861,9 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       if (InMessageExpression)
         return LHS;
 
+      cutOffParsing();
       Actions.CodeCompletePostfixExpression(
           getCurScope(), LHS, PreferredType.get(Tok.getLocation()));
-      cutOffParsing();
       return ExprError();
 
     case tok::identifier:
@@ -2012,7 +2019,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       CommaLocsTy CommaLocs;
       auto RunSignatureHelp = [&]() -> QualType {
         QualType PreferredType = Actions.ProduceCallSignatureHelp(
-            getCurScope(), LHS.get(), ArgExprs, PT.getOpenLocation());
+            LHS.get(), ArgExprs, PT.getOpenLocation());
         CalledSignatureHelp = true;
         return PreferredType;
       };
@@ -2138,12 +2145,12 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
           CorrectedBase = Base;
 
         // Code completion for a member access expression.
+        cutOffParsing();
         Actions.CodeCompleteMemberReferenceExpr(
             getCurScope(), Base, CorrectedBase, OpLoc, OpKind == tok::arrow,
             Base && ExprStatementTokLoc == Base->getBeginLoc(),
             PreferredType.get(Tok.getLocation()));
 
-        cutOffParsing();
         return ExprError();
       }
 
@@ -2322,6 +2329,33 @@ Parser::ParseExprAfterUnaryExprOrTypeTrait(const Token &OpTok,
   return Operand;
 }
 
+/// Parse a __builtin_sycl_unique_stable_name expression.  Accepts a type-id as
+/// a parameter.
+ExprResult Parser::ParseSYCLUniqueStableNameExpression() {
+  assert(Tok.is(tok::kw___builtin_sycl_unique_stable_name) &&
+         "Not __builtin_sycl_unique_stable_name");
+
+  SourceLocation OpLoc = ConsumeToken();
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+
+  // __builtin_sycl_unique_stable_name expressions are always parenthesized.
+  if (T.expectAndConsume(diag::err_expected_lparen_after,
+                         "__builtin_sycl_unique_stable_name"))
+    return ExprError();
+
+  TypeResult Ty = ParseTypeName();
+
+  if (Ty.isInvalid()) {
+    T.skipToEnd();
+    return ExprError();
+  }
+
+  if (T.consumeClose())
+    return ExprError();
+
+  return Actions.ActOnSYCLUniqueStableNameExpr(OpLoc, T.getOpenLocation(),
+                                               T.getCloseLocation(), Ty.get());
+}
 
 /// Parse a sizeof or alignof expression.
 ///
@@ -2524,7 +2558,7 @@ ExprResult Parser::ParseBuiltinPrimaryExpression() {
     Comps.back().LocStart = Comps.back().LocEnd = ConsumeToken();
 
     // FIXME: This loop leaks the index expressions on error.
-    while (1) {
+    while (true) {
       if (Tok.is(tok::period)) {
         // offsetof-member-designator: offsetof-member-designator '.' identifier
         Comps.push_back(Sema::OffsetOfComponent());
@@ -2776,10 +2810,10 @@ Parser::ParseParenExpression(ParenParseOption &ExprType, bool stopIfCastExpr,
   CastTy = nullptr;
 
   if (Tok.is(tok::code_completion)) {
+    cutOffParsing();
     Actions.CodeCompleteExpression(
         getCurScope(), PreferredType.get(Tok.getLocation()),
         /*IsParenthesized=*/ExprType >= CompoundLiteral);
-    cutOffParsing();
     return ExprError();
   }
 
@@ -3324,7 +3358,7 @@ bool Parser::ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
                                  SmallVectorImpl<SourceLocation> &CommaLocs,
                                  llvm::function_ref<void()> ExpressionStarts) {
   bool SawError = false;
-  while (1) {
+  while (true) {
     if (ExpressionStarts)
       ExpressionStarts();
 
@@ -3384,7 +3418,7 @@ bool Parser::ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
 bool
 Parser::ParseSimpleExpressionList(SmallVectorImpl<Expr*> &Exprs,
                                   SmallVectorImpl<SourceLocation> &CommaLocs) {
-  while (1) {
+  while (true) {
     ExprResult Expr = ParseAssignmentExpression();
     if (Expr.isInvalid())
       return true;
@@ -3410,8 +3444,9 @@ Parser::ParseSimpleExpressionList(SmallVectorImpl<Expr*> &Exprs,
 /// \endverbatim
 void Parser::ParseBlockId(SourceLocation CaretLoc) {
   if (Tok.is(tok::code_completion)) {
+    cutOffParsing();
     Actions.CodeCompleteOrdinaryName(getCurScope(), Sema::PCC_Type);
-    return cutOffParsing();
+    return;
   }
 
   // Parse the specifier-qualifier-list piece.
@@ -3596,8 +3631,8 @@ Optional<AvailabilitySpec> Parser::ParseAvailabilitySpec() {
   } else {
     // Parse the platform name.
     if (Tok.is(tok::code_completion)) {
-      Actions.CodeCompleteAvailabilityPlatformName();
       cutOffParsing();
+      Actions.CodeCompleteAvailabilityPlatformName();
       return None;
     }
     if (Tok.isNot(tok::identifier)) {

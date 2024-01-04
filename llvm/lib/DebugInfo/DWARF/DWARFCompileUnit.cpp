@@ -15,6 +15,8 @@
 using namespace llvm;
 
 void DWARFCompileUnit::dump(raw_ostream &OS, DIDumpOptions DumpOpts) {
+  if (DumpOpts.SummarizeTypes)
+    return;
   int OffsetDumpWidth = 2 * dwarf::getDwarfOffsetByteSize(getFormat());
   OS << format("0x%08" PRIx64, getOffset()) << ": Compile Unit:"
      << " length = " << format("0x%0*" PRIx64, OffsetDumpWidth, getLength())
@@ -26,7 +28,8 @@ void DWARFCompileUnit::dump(raw_ostream &OS, DIDumpOptions DumpOpts) {
   if (!getAbbreviations())
     OS << " (invalid)";
   OS << ", addr_size = " << format("0x%02x", getAddressByteSize());
-  if (getVersion() >= 5 && getUnitType() != dwarf::DW_UT_compile)
+  if (getVersion() >= 5 && (getUnitType() == dwarf::DW_UT_skeleton ||
+                            getUnitType() == dwarf::DW_UT_split_compile))
     OS << ", DWO_id = " << format("0x%016" PRIx64, *getDWOId());
   OS << " (next unit at " << format("0x%08" PRIx64, getNextUnitOffset())
      << ")\n";

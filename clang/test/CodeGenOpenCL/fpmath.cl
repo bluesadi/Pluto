@@ -9,7 +9,7 @@ float spscalardiv(float a, float b) {
   // CHECK: @spscalardiv
   // CHECK: fdiv{{.*}},
   // NODIVOPT: !fpmath ![[MD:[0-9]+]]
-  // DIVOPT-NOT: !fpmath ![[MD:[0-9]+]]
+  // DIVOPT-NOT: !fpmath !{{[0-9]+}}
   return a / b;
 }
 
@@ -17,7 +17,7 @@ float4 spvectordiv(float4 a, float4 b) {
   // CHECK: @spvectordiv
   // CHECK: fdiv{{.*}},
   // NODIVOPT: !fpmath ![[MD]]
-  // DIVOPT-NOT: !fpmath ![[MD]]
+  // DIVOPT-NOT: !fpmath !{{[0-9]+}}
   return a / b;
 }
 
@@ -25,8 +25,8 @@ float4 spvectordiv(float4 a, float4 b) {
 void printf(constant char* fmt, ...);
 
 void testdbllit(long *val) {
-  // CHECK-FLT: float 2.000000e+01
-  // CHECK-DBL: double 2.000000e+01
+  // CHECK-FLT: float noundef 2.000000e+01
+  // CHECK-DBL: double noundef 2.000000e+01
   printf("%f", 20.0);
 }
 

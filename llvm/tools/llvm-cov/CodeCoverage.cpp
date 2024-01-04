@@ -80,6 +80,12 @@ private:
   /// directory, recursively collect all of the paths within the directory.
   void collectPaths(const std::string &Path);
 
+  /// Check if the two given files are the same file.
+  bool isEquivalentFile(StringRef FilePath1, StringRef FilePath2);
+
+  /// Retrieve a file status with a cache.
+  Optional<sys::fs::file_status> getFileStatus(StringRef FilePath);
+
   /// Return a memory buffer for the given source file.
   ErrorOr<const MemoryBuffer &> getSourceFile(StringRef SourceFile);
 
@@ -153,6 +159,9 @@ private:
   /// remapped to, when using -path-equivalence.
   Optional<std::pair<std::string, std::string>> PathRemapping;
 
+  /// File status cache used when finding the same file.
+  StringMap<Optional<sys::fs::file_status>> FileStatusCache;
+
   /// The architecture the coverage mapping data targets.
   std::vector<StringRef> CoverageArches;
 
@@ -167,8 +176,8 @@ private:
   std::vector<std::pair<std::string, std::unique_ptr<MemoryBuffer>>>
       LoadedSourceFiles;
 
-  /// Whitelist from -name-whitelist to be used for filtering.
-  std::unique_ptr<SpecialCaseList> NameWhitelist;
+  /// Allowlist from -name-allowlist to be used for filtering.
+  std::unique_ptr<SpecialCaseList> NameAllowlist;
 };
 }
 
@@ -200,7 +209,7 @@ void CodeCoverageTool::addCollectedPath(const std::string &Path) {
     error(EC.message(), Path);
     return;
   }
-  sys::path::remove_dots(EffectivePath, /*remove_dot_dots=*/true);
+  sys::path::remove_dots(EffectivePath, /*remove_dot_dot=*/true);
   if (!IgnoreFilenameFilters.matchesFilename(EffectivePath))
     SourceFiles.emplace_back(EffectivePath.str());
   HadSourceFiles = !SourceFiles.empty();
@@ -239,6 +248,27 @@ void CodeCoverageTool::collectPaths(const std::string &Path) {
   }
 }
 
+Optional<sys::fs::file_status>
+CodeCoverageTool::getFileStatus(StringRef FilePath) {
+  auto It = FileStatusCache.try_emplace(FilePath);
+  auto &CachedStatus = It.first->getValue();
+  if (!It.second)
+    return CachedStatus;
+
+  sys::fs::file_status Status;
+  if (!sys::fs::status(FilePath, Status))
+    CachedStatus = Status;
+  return CachedStatus;
+}
+
+bool CodeCoverageTool::isEquivalentFile(StringRef FilePath1,
+                                        StringRef FilePath2) {
+  auto Status1 = getFileStatus(FilePath1);
+  auto Status2 = getFileStatus(FilePath2);
+  return Status1.hasValue() && Status2.hasValue() &&
+         sys::fs::equivalent(Status1.getValue(), Status2.getValue());
+}
+
 ErrorOr<const MemoryBuffer &>
 CodeCoverageTool::getSourceFile(StringRef SourceFile) {
   // If we've remapped filenames, look up the real location for this file.
@@ -249,7 +279,7 @@ CodeCoverageTool::getSourceFile(StringRef SourceFile) {
       SourceFile = Loc->second;
   }
   for (const auto &Files : LoadedSourceFiles)
-    if (sys::fs::equivalent(SourceFile, Files.first))
+    if (isEquivalentFile(SourceFile, Files.first))
       return *Files.second;
   auto Buffer = MemoryBuffer::getFile(SourceFile);
   if (auto EC = Buffer.getError()) {
@@ -404,7 +434,8 @@ std::unique_ptr<CoverageMapping> CodeCoverageTool::load() {
       warning("profile data may be out of date - object is newer",
               ObjectFilename);
   auto CoverageOrErr =
-      CoverageMapping::load(ObjectFilenames, PGOFilename, CoverageArches);
+      CoverageMapping::load(ObjectFilenames, PGOFilename, CoverageArches,
+                            ViewOpts.CompilationDirectory);
   if (Error E = CoverageOrErr.takeError()) {
     error("Failed to load coverage: " + toString(std::move(E)),
           join(ObjectFilenames.begin(), ObjectFilenames.end(), ", "));
@@ -445,7 +476,7 @@ void CodeCoverageTool::remapPathNames(const CoverageMapping &Coverage) {
     SmallString<128> NativePath;
     sys::path::native(Path, NativePath);
     sys::path::remove_dots(NativePath, true);
-    if (!sys::path::is_separator(NativePath.back()))
+    if (!NativePath.empty() && !sys::path::is_separator(NativePath.back()))
       NativePath += sys::path::get_separator();
     return NativePath.c_str();
   };
@@ -637,9 +668,16 @@ int CodeCoverageTool::run(Command Cmd, int argc, const char **argv) {
       cl::ZeroOrMore, cl::cat(FilteringCategory));
 
   cl::list<std::string> NameFilterFiles(
-      "name-whitelist", cl::Optional,
+      "name-allowlist", cl::Optional,
       cl::desc("Show code coverage only for functions listed in the given "
                "file"),
+      cl::ZeroOrMore, cl::cat(FilteringCategory));
+
+  // Allow for accepting previous option name.
+  cl::list<std::string> NameFilterFilesDeprecated(
+      "name-whitelist", cl::Optional, cl::Hidden,
+      cl::desc("Show code coverage only for functions listed in the given "
+               "file. Deprecated, use -name-allowlist instead"),
       cl::ZeroOrMore, cl::cat(FilteringCategory));
 
   cl::list<std::string> NameRegexFilters(
@@ -709,6 +747,10 @@ int CodeCoverageTool::run(Command Cmd, int argc, const char **argv) {
   cl::alias NumThreadsA("j", cl::desc("Alias for --num-threads"),
                         cl::aliasopt(NumThreads));
 
+  cl::opt<std::string> CompilationDirectory(
+      "compilation-dir", cl::init(""),
+      cl::desc("Directory used as a base for relative coverage mapping paths"));
+
   auto commandLineParser = [&, this](int argc, const char **argv) -> int {
     cl::ParseCommandLineOptions(argc, argv, "LLVM code coverage tool\n");
     ViewOpts.Debug = DebugDump;
@@ -749,10 +791,18 @@ int CodeCoverageTool::run(Command Cmd, int argc, const char **argv) {
 
     // If path-equivalence was given and is a comma seperated pair then set
     // PathRemapping.
-    auto EquivPair = StringRef(PathRemap).split(',');
-    if (!(EquivPair.first.empty() && EquivPair.second.empty()))
+    if (!PathRemap.empty()) {
+      auto EquivPair = StringRef(PathRemap).split(',');
+      if (EquivPair.first.empty() || EquivPair.second.empty()) {
+        error("invalid argument '" + PathRemap +
+                  "', must be in format 'from,to'",
+              "-path-equivalence");
+        return 1;
+      }
+
       PathRemapping = {std::string(EquivPair.first),
                        std::string(EquivPair.second)};
+    }
 
     // If a demangler is supplied, check if it exists and register it.
     if (!DemanglerOpts.empty()) {
@@ -766,23 +816,34 @@ int CodeCoverageTool::run(Command Cmd, int argc, const char **argv) {
       ViewOpts.DemanglerOpts.swap(DemanglerOpts);
     }
 
-    // Read in -name-whitelist files.
-    if (!NameFilterFiles.empty()) {
+    // Read in -name-allowlist files.
+    if (!NameFilterFiles.empty() || !NameFilterFilesDeprecated.empty()) {
       std::string SpecialCaseListErr;
-      NameWhitelist = SpecialCaseList::create(
-          NameFilterFiles, *vfs::getRealFileSystem(), SpecialCaseListErr);
-      if (!NameWhitelist)
+      if (!NameFilterFiles.empty())
+        NameAllowlist = SpecialCaseList::create(
+            NameFilterFiles, *vfs::getRealFileSystem(), SpecialCaseListErr);
+      if (!NameFilterFilesDeprecated.empty())
+        NameAllowlist = SpecialCaseList::create(NameFilterFilesDeprecated,
+                                                *vfs::getRealFileSystem(),
+                                                SpecialCaseListErr);
+
+      if (!NameAllowlist)
         error(SpecialCaseListErr);
     }
 
     // Create the function filters
-    if (!NameFilters.empty() || NameWhitelist || !NameRegexFilters.empty()) {
+    if (!NameFilters.empty() || NameAllowlist || !NameRegexFilters.empty()) {
       auto NameFilterer = std::make_unique<CoverageFilters>();
       for (const auto &Name : NameFilters)
         NameFilterer->push_back(std::make_unique<NameCoverageFilter>(Name));
-      if (NameWhitelist)
-        NameFilterer->push_back(
-            std::make_unique<NameWhitelistCoverageFilter>(*NameWhitelist));
+      if (NameAllowlist) {
+        if (!NameFilterFiles.empty())
+          NameFilterer->push_back(
+              std::make_unique<NameAllowlistCoverageFilter>(*NameAllowlist));
+        if (!NameFilterFilesDeprecated.empty())
+          NameFilterer->push_back(
+              std::make_unique<NameWhitelistCoverageFilter>(*NameAllowlist));
+      }
       for (const auto &Regex : NameRegexFilters)
         NameFilterer->push_back(
             std::make_unique<NameRegexCoverageFilter>(Regex));
@@ -843,6 +904,7 @@ int CodeCoverageTool::run(Command Cmd, int argc, const char **argv) {
     ViewOpts.ShowInstantiationSummary = InstantiationSummary;
     ViewOpts.ExportSummaryOnly = SummaryOnly;
     ViewOpts.NumThreads = NumThreads;
+    ViewOpts.CompilationDirectory = CompilationDirectory;
 
     return 0;
   };

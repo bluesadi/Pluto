@@ -99,6 +99,9 @@ class TargetRegisterClass;
       // Floating Point Compare
       FPCmp,
 
+      // Floating point Abs
+      FAbs,
+
       // Floating point select
       FSELECT,
 
@@ -303,7 +306,7 @@ class TargetRegisterClass;
 
     /// Return the correct alignment for the current calling convention.
     Align getABIAlignmentForCallingConv(Type *ArgTy,
-                                        DataLayout DL) const override {
+                                        const DataLayout &DL) const override {
       const Align ABIAlign = DL.getABITypeAlign(ArgTy);
       if (ArgTy->isVectorTy())
         return std::min(ABIAlign, Align(8));
@@ -540,6 +543,10 @@ class TargetRegisterClass;
     SDValue lowerVAARG(SDValue Op, SelectionDAG &DAG) const;
     SDValue lowerFCOPYSIGN(SDValue Op, SelectionDAG &DAG) const;
     SDValue lowerFABS(SDValue Op, SelectionDAG &DAG) const;
+    SDValue lowerFABS32(SDValue Op, SelectionDAG &DAG,
+                        bool HasExtractInsert) const;
+    SDValue lowerFABS64(SDValue Op, SelectionDAG &DAG,
+                        bool HasExtractInsert) const;
     SDValue lowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
     SDValue lowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
     SDValue lowerEH_RETURN(SDValue Op, SelectionDAG &DAG) const;

@@ -12,6 +12,7 @@
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
@@ -805,9 +806,45 @@ TEST_F(ValueTrackingTest, ComputeNumSignBits_Shuffle_Pointers) {
 }
 
 TEST(ValueTracking, propagatesPoison) {
-  std::string AsmHead = "declare i32 @g(i32)\n"
-                        "define void @f(i32 %x, i32 %y, float %fx, float %fy, "
-                        "i1 %cond, i8* %p) {\n";
+  std::string AsmHead =
+      "declare i32 @g(i32)\n"
+      "declare {i32, i1} @llvm.sadd.with.overflow.i32(i32 %a, i32 %b)\n"
+      "declare {i32, i1} @llvm.ssub.with.overflow.i32(i32 %a, i32 %b)\n"
+      "declare {i32, i1} @llvm.smul.with.overflow.i32(i32 %a, i32 %b)\n"
+      "declare {i32, i1} @llvm.uadd.with.overflow.i32(i32 %a, i32 %b)\n"
+      "declare {i32, i1} @llvm.usub.with.overflow.i32(i32 %a, i32 %b)\n"
+      "declare {i32, i1} @llvm.umul.with.overflow.i32(i32 %a, i32 %b)\n"
+      "declare float @llvm.sqrt.f32(float)\n"
+      "declare float @llvm.powi.f32.i32(float, i32)\n"
+      "declare float @llvm.sin.f32(float)\n"
+      "declare float @llvm.cos.f32(float)\n"
+      "declare float @llvm.pow.f32(float, float)\n"
+      "declare float @llvm.exp.f32(float)\n"
+      "declare float @llvm.exp2.f32(float)\n"
+      "declare float @llvm.log.f32(float)\n"
+      "declare float @llvm.log10.f32(float)\n"
+      "declare float @llvm.log2.f32(float)\n"
+      "declare float @llvm.fma.f32(float, float, float)\n"
+      "declare float @llvm.fabs.f32(float)\n"
+      "declare float @llvm.minnum.f32(float, float)\n"
+      "declare float @llvm.maxnum.f32(float, float)\n"
+      "declare float @llvm.minimum.f32(float, float)\n"
+      "declare float @llvm.maximum.f32(float, float)\n"
+      "declare float @llvm.copysign.f32(float, float)\n"
+      "declare float @llvm.floor.f32(float)\n"
+      "declare float @llvm.ceil.f32(float)\n"
+      "declare float @llvm.trunc.f32(float)\n"
+      "declare float @llvm.rint.f32(float)\n"
+      "declare float @llvm.nearbyint.f32(float)\n"
+      "declare float @llvm.round.f32(float)\n"
+      "declare float @llvm.roundeven.f32(float)\n"
+      "declare i32 @llvm.lround.f32(float)\n"
+      "declare i64 @llvm.llround.f32(float)\n"
+      "declare i32 @llvm.lrint.f32(float)\n"
+      "declare i64 @llvm.llrint.f32(float)\n"
+      "declare float @llvm.fmuladd.f32(float, float, float)\n"
+      "define void @f(i32 %x, i32 %y, float %fx, float %fy, "
+      "i1 %cond, i8* %p) {\n";
   std::string AsmTail = "  ret void\n}";
   // (propagates poison?, IR instruction)
   SmallVector<std::pair<bool, std::string>, 32> Data = {
@@ -815,6 +852,12 @@ TEST(ValueTracking, propagatesPoison) {
       {true, "add nsw nuw i32 %x, %y"},
       {true, "ashr i32 %x, %y"},
       {true, "lshr exact i32 %x, 31"},
+      {true, "fadd float %fx, %fy"},
+      {true, "fsub float %fx, %fy"},
+      {true, "fmul float %fx, %fy"},
+      {true, "fdiv float %fx, %fy"},
+      {true, "frem float %fx, %fy"},
+      {true, "fneg float %fx"},
       {true, "fcmp oeq float %fx, %fy"},
       {true, "icmp eq i32 %x, %y"},
       {true, "getelementptr i8, i8* %p, i32 %x"},
@@ -826,7 +869,42 @@ TEST(ValueTracking, propagatesPoison) {
       {true, "urem i32 %x, %y"},
       {true, "sdiv exact i32 %x, %y"},
       {true, "srem i32 %x, %y"},
-      {false, "call i32 @g(i32 %x)"}};
+      {false, "call i32 @g(i32 %x)"},
+      {true, "call {i32, i1} @llvm.sadd.with.overflow.i32(i32 %x, i32 %y)"},
+      {true, "call {i32, i1} @llvm.ssub.with.overflow.i32(i32 %x, i32 %y)"},
+      {true, "call {i32, i1} @llvm.smul.with.overflow.i32(i32 %x, i32 %y)"},
+      {true, "call {i32, i1} @llvm.uadd.with.overflow.i32(i32 %x, i32 %y)"},
+      {true, "call {i32, i1} @llvm.usub.with.overflow.i32(i32 %x, i32 %y)"},
+      {true, "call {i32, i1} @llvm.umul.with.overflow.i32(i32 %x, i32 %y)"},
+      {false, "call float @llvm.sqrt.f32(float %fx)"},
+      {false, "call float @llvm.powi.f32.i32(float %fx, i32 %x)"},
+      {false, "call float @llvm.sin.f32(float %fx)"},
+      {false, "call float @llvm.cos.f32(float %fx)"},
+      {false, "call float @llvm.pow.f32(float %fx, float %fy)"},
+      {false, "call float @llvm.exp.f32(float %fx)"},
+      {false, "call float @llvm.exp2.f32(float %fx)"},
+      {false, "call float @llvm.log.f32(float %fx)"},
+      {false, "call float @llvm.log10.f32(float %fx)"},
+      {false, "call float @llvm.log2.f32(float %fx)"},
+      {false, "call float @llvm.fma.f32(float %fx, float %fx, float %fy)"},
+      {false, "call float @llvm.fabs.f32(float %fx)"},
+      {false, "call float @llvm.minnum.f32(float %fx, float %fy)"},
+      {false, "call float @llvm.maxnum.f32(float %fx, float %fy)"},
+      {false, "call float @llvm.minimum.f32(float %fx, float %fy)"},
+      {false, "call float @llvm.maximum.f32(float %fx, float %fy)"},
+      {false, "call float @llvm.copysign.f32(float %fx, float %fy)"},
+      {false, "call float @llvm.floor.f32(float %fx)"},
+      {false, "call float @llvm.ceil.f32(float %fx)"},
+      {false, "call float @llvm.trunc.f32(float %fx)"},
+      {false, "call float @llvm.rint.f32(float %fx)"},
+      {false, "call float @llvm.nearbyint.f32(float %fx)"},
+      {false, "call float @llvm.round.f32(float %fx)"},
+      {false, "call float @llvm.roundeven.f32(float %fx)"},
+      {false, "call i32 @llvm.lround.f32(float %fx)"},
+      {false, "call i64 @llvm.llround.f32(float %fx)"},
+      {false, "call i32 @llvm.lrint.f32(float %fx)"},
+      {false, "call i64 @llvm.llrint.f32(float %fx)"},
+      {false, "call float @llvm.fmuladd.f32(float %fx, float %fx, float %fy)"}};
 
   std::string AssemblyStr = AsmHead;
   for (auto &Itm : Data)
@@ -992,6 +1070,12 @@ TEST(ValueTracking, canCreatePoisonOrUndef) {
   std::string AsmHead =
       "@s = external dso_local global i32, align 1\n"
       "declare i32 @g(i32)\n"
+      "declare {i32, i1} @llvm.sadd.with.overflow.i32(i32 %a, i32 %b)\n"
+      "declare {i32, i1} @llvm.ssub.with.overflow.i32(i32 %a, i32 %b)\n"
+      "declare {i32, i1} @llvm.smul.with.overflow.i32(i32 %a, i32 %b)\n"
+      "declare {i32, i1} @llvm.uadd.with.overflow.i32(i32 %a, i32 %b)\n"
+      "declare {i32, i1} @llvm.usub.with.overflow.i32(i32 %a, i32 %b)\n"
+      "declare {i32, i1} @llvm.umul.with.overflow.i32(i32 %a, i32 %b)\n"
       "define void @f(i32 %x, i32 %y, float %fx, float %fy, i1 %cond, "
       "<4 x i32> %vx, <4 x i32> %vx2, <vscale x 4 x i32> %svx, i8* %p) {\n";
   std::string AsmTail = "  ret void\n}";
@@ -1053,7 +1137,19 @@ TEST(ValueTracking, canCreatePoisonOrUndef) {
       {{true, false},
        "ashr <4 x i32> %vx, select (i1 icmp sgt (i32 ptrtoint (i32* @s to "
        "i32), i32 1), <4 x i32> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 "
-       "2, i32 3>)"}};
+       "2, i32 3>)"},
+      {{false, false},
+       "call {i32, i1} @llvm.sadd.with.overflow.i32(i32 %x, i32 %y)"},
+      {{false, false},
+       "call {i32, i1} @llvm.ssub.with.overflow.i32(i32 %x, i32 %y)"},
+      {{false, false},
+       "call {i32, i1} @llvm.smul.with.overflow.i32(i32 %x, i32 %y)"},
+      {{false, false},
+       "call {i32, i1} @llvm.uadd.with.overflow.i32(i32 %x, i32 %y)"},
+      {{false, false},
+       "call {i32, i1} @llvm.usub.with.overflow.i32(i32 %x, i32 %y)"},
+      {{false, false},
+       "call {i32, i1} @llvm.umul.with.overflow.i32(i32 %x, i32 %y)"}};
 
   std::string AssemblyStr = AsmHead;
   for (auto &Itm : Data)
@@ -1108,7 +1204,7 @@ TEST_F(ValueTrackingTest, computePtrAlignment) {
                 "}");
   AssumptionCache AC(*F);
   DominatorTree DT(*F);
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   EXPECT_EQ(getKnownAlignment(A, DL, CxtI, &AC, &DT), Align(1));
   EXPECT_EQ(getKnownAlignment(A, DL, CxtI2, &AC, &DT), Align(1));
   EXPECT_EQ(getKnownAlignment(A, DL, CxtI3, &AC, &DT), Align(16));
@@ -1142,6 +1238,27 @@ TEST_F(ComputeKnownBitsTest, ComputeKnownMulBits) {
   expectKnownBits(/*zero*/ 95u, /*one*/ 32u);
 }
 
+TEST_F(ValueTrackingTest, isNonZeroRecurrence) {
+  parseAssembly(R"(
+    define i1 @test(i8 %n, i8 %r) {
+    entry:
+      br label %loop
+    loop:
+      %p = phi i8 [ -1, %entry ], [ %next, %loop ]
+      %next = add nsw i8 %p, -1
+      %cmp1 = icmp eq i8 %p, %n
+      br i1 %cmp1, label %exit, label %loop
+    exit:
+      %A = or i8 %p, %r
+      %CxtI = icmp eq i8 %A, 0
+      ret i1 %CxtI
+    }
+  )");
+  const DataLayout &DL = M->getDataLayout();
+  AssumptionCache AC(*F);
+  EXPECT_TRUE(isKnownNonZero(A, DL, 0, &AC, CxtI));
+}
+
 TEST_F(ValueTrackingTest, KnownNonZeroFromDomCond) {
   parseAssembly(R"(
     declare i8* @f_i8()
@@ -1161,7 +1278,7 @@ TEST_F(ValueTrackingTest, KnownNonZeroFromDomCond) {
   )");
   AssumptionCache AC(*F);
   DominatorTree DT(*F);
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   EXPECT_EQ(isKnownNonZero(A, DL, 0, &AC, CxtI, &DT), true);
   EXPECT_EQ(isKnownNonZero(A, DL, 0, &AC, CxtI2, &DT), false);
 }
@@ -1185,7 +1302,7 @@ TEST_F(ValueTrackingTest, KnownNonZeroFromDomCond2) {
   )");
   AssumptionCache AC(*F);
   DominatorTree DT(*F);
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   EXPECT_EQ(isKnownNonZero(A, DL, 0, &AC, CxtI, &DT), true);
   EXPECT_EQ(isKnownNonZero(A, DL, 0, &AC, CxtI2, &DT), false);
 }
@@ -1203,7 +1320,7 @@ TEST_F(ValueTrackingTest, IsImpliedConditionAnd) {
       ret void
     }
   )");
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   EXPECT_EQ(isImpliedCondition(A, A2, DL), true);
   EXPECT_EQ(isImpliedCondition(A, A3, DL), false);
   EXPECT_EQ(isImpliedCondition(A, A4, DL), None);
@@ -1222,7 +1339,7 @@ TEST_F(ValueTrackingTest, IsImpliedConditionAnd2) {
       ret void
     }
   )");
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   EXPECT_EQ(isImpliedCondition(A, A2, DL), true);
   EXPECT_EQ(isImpliedCondition(A, A3, DL), false);
   EXPECT_EQ(isImpliedCondition(A, A4, DL), None);
@@ -1241,7 +1358,7 @@ TEST_F(ValueTrackingTest, IsImpliedConditionOr) {
       ret void
     }
   )");
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   EXPECT_EQ(isImpliedCondition(A, A2, DL, false), false);
   EXPECT_EQ(isImpliedCondition(A, A3, DL, false), true);
   EXPECT_EQ(isImpliedCondition(A, A4, DL, false), None);
@@ -1260,7 +1377,7 @@ TEST_F(ValueTrackingTest, IsImpliedConditionOr2) {
       ret void
     }
   )");
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   EXPECT_EQ(isImpliedCondition(A, A2, DL, false), false);
   EXPECT_EQ(isImpliedCondition(A, A3, DL, false), true);
   EXPECT_EQ(isImpliedCondition(A, A4, DL, false), None);
@@ -1481,6 +1598,32 @@ TEST_F(ComputeKnownBitsTest, ComputeKnownBitsAddWithRange) {
   EXPECT_EQ(Known.getMaxValue(), 131071);
 }
 
+TEST_F(ComputeKnownBitsTest, ComputeKnownBitsUnknownVScale) {
+  Module M("", Context);
+  IRBuilder<> Builder(Context);
+  Function *TheFn =
+      Intrinsic::getDeclaration(&M, Intrinsic::vscale, {Builder.getInt32Ty()});
+  CallInst *CI = Builder.CreateCall(TheFn, {}, {}, "");
+
+  KnownBits Known = computeKnownBits(CI, M.getDataLayout(), /* Depth */ 0);
+  // There is no parent function so we cannot look up the vscale_range
+  // attribute to determine the number of bits.
+  EXPECT_EQ(Known.One.getZExtValue(), 0u);
+  EXPECT_EQ(Known.Zero.getZExtValue(), 0u);
+
+  BasicBlock *BB = BasicBlock::Create(Context);
+  BB->getInstList().push_back(CI);
+  Known = computeKnownBits(CI, M.getDataLayout(), /* Depth */ 0);
+  // There is no parent function so we cannot look up the vscale_range
+  // attribute to determine the number of bits.
+  EXPECT_EQ(Known.One.getZExtValue(), 0u);
+  EXPECT_EQ(Known.Zero.getZExtValue(), 0u);
+
+  CI->removeFromParent();
+  delete CI;
+  delete BB;
+}
+
 // 512 + [32, 64) doesn't produce overlapping bits.
 // Make sure we get all the individual bits properly.
 TEST_F(ComputeKnownBitsTest, ComputeKnownBitsAddWithRangeNoOverlap) {
@@ -1566,6 +1709,20 @@ TEST_F(ComputeKnownBitsTest, ComputeKnownBitsGEPWithRangeNoOverlap) {
   // with the masks of zeros and ones, not the ranges.
   EXPECT_EQ(Known.getMinValue(), 544);
   EXPECT_EQ(Known.getMaxValue(), 575);
+}
+
+TEST_F(ComputeKnownBitsTest, ComputeKnownBitsCrash) {
+  parseAssembly(
+      "@g.a = external global i16, align 1\n"
+      "define i16 @test(i16 %i) {\n"
+      "entry:\n"
+      "  %0 = icmp slt i16 sub (i16 0, i16 trunc (i32 udiv (i32 ptrtoint (i16* @g.a to i32), i32 -1) to i16)), 0\n"
+      "  %A = select i1 %0, i16 trunc (i32 udiv (i32 ptrtoint (i16* @g.a to i32), i32 -1) to i16), i16 sub (i16 0, i16 trunc (i32 udiv (i32 ptrtoint (i16* @g.a to i32), i32 -1) to i16))\n"
+      "  ret i16 %A\n"
+      "}\n");
+  AssumptionCache AC(*F);
+  KnownBits Known = computeKnownBits(
+      A, M->getDataLayout(), /* Depth */ 0, &AC, F->front().getTerminator());
 }
 
 class IsBytewiseValueTest : public ValueTrackingTest,
@@ -1807,8 +1964,8 @@ const std::pair<const char *, const char *> IsBytewiseValueTests[] = {
     },
 };
 
-INSTANTIATE_TEST_CASE_P(IsBytewiseValueParamTests, IsBytewiseValueTest,
-                        ::testing::ValuesIn(IsBytewiseValueTests),);
+INSTANTIATE_TEST_SUITE_P(IsBytewiseValueParamTests, IsBytewiseValueTest,
+                         ::testing::ValuesIn(IsBytewiseValueTests));
 
 TEST_P(IsBytewiseValueTest, IsBytewiseValue) {
   auto M = parseModule(std::string("@test = global ") + GetParam().second);
@@ -1843,11 +2000,11 @@ TEST_F(ValueTrackingTest, ComputeConstantRange) {
 
     AssumptionCache AC(*F);
     Value *Stride = &*F->arg_begin();
-    ConstantRange CR1 = computeConstantRange(Stride, true, &AC, nullptr);
+    ConstantRange CR1 = computeConstantRange(Stride, false, true, &AC, nullptr);
     EXPECT_TRUE(CR1.isFullSet());
 
     Instruction *I = &findInstructionByName(F, "stride.plus.one");
-    ConstantRange CR2 = computeConstantRange(Stride, true, &AC, I);
+    ConstantRange CR2 = computeConstantRange(Stride, false, true, &AC, I);
     EXPECT_EQ(5, CR2.getLower());
     EXPECT_EQ(10, CR2.getUpper());
   }
@@ -1877,7 +2034,7 @@ TEST_F(ValueTrackingTest, ComputeConstantRange) {
     AssumptionCache AC(*F);
     Value *Stride = &*F->arg_begin();
     Instruction *I = &findInstructionByName(F, "stride.plus.one");
-    ConstantRange CR = computeConstantRange(Stride, true, &AC, I);
+    ConstantRange CR = computeConstantRange(Stride, false, true, &AC, I);
     EXPECT_EQ(99, *CR.getSingleElement());
   }
 
@@ -1915,12 +2072,12 @@ TEST_F(ValueTrackingTest, ComputeConstantRange) {
     AssumptionCache AC(*F);
     Value *Stride = &*F->arg_begin();
     Instruction *GT2 = &findInstructionByName(F, "gt.2");
-    ConstantRange CR = computeConstantRange(Stride, true, &AC, GT2);
+    ConstantRange CR = computeConstantRange(Stride, false, true, &AC, GT2);
     EXPECT_EQ(5, CR.getLower());
     EXPECT_EQ(0, CR.getUpper());
 
     Instruction *I = &findInstructionByName(F, "stride.plus.one");
-    ConstantRange CR2 = computeConstantRange(Stride, true, &AC, I);
+    ConstantRange CR2 = computeConstantRange(Stride, false, true, &AC, I);
     EXPECT_EQ(50, CR2.getLower());
     EXPECT_EQ(100, CR2.getUpper());
   }
@@ -1948,7 +2105,7 @@ TEST_F(ValueTrackingTest, ComputeConstantRange) {
     Value *Stride = &*F->arg_begin();
 
     Instruction *I = &findInstructionByName(F, "stride.plus.one");
-    ConstantRange CR = computeConstantRange(Stride, true, &AC, I);
+    ConstantRange CR = computeConstantRange(Stride, false, true, &AC, I);
     EXPECT_TRUE(CR.isEmptySet());
   }
 
@@ -1957,7 +2114,7 @@ TEST_F(ValueTrackingTest, ComputeConstantRange) {
     //  * x.1 >= 5
     //  * x.2 < x.1
     //
-    // stride = [0, 5)
+    // stride = [0, -1)
     auto M = parseModule(R"(
   declare void @llvm.assume(i1)
 
@@ -1972,17 +2129,45 @@ TEST_F(ValueTrackingTest, ComputeConstantRange) {
     Function *F = M->getFunction("test");
 
     AssumptionCache AC(*F);
+    Value *X1 = &*(F->arg_begin());
     Value *X2 = &*std::next(F->arg_begin());
 
     Instruction *I = &findInstructionByName(F, "stride.plus.one");
-    ConstantRange CR1 = computeConstantRange(X2, true, &AC, I);
-    EXPECT_EQ(0, CR1.getLower());
-    EXPECT_EQ(5, CR1.getUpper());
+    ConstantRange CR1 = computeConstantRange(X1, false, true, &AC, I);
+    ConstantRange CR2 = computeConstantRange(X2, false, true, &AC, I);
+
+    EXPECT_EQ(5, CR1.getLower());
+    EXPECT_EQ(0, CR1.getUpper());
+
+    EXPECT_EQ(0, CR2.getLower());
+    EXPECT_EQ(0xffffffff, CR2.getUpper());
 
     // Check the depth cutoff results in a conservative result (full set) by
     // passing Depth == MaxDepth == 6.
-    ConstantRange CR2 = computeConstantRange(X2, true, &AC, I, 6);
-    EXPECT_TRUE(CR2.isFullSet());
+    ConstantRange CR3 = computeConstantRange(X2, false, true, &AC, I, nullptr, 6);
+    EXPECT_TRUE(CR3.isFullSet());
+  }
+  {
+    // Assumptions:
+    //  * x.2 <= x.1
+    auto M = parseModule(R"(
+  declare void @llvm.assume(i1)
+
+  define i32 @test(i32 %x.1, i32 %x.2) {
+    %lt = icmp ule i32 %x.2, %x.1
+    call void @llvm.assume(i1 %lt)
+    %stride.plus.one = add nsw nuw i32 %x.1, 1
+    ret i32 %stride.plus.one
+  })");
+    Function *F = M->getFunction("test");
+
+    AssumptionCache AC(*F);
+    Value *X2 = &*std::next(F->arg_begin());
+
+    Instruction *I = &findInstructionByName(F, "stride.plus.one");
+    ConstantRange CR1 = computeConstantRange(X2, false, true, &AC, I);
+    // If we don't know the value of x.2, we don't know the value of x.1.
+    EXPECT_TRUE(CR1.isFullSet());
   }
 }
 
@@ -2112,6 +2297,22 @@ const FindAllocaForValueTestParams FindAllocaForValueTests[] = {
         ret void
       })",
      false, false},
+    {R"(
+      declare i32* @retptr(i32* returned)
+      define void @test(i1 %cond) {
+        %a = alloca i32
+        %r = call i32* @retptr(i32* %a)
+        ret void
+      })",
+     true, true},
+    {R"(
+      declare i32* @fun(i32*)
+      define void @test(i1 %cond) {
+        %a = alloca i32
+        %r = call i32* @fun(i32* %a)
+        ret void
+      })",
+     false, false},
 };
 
 TEST_P(FindAllocaForValueTest, findAllocaForValue) {
@@ -2130,5 +2331,5 @@ TEST_P(FindAllocaForValueTest, findAllocaForValueZeroOffset) {
   EXPECT_EQ(!!AI, GetParam().ZeroOffsetResult);
 }
 
-INSTANTIATE_TEST_CASE_P(FindAllocaForValueTest, FindAllocaForValueTest,
-                        ::testing::ValuesIn(FindAllocaForValueTests), );
+INSTANTIATE_TEST_SUITE_P(FindAllocaForValueTest, FindAllocaForValueTest,
+                         ::testing::ValuesIn(FindAllocaForValueTests));

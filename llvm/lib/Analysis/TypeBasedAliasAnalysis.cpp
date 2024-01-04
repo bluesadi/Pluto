@@ -379,7 +379,7 @@ AliasResult TypeBasedAAResult::alias(const MemoryLocation &LocA,
     return AAResultBase::alias(LocA, LocB, AAQI);
 
   // Otherwise return a definitive result.
-  return NoAlias;
+  return AliasResult::NoAlias;
 }
 
 bool TypeBasedAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
@@ -521,21 +521,21 @@ static const MDNode *getLeastCommonType(const MDNode *A, const MDNode *B) {
   return Ret;
 }
 
-void Instruction::getAAMetadata(AAMDNodes &N, bool Merge) const {
-  if (Merge) {
-    N.TBAA =
-        MDNode::getMostGenericTBAA(N.TBAA, getMetadata(LLVMContext::MD_tbaa));
-    N.TBAAStruct = nullptr;
-    N.Scope = MDNode::getMostGenericAliasScope(
-        N.Scope, getMetadata(LLVMContext::MD_alias_scope));
-    N.NoAlias =
-        MDNode::intersect(N.NoAlias, getMetadata(LLVMContext::MD_noalias));
-  } else {
-    N.TBAA = getMetadata(LLVMContext::MD_tbaa);
-    N.TBAAStruct = getMetadata(LLVMContext::MD_tbaa_struct);
-    N.Scope = getMetadata(LLVMContext::MD_alias_scope);
-    N.NoAlias = getMetadata(LLVMContext::MD_noalias);
-  }
+AAMDNodes AAMDNodes::merge(const AAMDNodes &Other) const {
+  AAMDNodes Result;
+  Result.TBAA = MDNode::getMostGenericTBAA(TBAA, Other.TBAA);
+  Result.TBAAStruct = nullptr;
+  Result.Scope = MDNode::getMostGenericAliasScope(Scope, Other.Scope);
+  Result.NoAlias = MDNode::intersect(NoAlias, Other.NoAlias);
+  return Result;
+}
+
+AAMDNodes AAMDNodes::concat(const AAMDNodes &Other) const {
+  AAMDNodes Result;
+  Result.TBAA = Result.TBAAStruct = nullptr;
+  Result.Scope = MDNode::getMostGenericAliasScope(Scope, Other.Scope);
+  Result.NoAlias = MDNode::intersect(NoAlias, Other.NoAlias);
+  return Result;
 }
 
 static const MDNode *createAccessTag(const MDNode *AccessType) {
@@ -738,7 +738,7 @@ void TypeBasedAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
 }
 
-MDNode *AAMDNodes::ShiftTBAA(MDNode *MD, size_t Offset) {
+MDNode *AAMDNodes::shiftTBAA(MDNode *MD, size_t Offset) {
   // Fast path if there's no offset
   if (Offset == 0)
     return MD;
@@ -746,50 +746,18 @@ MDNode *AAMDNodes::ShiftTBAA(MDNode *MD, size_t Offset) {
   if (!isStructPathTBAA(MD))
     return MD;
 
-  TBAAStructTagNode Tag(MD);
-  SmallVector<Metadata *, 5> Sub;
-  Sub.push_back(MD->getOperand(0));
-  Sub.push_back(MD->getOperand(1));
-  ConstantInt *InnerOffset = mdconst::extract<ConstantInt>(MD->getOperand(2));
-
-  if (Tag.isNewFormat()) {
-    ConstantInt *InnerSize = mdconst::extract<ConstantInt>(MD->getOperand(3));
-
-    if (InnerOffset->getZExtValue() + InnerSize->getZExtValue() <= Offset) {
-      return nullptr;
-    }
-
-    uint64_t NewSize = InnerSize->getZExtValue();
-    uint64_t NewOffset = InnerOffset->getZExtValue() - Offset;
-    if (InnerOffset->getZExtValue() < Offset) {
-      NewOffset = 0;
-      NewSize -= Offset - InnerOffset->getZExtValue();
-    }
-
-    Sub.push_back(ConstantAsMetadata::get(
-        ConstantInt::get(InnerOffset->getType(), NewOffset)));
-
-    Sub.push_back(ConstantAsMetadata::get(
-        ConstantInt::get(InnerSize->getType(), NewSize)));
-
-    // immutable type
-    if (MD->getNumOperands() >= 5)
-      Sub.push_back(MD->getOperand(4));
-  } else {
-    if (InnerOffset->getZExtValue() < Offset)
-      return nullptr;
-
-    Sub.push_back(ConstantAsMetadata::get(ConstantInt::get(
-        InnerOffset->getType(), InnerOffset->getZExtValue() - Offset)));
-
-    // immutable type
-    if (MD->getNumOperands() >= 4)
-      Sub.push_back(MD->getOperand(3));
-  }
-  return MDNode::get(MD->getContext(), Sub);
+  // The correct behavior here is to add the offset into the TBAA
+  // struct node offset. The base type, however may not have defined
+  // a type at this additional offset, resulting in errors. Since
+  // this method is only used within a given load/store access
+  // the offset provided is only used to subdivide the previous load
+  // maintaining the validity of the previous TBAA.
+  //
+  // This, however, should be revisited in the future.
+  return MD;
 }
 
-MDNode *AAMDNodes::ShiftTBAAStruct(MDNode *MD, size_t Offset) {
+MDNode *AAMDNodes::shiftTBAAStruct(MDNode *MD, size_t Offset) {
   // Fast path if there's no offset
   if (Offset == 0)
     return MD;
@@ -817,4 +785,37 @@ MDNode *AAMDNodes::ShiftTBAAStruct(MDNode *MD, size_t Offset) {
     Sub.push_back(MD->getOperand(i + 2));
   }
   return MDNode::get(MD->getContext(), Sub);
+}
+
+MDNode *AAMDNodes::extendToTBAA(MDNode *MD, ssize_t Len) {
+  // Fast path if 0-length
+  if (Len == 0)
+    return nullptr;
+
+  // Regular TBAA is invariant of length, so we only need to consider
+  // struct-path TBAA.
+  if (!isStructPathTBAA(MD))
+    return MD;
+
+  TBAAStructTagNode Tag(MD);
+
+  // Only new format TBAA has a size
+  if (!Tag.isNewFormat())
+    return MD;
+
+  // If unknown size, drop the TBAA.
+  if (Len == -1)
+    return nullptr;
+
+  // Otherwise, create TBAA with the new Len
+  SmallVector<Metadata *, 4> NextNodes(MD->operands());
+  ConstantInt *PreviousSize = mdconst::extract<ConstantInt>(NextNodes[3]);
+
+  // Don't create a new MDNode if it is the same length.
+  if (PreviousSize->equalsInt(Len))
+    return MD;
+
+  NextNodes[3] =
+      ConstantAsMetadata::get(ConstantInt::get(PreviousSize->getType(), Len));
+  return MDNode::get(MD->getContext(), NextNodes);
 }

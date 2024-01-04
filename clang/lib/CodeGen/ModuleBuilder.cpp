@@ -122,6 +122,10 @@ namespace {
       return D;
     }
 
+    llvm::StringRef GetMangledName(GlobalDecl GD) {
+      return Builder->getMangledName(GD);
+    }
+
     llvm::Constant *GetAddrOfGlobal(GlobalDecl global, bool isForDefinition) {
       return Builder->GetAddrOfGlobal(global, ForDefinition_t(isForDefinition));
     }
@@ -138,7 +142,7 @@ namespace {
       Ctx = &Context;
 
       M->setTargetTriple(Ctx->getTargetInfo().getTriple().getTriple());
-      M->setDataLayout(Ctx->getTargetInfo().getDataLayout());
+      M->setDataLayout(Ctx->getTargetInfo().getDataLayoutString());
       const auto &SDKVersion = Ctx->getTargetInfo().getSDKVersion();
       if (!SDKVersion.empty())
         M->setSDKVersion(SDKVersion);
@@ -323,6 +327,10 @@ CGDebugInfo *CodeGenerator::getCGDebugInfo() {
 
 const Decl *CodeGenerator::GetDeclForMangledName(llvm::StringRef name) {
   return static_cast<CodeGeneratorImpl*>(this)->GetDeclForMangledName(name);
+}
+
+llvm::StringRef CodeGenerator::GetMangledName(GlobalDecl GD) {
+  return static_cast<CodeGeneratorImpl *>(this)->GetMangledName(GD);
 }
 
 llvm::Constant *CodeGenerator::GetAddrOfGlobal(GlobalDecl global,

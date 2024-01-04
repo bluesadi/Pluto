@@ -36,8 +36,6 @@ class MCTargetStreamer;
 class StringRef;
 class Target;
 class Triple;
-class raw_ostream;
-class raw_pwrite_stream;
 
 namespace ARM_MC {
 std::string ParseARMTriple(const Triple &TT, StringRef CPU);
@@ -56,6 +54,9 @@ bool isLDMBaseRegInList(const Inst &MI) {
   }
   return false;
 }
+
+uint64_t evaluateBranchTarget(const MCInstrDesc &InstDesc, uint64_t Addr,
+                              int64_t Imm);
 
 /// Create a ARM MCSubtargetInfo instance. This is exposed so Asm parser, etc.
 /// do not need to go through TargetRegistry.
@@ -106,7 +107,7 @@ createARMMachObjectWriter(bool Is64Bit, uint32_t CPUType,
 
 /// Construct an ARM PE/COFF object writer.
 std::unique_ptr<MCObjectTargetWriter>
-createARMWinCOFFObjectWriter(bool Is64Bit);
+createARMWinCOFFObjectWriter();
 
 /// Construct ARM Mach-O relocation info.
 MCRelocationInfo *createARMMachORelocationInfo(MCContext &Ctx);

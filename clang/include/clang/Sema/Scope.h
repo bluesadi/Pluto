@@ -129,11 +129,17 @@ public:
     /// This is a compound statement scope.
     CompoundStmtScope = 0x400000,
 
-    /// We are between inheritance colon and the real class/struct definition scope.
+    /// We are between inheritance colon and the real class/struct definition
+    /// scope.
     ClassInheritanceScope = 0x800000,
 
     /// This is the scope of a C++ catch statement.
     CatchScope = 0x1000000,
+
+    /// This is a scope in which a condition variable is currently being
+    /// parsed. If such a scope is a ContinueScope, it's invalid to jump to the
+    /// continue block from here.
+    ConditionVarScope = 0x2000000,
   };
 
 private:
@@ -247,6 +253,17 @@ public:
     return const_cast<Scope*>(this)->getContinueParent();
   }
 
+  // Set whether we're in the scope of a condition variable, where 'continue'
+  // is disallowed despite being a continue scope.
+  void setIsConditionVarScope(bool InConditionVarScope) {
+    Flags = (Flags & ~ConditionVarScope) |
+            (InConditionVarScope ? ConditionVarScope : 0);
+  }
+
+  bool isConditionVarScope() const {
+    return Flags & ConditionVarScope;
+  }
+
   /// getBreakParent - Return the closest scope that a break statement
   /// would be affected by.
   Scope *getBreakParent() {
@@ -320,7 +337,7 @@ public:
 
   /// isDeclScope - Return true if this is the scope that the specified decl is
   /// declared in.
-  bool isDeclScope(const Decl *D) const { return DeclsInScope.count(D) != 0; }
+  bool isDeclScope(const Decl *D) const { return DeclsInScope.contains(D); }
 
   /// Get the entity corresponding to this scope.
   DeclContext *getEntity() const {

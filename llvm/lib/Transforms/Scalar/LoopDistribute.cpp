@@ -1057,8 +1057,8 @@ PreservedAnalyses LoopDistributePass::run(Function &F,
   auto &LAM = AM.getResult<LoopAnalysisManagerFunctionProxy>(F).getManager();
   std::function<const LoopAccessInfo &(Loop &)> GetLAA =
       [&](Loop &L) -> const LoopAccessInfo & {
-    LoopStandardAnalysisResults AR = {AA,  AC,  DT,      LI,     SE,
-                                      TLI, TTI, nullptr, nullptr};
+    LoopStandardAnalysisResults AR = {AA,  AC,  DT,      LI,      SE,
+                                      TLI, TTI, nullptr, nullptr, nullptr};
     return LAM.getResult<LoopAccessAnalysis>(L, AR);
   };
 
@@ -1068,7 +1068,6 @@ PreservedAnalyses LoopDistributePass::run(Function &F,
   PreservedAnalyses PA;
   PA.preserve<LoopAnalysis>();
   PA.preserve<DominatorTreeAnalysis>();
-  PA.preserve<GlobalsAA>();
   return PA;
 }
 

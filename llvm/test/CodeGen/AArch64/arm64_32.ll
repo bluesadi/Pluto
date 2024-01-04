@@ -452,8 +452,8 @@ define double @test_constpool() {
 define i8* @test_blockaddress() {
 ; CHECK-LABEL: test_blockaddress:
 ; CHECK: [[BLOCK:Ltmp[0-9]+]]:
-; CHECK: adrp [[PAGE:x[0-9]+]], [[BLOCK]]@PAGE
-; CHECK: add x0, [[PAGE]], [[BLOCK]]@PAGEOFF
+; CHECK: adrp x[[PAGE:[0-9]+]], lCPI{{[0-9]+_[0-9]+}}@PAGE
+; CHECK: ldr x0, [x[[PAGE]], lCPI{{[0-9]+_[0-9]+}}@PAGEOFF]
   br label %dest
 dest:
   ret i8* blockaddress(@test_blockaddress, %dest)
@@ -596,7 +596,7 @@ define void @test_asm_memory(i32* %base.addr) {
 ; CHECK: add w[[ADDR:[0-9]+]], w0, #4
 ; CHECK: str wzr, [x[[ADDR]]
   %addr = getelementptr i32, i32* %base.addr, i32 1
-  call void asm sideeffect "str wzr, $0", "*m"(i32* %addr)
+  call void asm sideeffect "str wzr, $0", "*m"(i32* elementtype(i32) %addr)
   ret void
 }
 
@@ -606,7 +606,7 @@ define void @test_unsafe_asm_memory(i64 %val) {
 ; CHECK: str wzr, [x[[ADDR]]]
   %addr_int = trunc i64 %val to i32
   %addr = inttoptr i32 %addr_int to i32*
-  call void asm sideeffect "str wzr, $0", "*m"(i32* %addr)
+  call void asm sideeffect "str wzr, $0", "*m"(i32* elementtype(i32) %addr)
   ret void
 }
 

@@ -1,7 +1,7 @@
 ; Test plugin options for opt-remarks.
 ; RUN: llvm-as %s -o %t.o
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext -shared \
-; RUN:	  -plugin-opt=save-temps \
+; RUN:	  -plugin-opt=save-temps -plugin-opt=legacy-pass-manager \
 ; RUN:    -plugin-opt=opt-remarks-passes=inline \
 ; RUN:    -plugin-opt=opt-remarks-format=yaml \
 ; RUN:    -plugin-opt=opt-remarks-filename=%t.yaml %t.o -o %t2.o 2>&1
@@ -49,9 +49,11 @@
 ; YAML-NEXT: Name:            Inlined
 ; YAML-NEXT: Function:        _start
 ; YAML-NEXT: Args:
+; YAML-NEXT:   - String:          ''''
 ; YAML-NEXT:   - Callee:          f
-; YAML-NEXT:   - String:          ' inlined into '
+; YAML-NEXT:   - String:          ''' inlined into '''
 ; YAML-NEXT:   - Caller:          _start
+; YAML-NEXT:   - String:          ''''
 ; YAML-NEXT:   - String:          ' with '
 ; YAML-NEXT:   - String:          '(cost='
 ; YAML-NEXT:   - Cost:            '0'
@@ -66,9 +68,11 @@
 ; YAML-HOT-NEXT: Function:        _start
 ; YAML-HOT-NEXT: Hotness:         300
 ; YAML-HOT-NEXT: Args:
+; YAML-HOT-NEXT:   - String:          ''''
 ; YAML-HOT-NEXT:   - Callee:          f
-; YAML-HOT-NEXT:   - String:          ' inlined into '
+; YAML-HOT-NEXT:   - String:          ''' inlined into '''
 ; YAML-HOT-NEXT:   - Caller:          _start
+; YAML-HOT-NEXT:   - String:          ''''
 ; YAML-HOT-NEXT:   - String:          ' with '
 ; YAML-HOT-NEXT:   - String:          '(cost='
 ; YAML-HOT-NEXT:   - Cost:            '0'

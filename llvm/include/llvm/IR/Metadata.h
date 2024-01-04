@@ -20,9 +20,7 @@
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/PointerUnion.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/ADT/iterator_range.h"
@@ -46,11 +44,17 @@ namespace llvm {
 class Module;
 class ModuleSlotTracker;
 class raw_ostream;
+template <typename T> class StringMapEntry;
+template <typename ValueTy> class StringMapEntryStorage;
 class Type;
 
 enum LLVMConstants : uint32_t {
   DEBUG_METADATA_VERSION = 3 // Current debug info version number.
 };
+
+/// Magic number in the value profile metadata showing a target has been
+/// promoted for the instruction and shouldn't be promoted again.
+const uint64_t NOMORE_ICP_MAGICNUM = -1;
 
 /// Root of the metadata hierarchy.
 ///
@@ -67,10 +71,8 @@ protected:
 
   /// Storage flag for non-uniqued, otherwise unowned, metadata.
   unsigned char Storage : 7;
-  // TODO: expose remaining bits to subclasses.
 
-  unsigned char ImplicitCode : 1;
-
+  unsigned char SubclassData1 : 1;
   unsigned short SubclassData16 = 0;
   unsigned SubclassData32 = 0;
 
@@ -82,7 +84,7 @@ public:
 
 protected:
   Metadata(unsigned ID, StorageType Storage)
-      : SubclassID(ID), Storage(Storage), ImplicitCode(false) {
+      : SubclassID(ID), Storage(Storage), SubclassData1(false) {
     static_assert(sizeof(*this) == 8, "Metadata fields poorly packed");
   }
 
@@ -301,6 +303,9 @@ public:
   /// Replace all uses of this with \c MD, which is allowed to be null.
   void replaceAllUsesWith(Metadata *MD);
 
+  /// Returns the list of all DIArgList users of this.
+  SmallVector<Metadata *> getAllArgListUsers();
+
   /// Resolve all uses of this.
   ///
   /// Resolve all uses of this, turning off RAUW permanently.  If \c
@@ -379,6 +384,10 @@ public:
   Value *getValue() const { return V; }
   Type *getType() const { return V->getType(); }
   LLVMContext &getContext() const { return V->getContext(); }
+
+  SmallVector<Metadata *> getAllArgListUsers() {
+    return ReplaceableMetadataImpl::getAllArgListUsers();
+  }
 
   static void handleDeletion(Value *V);
   static void handleRAUW(Value *From, Value *To);
@@ -668,17 +677,21 @@ struct AAMDNodes {
   MDNode *NoAlias = nullptr;
 
   // Shift tbaa Metadata node to start off bytes later
-  static MDNode *ShiftTBAA(MDNode *M, size_t off);
+  static MDNode *shiftTBAA(MDNode *M, size_t off);
 
   // Shift tbaa.struct Metadata node to start off bytes later
-  static MDNode *ShiftTBAAStruct(MDNode *M, size_t off);
+  static MDNode *shiftTBAAStruct(MDNode *M, size_t off);
+
+  // Extend tbaa Metadata node to apply to a series of bytes of length len.
+  // A size of -1 denotes an unknown size.
+  static MDNode *extendToTBAA(MDNode *TBAA, ssize_t len);
 
   /// Given two sets of AAMDNodes that apply to the same pointer,
   /// give the best AAMDNodes that are compatible with both (i.e. a set of
   /// nodes whose allowable aliasing conclusions are a subset of those
   /// allowable by both of the inputs). However, for efficiency
   /// reasons, do not create any new MDNodes.
-  AAMDNodes intersect(const AAMDNodes &Other) {
+  AAMDNodes intersect(const AAMDNodes &Other) const {
     AAMDNodes Result;
     Result.TBAA = Other.TBAA == TBAA ? TBAA : nullptr;
     Result.TBAAStruct = Other.TBAAStruct == TBAAStruct ? TBAAStruct : nullptr;
@@ -688,16 +701,40 @@ struct AAMDNodes {
   }
 
   /// Create a new AAMDNode that describes this AAMDNode after applying a
-  /// constant offset to the start of the pointer
-  AAMDNodes shift(size_t Offset) {
+  /// constant offset to the start of the pointer.
+  AAMDNodes shift(size_t Offset) const {
     AAMDNodes Result;
-    Result.TBAA = TBAA ? ShiftTBAA(TBAA, Offset) : nullptr;
+    Result.TBAA = TBAA ? shiftTBAA(TBAA, Offset) : nullptr;
     Result.TBAAStruct =
-        TBAAStruct ? ShiftTBAAStruct(TBAAStruct, Offset) : nullptr;
+        TBAAStruct ? shiftTBAAStruct(TBAAStruct, Offset) : nullptr;
     Result.Scope = Scope;
     Result.NoAlias = NoAlias;
     return Result;
   }
+
+  /// Create a new AAMDNode that describes this AAMDNode after extending it to
+  /// apply to a series of bytes of length Len. A size of -1 denotes an unknown
+  /// size.
+  AAMDNodes extendTo(ssize_t Len) const {
+    AAMDNodes Result;
+    Result.TBAA = TBAA ? extendToTBAA(TBAA, Len) : nullptr;
+    // tbaa.struct contains (offset, size, type) triples. Extending the length
+    // of the tbaa.struct doesn't require changing this (though more information
+    // could be provided by adding more triples at subsequent lengths).
+    Result.TBAAStruct = TBAAStruct;
+    Result.Scope = Scope;
+    Result.NoAlias = NoAlias;
+    return Result;
+  }
+
+  /// Given two sets of AAMDNodes applying to potentially different locations,
+  /// determine the best AAMDNodes that apply to both.
+  AAMDNodes merge(const AAMDNodes &Other) const;
+
+  /// Determine the best AAMDNodes after concatenating two different locations
+  /// together. Different from `merge`, where different locations should
+  /// overlap each other, `concat` puts non-overlapping locations together.
+  AAMDNodes concat(const AAMDNodes &Other) const;
 };
 
 // Specialize DenseMapInfo for AAMDNodes.
@@ -888,6 +925,7 @@ struct TempMDNodeDeleter {
 class MDNode : public Metadata {
   friend class ReplaceableMetadataImpl;
   friend class LLVMContextImpl;
+  friend class DIArgList;
 
   unsigned NumOperands;
   unsigned NumUnresolved;
@@ -1018,6 +1056,31 @@ public:
   replaceWithDistinct(std::unique_ptr<T, TempMDNodeDeleter> N) {
     return cast<T>(N.release()->replaceWithDistinctImpl());
   }
+
+  /// Print in tree shape.
+  ///
+  /// Prints definition of \c this in tree shape.
+  ///
+  /// If \c M is provided, metadata nodes will be numbered canonically;
+  /// otherwise, pointer addresses are substituted.
+  /// @{
+  void printTree(raw_ostream &OS, const Module *M = nullptr) const;
+  void printTree(raw_ostream &OS, ModuleSlotTracker &MST,
+                 const Module *M = nullptr) const;
+  /// @}
+
+  /// User-friendly dump in tree shape.
+  ///
+  /// If \c M is provided, metadata nodes will be numbered canonically;
+  /// otherwise, pointer addresses are substituted.
+  ///
+  /// Note: this uses an explicit overload instead of default arguments so that
+  /// the nullptr version is easy to call from a debugger.
+  ///
+  /// @{
+  void dumpTree() const;
+  void dumpTree(const Module *M) const;
+  /// @}
 
 private:
   MDNode *replaceWithPermanentImpl();
@@ -1238,13 +1301,16 @@ public:
 ///
 /// An iterator that transforms an \a MDNode::iterator into an iterator over a
 /// particular Metadata subclass.
-template <class T>
-class TypedMDOperandIterator
-    : public std::iterator<std::input_iterator_tag, T *, std::ptrdiff_t, void,
-                           T *> {
+template <class T> class TypedMDOperandIterator {
   MDNode::op_iterator I = nullptr;
 
 public:
+  using iterator_category = std::input_iterator_tag;
+  using value_type = T *;
+  using difference_type = std::ptrdiff_t;
+  using pointer = void;
+  using reference = T *;
+
   TypedMDOperandIterator() = default;
   explicit TypedMDOperandIterator(MDNode::op_iterator I) : I(I) {}
 
@@ -1383,9 +1449,7 @@ class NamedMDNode : public ilist_node<NamedMDNode> {
 
   explicit NamedMDNode(const Twine &N);
 
-  template<class T1, class T2>
-  class op_iterator_impl :
-      public std::iterator<std::bidirectional_iterator_tag, T2> {
+  template <class T1, class T2> class op_iterator_impl {
     friend class NamedMDNode;
 
     const NamedMDNode *Node = nullptr;
@@ -1394,6 +1458,12 @@ class NamedMDNode : public ilist_node<NamedMDNode> {
     op_iterator_impl(const NamedMDNode *N, unsigned i) : Node(N), Idx(i) {}
 
   public:
+    using iterator_category = std::bidirectional_iterator_tag;
+    using value_type = T2;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
     op_iterator_impl() = default;
 
     bool operator==(const op_iterator_impl &o) const { return Idx == o.Idx; }

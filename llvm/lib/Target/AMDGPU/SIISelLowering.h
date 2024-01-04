@@ -16,6 +16,7 @@
 
 #include "AMDGPUISelLowering.h"
 #include "AMDGPUArgumentUsageInfo.h"
+#include "llvm/CodeGen/MachineFunction.h"
 
 namespace llvm {
 
@@ -134,6 +135,7 @@ private:
   SDValue lowerFP_ROUND(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerFMINNUM_FMAXNUM(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerXMULO(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerXMUL_LOHI(SDValue Op, SelectionDAG &DAG) const;
 
   SDValue getSegmentAperture(unsigned AS, const SDLoc &DL,
                              SelectionDAG &DAG) const;
@@ -144,7 +146,11 @@ private:
   SDValue lowerEXTRACT_VECTOR_ELT(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerVECTOR_SHUFFLE(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const;
+
   SDValue lowerTRAP(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerTrapEndpgm(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerTrapHsaQueuePtr(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerTrapHsa(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerDEBUGTRAP(SDValue Op, SelectionDAG &DAG) const;
 
   SDNode *adjustWritemask(MachineSDNode *&N, SelectionDAG &DAG) const;
@@ -227,10 +233,8 @@ private:
   // Analyze a combined offset from an amdgcn_buffer_ intrinsic and store the
   // three offsets (voffset, soffset and instoffset) into the SDValue[3] array
   // pointed to by Offsets.
-  /// \returns 0 If there is a non-constant offset or if the offset is 0.
-  /// Otherwise returns the constant offset.
-  unsigned setBufferOffsets(SDValue CombinedOffset, SelectionDAG &DAG,
-                            SDValue *Offsets, Align Alignment = Align(4)) const;
+  void setBufferOffsets(SDValue CombinedOffset, SelectionDAG &DAG,
+                        SDValue *Offsets, Align Alignment = Align(4)) const;
 
   // Handle 8 bit and 16 bit buffer loads
   SDValue handleByteShortBufferLoads(SelectionDAG &DAG, EVT LoadVT, SDLoc DL,
@@ -249,6 +253,9 @@ public:
   bool isFPExtFoldable(const SelectionDAG &DAG, unsigned Opcode, EVT DestVT,
                        EVT SrcVT) const override;
 
+  bool isFPExtFoldable(const MachineInstr &MI, unsigned Opcode, LLT DestTy,
+                       LLT SrcTy) const override;
+
   bool isShuffleMaskLegal(ArrayRef<int> /*Mask*/, EVT /*VT*/) const override;
 
   bool getTgtMemIntrinsic(IntrinsicInfo &, const CallInst &,
@@ -265,7 +272,7 @@ public:
                              Instruction *I = nullptr) const override;
 
   bool canMergeStoresTo(unsigned AS, EVT MemVT,
-                        const SelectionDAG &DAG) const override;
+                        const MachineFunction &MF) const override;
 
   bool allowsMisalignedMemoryAccessesImpl(
       unsigned Size, unsigned AddrSpace, Align Alignment,
@@ -283,7 +290,7 @@ public:
   }
 
   bool allowsMisalignedMemoryAccesses(
-      EVT VT, unsigned AS, unsigned Alignment,
+      EVT VT, unsigned AS, Align Alignment,
       MachineMemOperand::Flags Flags = MachineMemOperand::MONone,
       bool *IsFast = nullptr) const override;
 
@@ -374,6 +381,7 @@ public:
 
   bool hasBitPreservingFPLogic(EVT VT) const override;
   bool enableAggressiveFMAFusion(EVT VT) const override;
+  bool enableAggressiveFMAFusion(LLT Ty) const override;
   EVT getSetCCResultType(const DataLayout &DL, LLVMContext &Context,
                          EVT VT) const override;
   MVT getScalarShiftAmountTy(const DataLayout &, EVT) const override;
@@ -381,7 +389,10 @@ public:
 
   bool isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
                                   EVT VT) const override;
+  bool isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
+                                  const LLT Ty) const override;
   bool isFMADLegal(const SelectionDAG &DAG, const SDNode *N) const override;
+  bool isFMADLegal(const MachineInstr &MI, const LLT Ty) const override;
 
   SDValue splitUnaryVectorOp(SDValue Op, SelectionDAG &DAG) const;
   SDValue splitBinaryVectorOp(SDValue Op, SelectionDAG &DAG) const;
@@ -393,6 +404,7 @@ public:
 
   SDValue PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const override;
   SDNode *PostISelFolding(MachineSDNode *N, SelectionDAG &DAG) const override;
+  void AddIMGInit(MachineInstr &MI) const;
   void AdjustInstrPostInstrSelection(MachineInstr &MI,
                                      SDNode *Node) const override;
 
@@ -437,9 +449,17 @@ public:
   bool isSDNodeSourceOfDivergence(const SDNode *N,
     FunctionLoweringInfo *FLI, LegacyDivergenceAnalysis *DA) const override;
 
+  bool hasMemSDNodeUser(SDNode *N) const;
+
+  bool isReassocProfitable(SelectionDAG &DAG, SDValue N0,
+                           SDValue N1) const override;
+
   bool isCanonicalized(SelectionDAG &DAG, SDValue Op,
                        unsigned MaxDepth = 5) const;
+  bool isCanonicalized(Register Reg, MachineFunction &MF,
+                       unsigned MaxDepth = 5) const;
   bool denormalsEnabledForType(const SelectionDAG &DAG, EVT VT) const;
+  bool denormalsEnabledForType(LLT Ty, MachineFunction &MF) const;
 
   bool isKnownNeverNaNForTargetNode(SDValue Op,
                                     const SelectionDAG &DAG,
@@ -483,8 +503,8 @@ public:
                                       const SIRegisterInfo &TRI,
                                       SIMachineFunctionInfo &Info) const;
 
-  std::pair<int, MVT> getTypeLegalizationCost(const DataLayout &DL,
-                                              Type *Ty) const;
+  std::pair<InstructionCost, MVT> getTypeLegalizationCost(const DataLayout &DL,
+                                                          Type *Ty) const;
 };
 
 } // End namespace llvm

@@ -50,6 +50,10 @@ class VirtRegMap;
     const MachineLoopInfo &Loops;
     const MachineBlockFrequencyInfo &MBFI;
 
+    /// Returns true if Reg of live interval LI is used in instruction with many
+    /// operands like STATEPOINT.
+    bool isLiveAtStatepointVarArg(LiveInterval &LI);
+
   public:
     VirtRegAuxInfo(MachineFunction &MF, LiveIntervals &LIS,
                    const VirtRegMap &VRM, const MachineLoopInfo &Loops,
@@ -75,6 +79,18 @@ class VirtRegMap;
     /// Compute spill weights and allocation hints for all virtual register
     /// live intervals.
     void calculateSpillWeightsAndHints();
+
+    /// Return the preferred allocation register for reg, given a COPY
+    /// instruction.
+    static Register copyHint(const MachineInstr *MI, unsigned Reg,
+                             const TargetRegisterInfo &TRI,
+                             const MachineRegisterInfo &MRI);
+
+    /// Determine if all values in LI are rematerializable.
+    static bool isRematerializable(const LiveInterval &LI,
+                                   const LiveIntervals &LIS,
+                                   const VirtRegMap &VRM,
+                                   const TargetInstrInfo &TII);
 
   protected:
     /// Helper function for weight calculations.

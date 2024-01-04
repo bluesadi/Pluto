@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_RISCV_RISCVELFSTREAMER_H
-#define LLVM_LIB_TARGET_RISCV_RISCVELFSTREAMER_H
+#ifndef LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVELFSTREAMER_H
+#define LLVM_LIB_TARGET_RISCV_MCTARGETDESC_RISCVELFSTREAMER_H
 
 #include "RISCVTargetStreamer.h"
 #include "llvm/MC/MCELFStreamer.h"
@@ -104,5 +104,11 @@ public:
   void emitDirectiveOptionRelax() override;
   void emitDirectiveOptionNoRelax() override;
 };
+
+MCELFStreamer *createRISCVELFStreamer(MCContext &C,
+                                      std::unique_ptr<MCAsmBackend> MAB,
+                                      std::unique_ptr<MCObjectWriter> MOW,
+                                      std::unique_ptr<MCCodeEmitter> MCE,
+                                      bool RelaxAll);
 }
 #endif

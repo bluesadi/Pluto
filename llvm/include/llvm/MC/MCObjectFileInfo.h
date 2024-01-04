@@ -15,6 +15,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/BinaryFormat/Swift.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/VersionTuple.h"
@@ -218,16 +219,24 @@ protected:
   MCSection *PDataSection = nullptr;
   MCSection *XDataSection = nullptr;
   MCSection *SXDataSection = nullptr;
+  MCSection *GEHContSection = nullptr;
   MCSection *GFIDsSection = nullptr;
   MCSection *GIATsSection = nullptr;
   MCSection *GLJMPSection = nullptr;
 
   // XCOFF specific sections
   MCSection *TOCBaseSection = nullptr;
+  MCSection *ReadOnly8Section = nullptr;
+  MCSection *ReadOnly16Section = nullptr;
+
+  // Swift5 Reflection Data Sections
+  std::array<MCSection *, binaryformat::Swift5ReflectionSectionKind::last>
+      Swift5ReflectionSections = {};
 
 public:
-  void InitMCObjectFileInfo(const Triple &TT, bool PIC, MCContext &ctx,
+  void initMCObjectFileInfo(MCContext &MCCtx, bool PIC,
                             bool LargeCodeModel = false);
+  virtual ~MCObjectFileInfo();
   MCContext &getContext() const { return *Ctx; }
 
   bool getSupportsWeakOmittedEHFrame() const {
@@ -250,10 +259,12 @@ public:
     return CompactUnwindDwarfEHFrameOnly;
   }
 
+  virtual unsigned getTextSectionAlignment() const { return 4; }
   MCSection *getTextSection() const { return TextSection; }
   MCSection *getDataSection() const { return DataSection; }
   MCSection *getBSSSection() const { return BSSSection; }
   MCSection *getReadOnlySection() const { return ReadOnlySection; }
+  MCSection *getLSDASection() const { return LSDASection; }
   MCSection *getCompactUnwindSection() const { return CompactUnwindSection; }
   MCSection *getDwarfAbbrevSection() const { return DwarfAbbrevSection; }
   MCSection *getDwarfInfoSection() const { return DwarfInfoSection; }
@@ -405,6 +416,7 @@ public:
   MCSection *getPDataSection() const { return PDataSection; }
   MCSection *getXDataSection() const { return XDataSection; }
   MCSection *getSXDataSection() const { return SXDataSection; }
+  MCSection *getGEHContSection() const { return GEHContSection; }
   MCSection *getGFIDsSection() const { return GFIDsSection; }
   MCSection *getGIATsSection() const { return GIATsSection; }
   MCSection *getGLJMPSection() const { return GLJMPSection; }
@@ -414,33 +426,55 @@ public:
 
   MCSection *getEHFrameSection() const { return EHFrameSection; }
 
-  enum Environment { IsMachO, IsELF, IsCOFF, IsWasm, IsXCOFF };
-  Environment getObjectFileType() const { return Env; }
-
   bool isPositionIndependent() const { return PositionIndependent; }
 
+  // Swift5 Reflection Data Sections
+  MCSection *getSwift5ReflectionSection(
+      llvm::binaryformat::Swift5ReflectionSectionKind ReflSectionKind) {
+    return ReflSectionKind !=
+                   llvm::binaryformat::Swift5ReflectionSectionKind::unknown
+               ? Swift5ReflectionSections[ReflSectionKind]
+               : nullptr;
+  }
+
 private:
-  Environment Env;
   bool PositionIndependent = false;
   MCContext *Ctx = nullptr;
-  Triple TT;
   VersionTuple SDKVersion;
+  Optional<Triple> DarwinTargetVariantTriple;
+  VersionTuple DarwinTargetVariantSDKVersion;
 
   void initMachOMCObjectFileInfo(const Triple &T);
   void initELFMCObjectFileInfo(const Triple &T, bool Large);
+  void initGOFFMCObjectFileInfo(const Triple &T);
   void initCOFFMCObjectFileInfo(const Triple &T);
   void initWasmMCObjectFileInfo(const Triple &T);
   void initXCOFFMCObjectFileInfo(const Triple &T);
   MCSection *getDwarfComdatSection(const char *Name, uint64_t Hash) const;
 
 public:
-  const Triple &getTargetTriple() const { return TT; }
-
   void setSDKVersion(const VersionTuple &TheSDKVersion) {
     SDKVersion = TheSDKVersion;
   }
 
   const VersionTuple &getSDKVersion() const { return SDKVersion; }
+
+  void setDarwinTargetVariantTriple(const Triple &T) {
+    DarwinTargetVariantTriple = T;
+  }
+
+  const Triple *getDarwinTargetVariantTriple() const {
+    return DarwinTargetVariantTriple ? DarwinTargetVariantTriple.getPointer()
+                                     : nullptr;
+  }
+
+  void setDarwinTargetVariantSDKVersion(const VersionTuple &TheSDKVersion) {
+    DarwinTargetVariantSDKVersion = TheSDKVersion;
+  }
+
+  const VersionTuple &getDarwinTargetVariantSDKVersion() const {
+    return DarwinTargetVariantSDKVersion;
+  }
 };
 
 } // end namespace llvm

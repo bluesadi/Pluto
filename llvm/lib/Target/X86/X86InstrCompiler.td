@@ -69,18 +69,16 @@ def : Pat<(X86callseq_start timm:$amt1, timm:$amt2),
 let SchedRW = [WriteSystem] in {
 
 // x86-64 va_start lowering magic.
-let usesCustomInserter = 1, Defs = [EFLAGS] in {
+let hasSideEffects = 1, mayStore = 1, Defs = [EFLAGS] in {
 def VASTART_SAVE_XMM_REGS : I<0, Pseudo,
                               (outs),
-                              (ins GR8:$al,
-                                   i32imm:$regsavefi, i32imm:$offset,
-                                   variable_ops),
-                              "#VASTART_SAVE_XMM_REGS $al, $regsavefi, $offset",
-                              [(X86vastart_save_xmm_regs GR8:$al,
-                                                         timm:$regsavefi,
-                                                         timm:$offset),
+                              (ins GR8:$al, i8mem:$regsavefi, variable_ops),
+                              "#VASTART_SAVE_XMM_REGS $al, $regsavefi",
+                              [(X86vastart_save_xmm_regs GR8:$al, addr:$regsavefi),
                                (implicit EFLAGS)]>;
+}
 
+let usesCustomInserter = 1, Defs = [EFLAGS] in {
 // The VAARG_64 and VAARG_X32 pseudo-instructions take the address of the
 // va_list, and place the address of the next argument into a register.
 let Defs = [EFLAGS] in {
@@ -151,15 +149,15 @@ def STACKALLOC_W_PROBING : I<0, Pseudo, (outs), (ins i64imm:$stacksize),
 // (compared to ordinary calls) like stack pointer change.
 
 let Defs = [EAX, ESP, EFLAGS], Uses = [ESP] in
-def WIN_ALLOCA_32 : I<0, Pseudo, (outs), (ins GR32:$size),
+def DYN_ALLOCA_32 : I<0, Pseudo, (outs), (ins GR32:$size),
                      "# dynamic stack allocation",
-                     [(X86WinAlloca GR32:$size)]>,
+                     [(X86DynAlloca GR32:$size)]>,
                      Requires<[NotLP64]>;
 
 let Defs = [RAX, RSP, EFLAGS], Uses = [RSP] in
-def WIN_ALLOCA_64 : I<0, Pseudo, (outs), (ins GR64:$size),
+def DYN_ALLOCA_64 : I<0, Pseudo, (outs), (ins GR64:$size),
                      "# dynamic stack allocation",
-                     [(X86WinAlloca GR64:$size)]>,
+                     [(X86DynAlloca GR64:$size)]>,
                      Requires<[In64BitMode]>;
 } // SchedRW
 
@@ -256,6 +254,17 @@ let isPseudo = 1, SchedRW = [WriteSystem] in {
                             "#SEH_EndPrologue", []>;
   def SEH_Epilogue : I<0, Pseudo, (outs), (ins),
                             "#SEH_Epilogue", []>;
+}
+
+//===----------------------------------------------------------------------===//
+// Pseudo instructions used by address sanitizer.
+//===----------------------------------------------------------------------===//
+let
+  Defs = [R10, R11, EFLAGS] in {
+def ASAN_CHECK_MEMACCESS : PseudoI<
+  (outs), (ins GR64PLTSafe:$addr, i32imm:$accessinfo),
+  [(int_asan_check_memaccess GR64PLTSafe:$addr, (i32 timm:$accessinfo))]>,
+  Sched<[]>;
 }
 
 //===----------------------------------------------------------------------===//
@@ -553,6 +562,7 @@ let usesCustomInserter = 1, hasNoSchedulingInfo = 1, Uses = [EFLAGS] in {
   let Predicates = [HasMMX] in
     defm _VR64   : CMOVrr_PSEUDO<VR64, x86mmx>;
 
+  defm _FR16X    : CMOVrr_PSEUDO<FR16X, f16>;
   let Predicates = [HasSSE1,NoAVX512] in
     defm _FR32   : CMOVrr_PSEUDO<FR32, f32>;
   let Predicates = [HasSSE2,NoAVX512] in
@@ -610,6 +620,8 @@ let Predicates = [HasVLX] in {
             (CMOV_VR128X VR128X:$t, VR128X:$f, timm:$cond)>;
   def : Pat<(v8i16 (X86cmov VR128X:$t, VR128X:$f, timm:$cond, EFLAGS)),
             (CMOV_VR128X VR128X:$t, VR128X:$f, timm:$cond)>;
+  def : Pat<(v8f16 (X86cmov VR128X:$t, VR128X:$f, timm:$cond, EFLAGS)),
+            (CMOV_VR128X VR128X:$t, VR128X:$f, timm:$cond)>;
   def : Pat<(v4i32 (X86cmov VR128X:$t, VR128X:$f, timm:$cond, EFLAGS)),
             (CMOV_VR128X VR128X:$t, VR128X:$f, timm:$cond)>;
   def : Pat<(v4f32 (X86cmov VR128X:$t, VR128X:$f, timm:$cond, EFLAGS)),
@@ -620,6 +632,8 @@ let Predicates = [HasVLX] in {
   def : Pat<(v32i8 (X86cmov VR256X:$t, VR256X:$f, timm:$cond, EFLAGS)),
             (CMOV_VR256X VR256X:$t, VR256X:$f, timm:$cond)>;
   def : Pat<(v16i16 (X86cmov VR256X:$t, VR256X:$f, timm:$cond, EFLAGS)),
+            (CMOV_VR256X VR256X:$t, VR256X:$f, timm:$cond)>;
+  def : Pat<(v16f16 (X86cmov VR256X:$t, VR256X:$f, timm:$cond, EFLAGS)),
             (CMOV_VR256X VR256X:$t, VR256X:$f, timm:$cond)>;
   def : Pat<(v8i32 (X86cmov VR256X:$t, VR256X:$f, timm:$cond, EFLAGS)),
             (CMOV_VR256X VR256X:$t, VR256X:$f, timm:$cond)>;
@@ -632,6 +646,8 @@ let Predicates = [HasVLX] in {
 def : Pat<(v64i8 (X86cmov VR512:$t, VR512:$f, timm:$cond, EFLAGS)),
           (CMOV_VR512 VR512:$t, VR512:$f, timm:$cond)>;
 def : Pat<(v32i16 (X86cmov VR512:$t, VR512:$f, timm:$cond, EFLAGS)),
+          (CMOV_VR512 VR512:$t, VR512:$f, timm:$cond)>;
+def : Pat<(v32f16 (X86cmov VR512:$t, VR512:$f, timm:$cond, EFLAGS)),
           (CMOV_VR512 VR512:$t, VR512:$f, timm:$cond)>;
 def : Pat<(v16i32 (X86cmov VR512:$t, VR512:$f, timm:$cond, EFLAGS)),
           (CMOV_VR512 VR512:$t, VR512:$f, timm:$cond)>;
@@ -930,10 +946,10 @@ def MWAITX :
 defm LCMPXCHG : LCMPXCHG_BinOp<0xB0, 0xB1, MRMDestMem, "cmpxchg", X86cas>;
 
 // Atomic exchange and add
-multiclass ATOMIC_LOAD_BINOP<bits<8> opc8, bits<8> opc, string mnemonic,
-                             string frag> {
-  let Constraints = "$val = $dst", Defs = [EFLAGS], isCodeGenOnly = 1,
-      SchedRW = [WriteALURMW] in {
+multiclass ATOMIC_RMW_BINOP<bits<8> opc8, bits<8> opc, string mnemonic,
+                            string frag> {
+  let Constraints = "$val = $dst", Defs = [EFLAGS], mayLoad = 1, mayStore = 1,
+      isCodeGenOnly = 1, SchedRW = [WriteALURMW] in {
     def NAME#8  : I<opc8, MRMSrcMem, (outs GR8:$dst),
                     (ins GR8:$val, i8mem:$ptr),
                     !strconcat(mnemonic, "{b}\t{$val, $ptr|$ptr, $val}"),
@@ -951,7 +967,7 @@ multiclass ATOMIC_LOAD_BINOP<bits<8> opc8, bits<8> opc, string mnemonic,
                     !strconcat(mnemonic, "{l}\t{$val, $ptr|$ptr, $val}"),
                     [(set
                        GR32:$dst,
-                       (!cast<PatFrag>(frag # "_32") addr:$ptr, GR32:$val))]>, 
+                       (!cast<PatFrag>(frag # "_32") addr:$ptr, GR32:$val))]>,
                     OpSize32;
     def NAME#64 : RI<opc, MRMSrcMem, (outs GR64:$dst),
                      (ins GR64:$val, i64mem:$ptr),
@@ -962,7 +978,7 @@ multiclass ATOMIC_LOAD_BINOP<bits<8> opc8, bits<8> opc, string mnemonic,
   }
 }
 
-defm LXADD : ATOMIC_LOAD_BINOP<0xc0, 0xc1, "xadd", "atomic_load_add">, TB, LOCK;
+defm LXADD : ATOMIC_RMW_BINOP<0xc0, 0xc1, "xadd", "atomic_load_add">, TB, LOCK;
 
 /* The following multiclass tries to make sure that in code like
  *    x.store (immediate op x.load(acquire), release)
@@ -1194,6 +1210,12 @@ def : Pat<(X86call (i64 tglobaladdr:$dst)),
           (CALL64pcrel32 tglobaladdr:$dst)>;
 def : Pat<(X86call (i64 texternalsym:$dst)),
           (CALL64pcrel32 texternalsym:$dst)>;
+
+def : Pat<(X86call_rvmarker (i64 tglobaladdr:$rvfunc), (i64 texternalsym:$dst)),
+          (CALL64pcrel32_RVMARKER tglobaladdr:$rvfunc, texternalsym:$dst)>;
+def : Pat<(X86call_rvmarker (i64 tglobaladdr:$rvfunc), (i64 tglobaladdr:$dst)),
+          (CALL64pcrel32_RVMARKER tglobaladdr:$rvfunc, tglobaladdr:$dst)>;
+
 
 // Tailcall stuff. The TCRETURN instructions execute after the epilog, so they
 // can never use callee-saved registers. That is the purpose of the GR64_TC

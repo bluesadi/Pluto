@@ -1,8 +1,10 @@
-// RUN: %clang_analyze_cc1 -verify %s \
+// FIXME -Wno-aix-compat added temporarily while the diagnostic is being
+// refined.
+// RUN: %clang_analyze_cc1 -verify -Wno-aix-compat %s \
 // RUN:   -analyzer-checker=optin.performance \
 // RUN:   -analyzer-config optin.performance.Padding:AllowedPad=2
 
-// RUN: not %clang_analyze_cc1 -verify %s \
+// RUN: not %clang_analyze_cc1 -verify -Wno-aix-compat %s \
 // RUN:   -analyzer-checker=core \
 // RUN:   -analyzer-checker=optin.performance.Padding \
 // RUN:   -analyzer-config optin.performance.Padding:AllowedPad=-10 \
@@ -195,7 +197,7 @@ void typedefStructFunc() {
 }
 
 void anonStructFunc() {
-  struct { // expected-warning{{Excessive padding in 'struct (anonymous}}
+  struct { // expected-warning{{Excessive padding in 'struct (unnamed}}
     char c1;
     int t;
     char c2;

@@ -11,10 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/STLArrayExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Config/config.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Support/Duration.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Format.h"
@@ -24,10 +25,8 @@
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Program.h"
 #include <algorithm>
-#include <cctype>
 #include <cerrno>
 #include <cstdio>
-#include <iterator>
 #include <sys/stat.h>
 
 // <fcntl.h> may provide O_BINARY.
@@ -185,7 +184,7 @@ raw_ostream &raw_ostream::write_escaped(StringRef Str,
       // Write out the escaped representation.
       if (UseHexEscapes) {
         *this << '\\' << 'x';
-        *this << hexdigit((c >> 4 & 0xF));
+        *this << hexdigit((c >> 4) & 0xF);
         *this << hexdigit((c >> 0) & 0xF);
       } else {
         // Always use a full 3-character octal escape.
@@ -574,10 +573,8 @@ static int getFD(StringRef Filename, std::error_code &EC,
   // the owner of stdout and may set the "binary" flag globally based on Flags.
   if (Filename == "-") {
     EC = std::error_code();
-    // If user requested binary then put stdout into binary mode if
-    // possible.
-    if (!(Flags & sys::fs::OF_Text))
-      sys::ChangeStdoutToBinary();
+    // Change stdout's text/binary mode based on the Flags.
+    sys::ChangeStdoutMode(Flags);
     return STDOUT_FILENO;
   }
 
@@ -645,13 +642,14 @@ raw_fd_ostream::raw_fd_ostream(int fd, bool shouldClose, bool unbuffered,
 
   // Get the starting position.
   off_t loc = ::lseek(FD, 0, SEEK_CUR);
-#ifdef _WIN32
-  // MSVCRT's _lseek(SEEK_CUR) doesn't return -1 for pipes.
   sys::fs::file_status Status;
   std::error_code EC = status(FD, Status);
-  SupportsSeeking = !EC && Status.type() == sys::fs::file_type::regular_file;
+  IsRegularFile = Status.type() == sys::fs::file_type::regular_file;
+#ifdef _WIN32
+  // MSVCRT's _lseek(SEEK_CUR) doesn't return -1 for pipes.
+  SupportsSeeking = !EC && IsRegularFile;
 #else
-  SupportsSeeking = loc != (off_t)-1;
+  SupportsSeeking = !EC && loc != (off_t)-1;
 #endif
   if (!SupportsSeeking)
     pos = 0;
@@ -681,7 +679,8 @@ raw_fd_ostream::~raw_fd_ostream() {
   // has_error() and clear the error flag with clear_error() before
   // destructing raw_ostream objects which may have errors.
   if (has_error())
-    report_fatal_error("IO failure on output stream: " + error().message(),
+    report_fatal_error(Twine("IO failure on output stream: ") +
+                           error().message(),
                        /*gen_crash_diag=*/false);
 }
 
@@ -870,8 +869,8 @@ Expected<sys::fs::FileLocker> raw_fd_ostream::lock() {
 }
 
 Expected<sys::fs::FileLocker>
-raw_fd_ostream::tryLockFor(std::chrono::milliseconds Timeout) {
-  std::error_code EC = sys::fs::tryLockFile(FD, Timeout);
+raw_fd_ostream::tryLockFor(Duration const& Timeout) {
+  std::error_code EC = sys::fs::tryLockFile(FD, Timeout.getDuration());
   if (!EC)
     return sys::fs::FileLocker(FD);
   return errorCodeToError(EC);
@@ -915,8 +914,7 @@ raw_fd_stream::raw_fd_stream(StringRef Filename, std::error_code &EC)
   if (EC)
     return;
 
-  // Do not support non-seekable files.
-  if (!supportsSeeking())
+  if (!isRegularFile())
     EC = std::make_error_code(std::errc::invalid_argument);
 }
 
@@ -937,10 +935,6 @@ bool raw_fd_stream::classof(const raw_ostream *OS) {
 //===----------------------------------------------------------------------===//
 //  raw_string_ostream
 //===----------------------------------------------------------------------===//
-
-raw_string_ostream::~raw_string_ostream() {
-  flush();
-}
 
 void raw_string_ostream::write_impl(const char *Ptr, size_t Size) {
   OS.append(Ptr, Size);
@@ -989,3 +983,31 @@ void raw_pwrite_stream::anchor() {}
 void buffer_ostream::anchor() {}
 
 void buffer_unique_ostream::anchor() {}
+
+Error llvm::writeToOutput(StringRef OutputFileName,
+                          std::function<Error(raw_ostream &)> Write) {
+  if (OutputFileName == "-")
+    return Write(outs());
+
+  if (OutputFileName == "/dev/null") {
+    raw_null_ostream Out;
+    return Write(Out);
+  }
+
+  unsigned Mode = sys::fs::all_read | sys::fs::all_write | sys::fs::all_exe;
+  Expected<sys::fs::TempFile> Temp =
+      sys::fs::TempFile::create(OutputFileName + ".temp-stream-%%%%%%", Mode);
+  if (!Temp)
+    return createFileError(OutputFileName, Temp.takeError());
+
+  raw_fd_ostream Out(Temp->FD, false);
+
+  if (Error E = Write(Out)) {
+    if (Error DiscardError = Temp->discard())
+      return joinErrors(std::move(E), std::move(DiscardError));
+    return E;
+  }
+  Out.flush();
+
+  return Temp->keep(OutputFileName);
+}

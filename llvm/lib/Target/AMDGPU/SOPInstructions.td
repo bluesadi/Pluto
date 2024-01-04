@@ -59,6 +59,8 @@ class SOP1_Real<bits<8> op, SOP1_Pseudo ps, string real_name = ps.Mnemonic> :
           real_name # " " # ps.AsmOperands, []>,
   Enc32 {
 
+  let SALU = 1;
+  let SOP1 = 1;
   let isPseudo = 0;
   let isCodeGenOnly = 0;
   let Size = 4;
@@ -66,6 +68,9 @@ class SOP1_Real<bits<8> op, SOP1_Pseudo ps, string real_name = ps.Mnemonic> :
   // copy relevant pseudo op flags
   let SubtargetPredicate = ps.SubtargetPredicate;
   let AsmMatchConverter  = ps.AsmMatchConverter;
+  let SchedRW            = ps.SchedRW;
+  let mayLoad            = ps.mayLoad;
+  let mayStore           = ps.mayStore;
 
   // encoding
   bits<7> sdst;
@@ -152,12 +157,48 @@ class SOP1_1 <string opName, RegisterClass rc = SReg_64, list<dag> pattern=[]> :
   let has_sdst = 0;
 }
 
+class UniformUnaryFrag<SDPatternOperator Op> : PatFrag <
+  (ops node:$src0),
+  (Op $src0),
+  [{ return !N->isDivergent(); }]> {
+  // This check is unnecessary as it's captured by the result register
+  // bank constraint.
+  //
+  // FIXME: Should add a way for the emitter to recognize this is a
+  // trivially true predicate to eliminate the check.
+  let GISelPredicateCode = [{return true;}];
+}
+
+class UniformBinFrag<SDPatternOperator Op> : PatFrag <
+  (ops node:$src0, node:$src1),
+  (Op $src0, $src1),
+  [{ return !N->isDivergent(); }]> {
+  // This check is unnecessary as it's captured by the result register
+  // bank constraint.
+  //
+  // FIXME: Should add a way for the emitter to recognize this is a
+  // trivially true predicate to eliminate the check.
+  let GISelPredicateCode = [{return true;}];
+}
+
+class DivergentBinFrag<SDPatternOperator Op> : PatFrag <
+  (ops node:$src0, node:$src1),
+  (Op $src0, $src1),
+  [{ return N->isDivergent(); }]> {
+  // This check is unnecessary as it's captured by the result register
+  // bank constraint.
+  //
+  // FIXME: Should add a way for the emitter to recognize this is a
+  // trivially true predicate to eliminate the check.
+  let GISelPredicateCode = [{return true;}];
+}
+
 
 let isMoveImm = 1 in {
   let isReMaterializable = 1, isAsCheapAsAMove = 1 in {
     def S_MOV_B32 : SOP1_32 <"s_mov_b32">;
     def S_MOV_B64 : SOP1_64 <"s_mov_b64">;
-  } // End isRematerializeable = 1
+  } // End isReMaterializable = 1
 
   let Uses = [SCC] in {
     def S_CMOV_B32 : SOP1_32 <"s_cmov_b32">;
@@ -167,11 +208,11 @@ let isMoveImm = 1 in {
 
 let Defs = [SCC] in {
   def S_NOT_B32 : SOP1_32 <"s_not_b32",
-    [(set i32:$sdst, (not i32:$src0))]
+    [(set i32:$sdst, (UniformUnaryFrag<not> i32:$src0))]
   >;
 
   def S_NOT_B64 : SOP1_64 <"s_not_b64",
-    [(set i64:$sdst, (not i64:$src0))]
+    [(set i64:$sdst, (UniformUnaryFrag<not> i64:$src0))]
   >;
   def S_WQM_B32 : SOP1_32 <"s_wqm_b32">;
   def S_WQM_B64 : SOP1_64 <"s_wqm_b64">;
@@ -192,41 +233,46 @@ def : GCNPat <
 >;
 }
 
+let isReMaterializable = 1, isAsCheapAsAMove = 1 in {
 def S_BREV_B32 : SOP1_32 <"s_brev_b32",
   [(set i32:$sdst, (bitreverse i32:$src0))]
 >;
-def S_BREV_B64 : SOP1_64 <"s_brev_b64">;
+def S_BREV_B64 : SOP1_64 <"s_brev_b64",
+  [(set i64:$sdst, (bitreverse i64:$src0))]
+>;
+} // End isReMaterializable = 1, isAsCheapAsAMove = 1
 
 let Defs = [SCC] in {
 def S_BCNT0_I32_B32 : SOP1_32 <"s_bcnt0_i32_b32">;
 def S_BCNT0_I32_B64 : SOP1_32_64 <"s_bcnt0_i32_b64">;
 def S_BCNT1_I32_B32 : SOP1_32 <"s_bcnt1_i32_b32",
-  [(set i32:$sdst, (ctpop i32:$src0))]
+  [(set i32:$sdst, (UniformUnaryFrag<ctpop> i32:$src0))]
 >;
 def S_BCNT1_I32_B64 : SOP1_32_64 <"s_bcnt1_i32_b64",
-  [(set i32:$sdst, (ctpop i64:$src0))]
+  [(set i32:$sdst, (UniformUnaryFrag<ctpop> i64:$src0))]
 >;
 } // End Defs = [SCC]
 
+let isReMaterializable = 1 in {
 def S_FF0_I32_B32 : SOP1_32 <"s_ff0_i32_b32">;
 def S_FF0_I32_B64 : SOP1_32_64 <"s_ff0_i32_b64">;
 def S_FF1_I32_B64 : SOP1_32_64 <"s_ff1_i32_b64",
-  [(set i32:$sdst, (AMDGPUffbl_b32 i64:$src0))]
+  [(set i32:$sdst, (UniformUnaryFrag<AMDGPUffbl_b32> i64:$src0))]
 >;
 
 def S_FF1_I32_B32 : SOP1_32 <"s_ff1_i32_b32",
-  [(set i32:$sdst, (AMDGPUffbl_b32 i32:$src0))]
+  [(set i32:$sdst, (UniformUnaryFrag<AMDGPUffbl_b32> i32:$src0))]
 >;
 
 def S_FLBIT_I32_B32 : SOP1_32 <"s_flbit_i32_b32",
-  [(set i32:$sdst, (AMDGPUffbh_u32 i32:$src0))]
+  [(set i32:$sdst, (UniformUnaryFrag<AMDGPUffbh_u32> i32:$src0))]
 >;
 
 def S_FLBIT_I32_B64 : SOP1_32_64 <"s_flbit_i32_b64",
-  [(set i32:$sdst, (AMDGPUffbh_u32 i64:$src0))]
+  [(set i32:$sdst, (UniformUnaryFrag<AMDGPUffbh_u32> i64:$src0))]
 >;
 def S_FLBIT_I32 : SOP1_32 <"s_flbit_i32",
-  [(set i32:$sdst, (AMDGPUffbh_i32 i32:$src0))]
+  [(set i32:$sdst, (UniformUnaryFrag<AMDGPUffbh_i32> i32:$src0))]
 >;
 def S_FLBIT_I32_I64 : SOP1_32_64 <"s_flbit_i32_i64">;
 def S_SEXT_I32_I8 : SOP1_32 <"s_sext_i32_i8",
@@ -235,11 +281,13 @@ def S_SEXT_I32_I8 : SOP1_32 <"s_sext_i32_i8",
 def S_SEXT_I32_I16 : SOP1_32 <"s_sext_i32_i16",
   [(set i32:$sdst, (sext_inreg i32:$src0, i16))]
 >;
+} // End isReMaterializable = 1
 
 def S_BITSET0_B32 : SOP1_32    <"s_bitset0_b32", [], 1>;
 def S_BITSET0_B64 : SOP1_64_32 <"s_bitset0_b64", [], 1>;
 def S_BITSET1_B32 : SOP1_32    <"s_bitset1_b32", [], 1>;
 def S_BITSET1_B64 : SOP1_64_32 <"s_bitset1_b64", [], 1>;
+
 def S_GETPC_B64 : SOP1_64_0  <"s_getpc_b64",
   [(set i64:$sdst, (int_amdgcn_s_getpc))]
 >;
@@ -253,6 +301,7 @@ def S_SETPC_B64 : SOP1_1  <"s_setpc_b64">;
 let isReturn = 1 in {
 // Define variant marked as return rather than branch.
 def S_SETPC_B64_return : SOP1_1<"", CCR_SGPR_64, [(AMDGPUret_flag i64:$src0)]>;
+def S_SETPC_B64_return_gfx : SOP1_1<"", Gfx_CCR_SGPR_64, [(AMDGPUret_gfx_flag i64:$src0)]>;
 }
 } // End isTerminator = 1, isBarrier = 1
 
@@ -291,7 +340,9 @@ def S_CBRANCH_JOIN : SOP1_0_32R <"s_cbranch_join">;
 } // End SubtargetPredicate = isGFX6GFX7GFX8GFX9
 
 let Defs = [SCC] in {
-def S_ABS_I32 : SOP1_32 <"s_abs_i32">;
+def S_ABS_I32 : SOP1_32 <"s_abs_i32",
+    [(set i32:$sdst, (abs i32:$src0))]
+  >;
 } // End Defs = [SCC]
 
 let SubtargetPredicate = HasVGPRIndexMode in {
@@ -309,6 +360,7 @@ let SubtargetPredicate = isGFX9Plus in {
     def S_ANDN2_WREXEC_B64   : SOP1_64<"s_andn2_wrexec_b64">;
   } // End hasSideEffects = 1, Defs = [EXEC, SCC], Uses = [EXEC]
 
+  let isReMaterializable = 1 in
   def S_BITREPLICATE_B64_B32 : SOP1_64_32<"s_bitreplicate_b64_b32">;
 } // End SubtargetPredicate = isGFX9Plus
 
@@ -363,14 +415,19 @@ class SOP2_Real<bits<7> op, SOP_Pseudo ps, string real_name = ps.Mnemonic> :
   InstSI <ps.OutOperandList, ps.InOperandList,
           real_name # " " # ps.AsmOperands, []>,
   Enc32 {
+  let SALU = 1;
+  let SOP2 = 1;
   let isPseudo = 0;
   let isCodeGenOnly = 0;
 
   // copy relevant pseudo op flags
-  let SubtargetPredicate = ps.SubtargetPredicate;
-  let AsmMatchConverter  = ps.AsmMatchConverter;
+  let SubtargetPredicate   = ps.SubtargetPredicate;
+  let AsmMatchConverter    = ps.AsmMatchConverter;
   let UseNamedOperandTable = ps.UseNamedOperandTable;
-  let TSFlags = ps.TSFlags;
+  let TSFlags              = ps.TSFlags;
+  let SchedRW              = ps.SchedRW;
+  let mayLoad              = ps.mayLoad;
+  let mayStore             = ps.mayStore;
 
   // encoding
   bits<7> sdst;
@@ -405,41 +462,6 @@ class SOP2_64_32_32 <string opName, list<dag> pattern=[]> : SOP2_Pseudo <
   "$sdst, $src0, $src1", pattern
 >;
 
-class UniformUnaryFrag<SDPatternOperator Op> : PatFrag <
-  (ops node:$src0),
-  (Op $src0),
-  [{ return !N->isDivergent(); }]> {
-  // This check is unnecessary as it's captured by the result register
-  // bank constraint.
-  //
-  // FIXME: Should add a way for the emitter to recognize this is a
-  // trivially true predicate to eliminate the check.
-  let GISelPredicateCode = [{return true;}];
-}
-
-class UniformBinFrag<SDPatternOperator Op> : PatFrag <
-  (ops node:$src0, node:$src1),
-  (Op $src0, $src1),
-  [{ return !N->isDivergent(); }]> {
-  // This check is unnecessary as it's captured by the result register
-  // bank constraint.
-  //
-  // FIXME: Should add a way for the emitter to recognize this is a
-  // trivially true predicate to eliminate the check.
-  let GISelPredicateCode = [{return true;}];
-}
-
-class DivergentBinFrag<SDPatternOperator Op> : PatFrag <
-  (ops node:$src0, node:$src1),
-  (Op $src0, $src1),
-  [{ return N->isDivergent(); }]> {
-  // This check is unnecessary as it's captured by the result register
-  // bank constraint.
-  //
-  // FIXME: Should add a way for the emitter to recognize this is a
-  // trivially true predicate to eliminate the check.
-  let GISelPredicateCode = [{return true;}];
-}
 
 let Defs = [SCC] in { // Carry out goes to SCC
 let isCommutable = 1 in {
@@ -464,19 +486,18 @@ def S_SUBB_U32 : SOP2_32 <"s_subb_u32",
   [(set i32:$sdst, (UniformBinFrag<sube> (i32 SSrc_b32:$src0), (i32 SSrc_b32:$src1)))]>;
 } // End Uses = [SCC]
 
-
 let isCommutable = 1 in {
 def S_MIN_I32 : SOP2_32 <"s_min_i32",
-  [(set i32:$sdst, (smin i32:$src0, i32:$src1))]
+  [(set i32:$sdst, (UniformBinFrag<smin> i32:$src0, i32:$src1))]
 >;
 def S_MIN_U32 : SOP2_32 <"s_min_u32",
-  [(set i32:$sdst, (umin i32:$src0, i32:$src1))]
+  [(set i32:$sdst, (UniformBinFrag<umin> i32:$src0, i32:$src1))]
 >;
 def S_MAX_I32 : SOP2_32 <"s_max_i32",
-  [(set i32:$sdst, (smax i32:$src0, i32:$src1))]
+  [(set i32:$sdst, (UniformBinFrag<smax> i32:$src0, i32:$src1))]
 >;
 def S_MAX_U32 : SOP2_32 <"s_max_u32",
-  [(set i32:$sdst, (umax i32:$src0, i32:$src1))]
+  [(set i32:$sdst, (UniformBinFrag<umax> i32:$src0, i32:$src1))]
 >;
 } // End isCommutable = 1
 } // End Defs = [SCC]
@@ -529,27 +550,27 @@ def S_XOR_B64 : SOP2_64 <"s_xor_b64",
 >;
 
 def S_XNOR_B32 : SOP2_32 <"s_xnor_b32",
-  [(set i32:$sdst, (not (xor_oneuse i32:$src0, i32:$src1)))]
+  [(set i32:$sdst, (UniformUnaryFrag<not> (xor_oneuse i32:$src0, i32:$src1)))]
 >;
 
 def S_XNOR_B64 : SOP2_64 <"s_xnor_b64",
-  [(set i64:$sdst, (not (xor_oneuse i64:$src0, i64:$src1)))]
+  [(set i64:$sdst, (UniformUnaryFrag<not> (xor_oneuse i64:$src0, i64:$src1)))]
 >;
 
 def S_NAND_B32 : SOP2_32 <"s_nand_b32",
-  [(set i32:$sdst, (not (and_oneuse i32:$src0, i32:$src1)))]
+  [(set i32:$sdst, (UniformUnaryFrag<not> (and_oneuse i32:$src0, i32:$src1)))]
 >;
 
 def S_NAND_B64 : SOP2_64 <"s_nand_b64",
-  [(set i64:$sdst, (not (and_oneuse i64:$src0, i64:$src1)))]
+  [(set i64:$sdst, (UniformUnaryFrag<not> (and_oneuse i64:$src0, i64:$src1)))]
 >;
 
 def S_NOR_B32 : SOP2_32 <"s_nor_b32",
-  [(set i32:$sdst, (not (or_oneuse i32:$src0, i32:$src1)))]
+  [(set i32:$sdst, (UniformUnaryFrag<not> (or_oneuse i32:$src0, i32:$src1)))]
 >;
 
 def S_NOR_B64 : SOP2_64 <"s_nor_b64",
-  [(set i64:$sdst, (not (or_oneuse i64:$src0, i64:$src1)))]
+  [(set i64:$sdst, (UniformUnaryFrag<not> (or_oneuse i64:$src0, i64:$src1)))]
 >;
 } // End isCommutable = 1
 
@@ -577,35 +598,35 @@ let AddedComplexity = 1 in {
 let Defs = [SCC] in {
 // TODO: b64 versions require VOP3 change since v_lshlrev_b64 is VOP3
 def S_LSHL_B32 : SOP2_32 <"s_lshl_b32",
-  [(set SReg_32:$sdst, (UniformBinFrag<shl> (i32 SSrc_b32:$src0), (i32 SSrc_b32:$src1)))]
+  [(set SReg_32:$sdst, (UniformBinFrag<cshl_32> (i32 SSrc_b32:$src0), (i32 SSrc_b32:$src1)))]
 >;
 def S_LSHL_B64 : SOP2_64_32 <"s_lshl_b64",
-  [(set SReg_64:$sdst, (UniformBinFrag<shl> (i64 SSrc_b64:$src0), (i32 SSrc_b32:$src1)))]
+  [(set SReg_64:$sdst, (UniformBinFrag<cshl_64> (i64 SSrc_b64:$src0), (i32 SSrc_b32:$src1)))]
 >;
 def S_LSHR_B32 : SOP2_32 <"s_lshr_b32",
-  [(set SReg_32:$sdst, (UniformBinFrag<srl> (i32 SSrc_b32:$src0), (i32 SSrc_b32:$src1)))]
+  [(set SReg_32:$sdst, (UniformBinFrag<csrl_32> (i32 SSrc_b32:$src0), (i32 SSrc_b32:$src1)))]
 >;
 def S_LSHR_B64 : SOP2_64_32 <"s_lshr_b64",
-  [(set SReg_64:$sdst, (UniformBinFrag<srl> (i64 SSrc_b64:$src0), (i32 SSrc_b32:$src1)))]
+  [(set SReg_64:$sdst, (UniformBinFrag<csrl_64> (i64 SSrc_b64:$src0), (i32 SSrc_b32:$src1)))]
 >;
 def S_ASHR_I32 : SOP2_32 <"s_ashr_i32",
-  [(set SReg_32:$sdst, (UniformBinFrag<sra> (i32 SSrc_b32:$src0), (i32 SSrc_b32:$src1)))]
+  [(set SReg_32:$sdst, (UniformBinFrag<csra_32> (i32 SSrc_b32:$src0), (i32 SSrc_b32:$src1)))]
 >;
 def S_ASHR_I64 : SOP2_64_32 <"s_ashr_i64",
-  [(set SReg_64:$sdst, (UniformBinFrag<sra> (i64 SSrc_b64:$src0), (i32 SSrc_b32:$src1)))]
+  [(set SReg_64:$sdst, (UniformBinFrag<csra_64> (i64 SSrc_b64:$src0), (i32 SSrc_b32:$src1)))]
 >;
 } // End Defs = [SCC]
 
+let isReMaterializable = 1 in {
 def S_BFM_B32 : SOP2_32 <"s_bfm_b32",
   [(set i32:$sdst, (UniformBinFrag<AMDGPUbfm> i32:$src0, i32:$src1))]>;
 def S_BFM_B64 : SOP2_64_32_32 <"s_bfm_b64">;
 
-// TODO: S_MUL_I32 require V_MUL_LO_I32 from VOP3 change
 def S_MUL_I32 : SOP2_32 <"s_mul_i32",
-  [(set i32:$sdst, (mul i32:$src0, i32:$src1))]> {
+  [(set i32:$sdst, (UniformBinFrag<mul> i32:$src0, i32:$src1))]> {
   let isCommutable = 1;
 }
-
+} // End isReMaterializable = 1
 } // End AddedComplexity = 1
 
 let Defs = [SCC] in {
@@ -640,9 +661,11 @@ let SubtargetPredicate = isGFX8GFX9 in {
 }
 
 let SubtargetPredicate = isGFX9Plus in {
-  def S_PACK_LL_B32_B16 : SOP2_32<"s_pack_ll_b32_b16">;
-  def S_PACK_LH_B32_B16 : SOP2_32<"s_pack_lh_b32_b16">;
-  def S_PACK_HH_B32_B16 : SOP2_32<"s_pack_hh_b32_b16">;
+  let isReMaterializable = 1 in {
+    def S_PACK_LL_B32_B16 : SOP2_32<"s_pack_ll_b32_b16">;
+    def S_PACK_LH_B32_B16 : SOP2_32<"s_pack_lh_b32_b16">;
+    def S_PACK_HH_B32_B16 : SOP2_32<"s_pack_hh_b32_b16">;
+  } // End isReMaterializable = 1
 
   let Defs = [SCC] in {
     def S_LSHL1_ADD_U32 : SOP2_32<"s_lshl1_add_u32",
@@ -659,12 +682,12 @@ let SubtargetPredicate = isGFX9Plus in {
     >;
   } // End Defs = [SCC]
 
-  let isCommutable = 1 in {
+  let isCommutable = 1, isReMaterializable = 1 in {
     def S_MUL_HI_U32 : SOP2_32<"s_mul_hi_u32",
       [(set i32:$sdst, (UniformBinFrag<mulhu> SSrc_b32:$src0, SSrc_b32:$src1))]>;
     def S_MUL_HI_I32 : SOP2_32<"s_mul_hi_i32",
       [(set i32:$sdst, (UniformBinFrag<mulhs> SSrc_b32:$src0, SSrc_b32:$src1))]>;
-  }
+  } // End isCommutable = 1, isReMaterializable = 1
 } // End SubtargetPredicate = isGFX9Plus
 
 //===----------------------------------------------------------------------===//
@@ -690,9 +713,11 @@ class SOPK_Pseudo <string opName, dag outs, dag ins,
   bits<1> has_sdst = 1;
 }
 
-class SOPK_Real<bits<5> op, SOPK_Pseudo ps> :
+class SOPK_Real<SOPK_Pseudo ps> :
   InstSI <ps.OutOperandList, ps.InOperandList,
           ps.Mnemonic # " " # ps.AsmOperands, []> {
+  let SALU = 1;
+  let SOPK = 1;
   let isPseudo = 0;
   let isCodeGenOnly = 0;
 
@@ -701,6 +726,11 @@ class SOPK_Real<bits<5> op, SOPK_Pseudo ps> :
   let AsmMatchConverter  = ps.AsmMatchConverter;
   let DisableEncoding    = ps.DisableEncoding;
   let Constraints        = ps.Constraints;
+  let SchedRW            = ps.SchedRW;
+  let mayLoad            = ps.mayLoad;
+  let mayStore           = ps.mayStore;
+  let isBranch           = ps.isBranch;
+  let isCall             = ps.isCall;
 
   // encoding
   bits<7>  sdst;
@@ -709,7 +739,7 @@ class SOPK_Real<bits<5> op, SOPK_Pseudo ps> :
 }
 
 class SOPK_Real32<bits<5> op, SOPK_Pseudo ps> :
-  SOPK_Real <op, ps>,
+  SOPK_Real <ps>,
   Enc32 {
   let Inst{15-0}  = simm16;
   let Inst{22-16} = !if(ps.has_sdst, sdst, ?);
@@ -718,7 +748,7 @@ class SOPK_Real32<bits<5> op, SOPK_Pseudo ps> :
 }
 
 class SOPK_Real64<bits<5> op, SOPK_Pseudo ps> :
-  SOPK_Real<op, ps>,
+  SOPK_Real<ps>,
   Enc64 {
   let Inst{15-0}  = simm16;
   let Inst{22-16} = !if(ps.has_sdst, sdst, ?);
@@ -839,7 +869,7 @@ def S_GETREG_B32 : SOPK_Pseudo <
 }
 } // End mayLoad = 1
 
-let mayLoad = 0, mayStore = 0, Defs = [MODE], Uses = [MODE] in {
+let Defs = [MODE], Uses = [MODE] in {
 
 // FIXME: Need to truncate immediate to 16-bits.
 class S_SETREG_B32_Pseudo <list<dag> pattern=[]> : SOPK_Pseudo <
@@ -883,7 +913,7 @@ def S_SETREG_IMM32_B32_mode : S_SETREG_IMM32_B32_Pseudo {
   let hasSideEffects = 0;
 }
 
-} // End mayLoad = 0, mayStore = 0, Defs = [MODE], Uses = [MODE]
+} // End Defs = [MODE], Uses = [MODE]
 
 class SOPK_WAITCNT<string opName, list<dag> pat=[]> :
     SOPK_Pseudo<
@@ -947,15 +977,20 @@ class SOPC_Real<bits<7> op, SOPC_Pseudo ps, string real_name = ps.Mnemonic> :
   InstSI <ps.OutOperandList, ps.InOperandList,
           real_name # " " # ps.AsmOperands, []>,
   Enc32 {
+  let SALU = 1;
+  let SOPC = 1;
   let isPseudo = 0;
   let isCodeGenOnly = 0;
 
   // copy relevant pseudo op flags
-  let SubtargetPredicate = ps.SubtargetPredicate;
-  let OtherPredicates    = ps.OtherPredicates;
-  let AsmMatchConverter  = ps.AsmMatchConverter;
+  let SubtargetPredicate   = ps.SubtargetPredicate;
+  let OtherPredicates      = ps.OtherPredicates;
+  let AsmMatchConverter    = ps.AsmMatchConverter;
   let UseNamedOperandTable = ps.UseNamedOperandTable;
-  let TSFlags = ps.TSFlags;
+  let TSFlags              = ps.TSFlags;
+  let SchedRW              = ps.SchedRW;
+  let mayLoad              = ps.mayLoad;
+  let mayStore             = ps.mayStore;
 
   // encoding
   bits<8> src0;
@@ -1072,29 +1107,34 @@ class SOPPRelaxTable <bit isRelaxed, string keyName, string gfxip> {
 }
 
 //spaces inserted in realname on instantiation of this record to allow s_endpgm to omit whitespace
-class SOPP_Real<bits<7> op, SOPP_Pseudo ps, string real_name = ps.Mnemonic> :
+class SOPP_Real<SOPP_Pseudo ps, string real_name = ps.Mnemonic> :
   InstSI <ps.OutOperandList, ps.InOperandList,
           real_name # ps.AsmOperands, []> {
+  let SALU = 1;
+  let SOPP = 1;
   let isPseudo = 0;
   let isCodeGenOnly = 0;
 
   // copy relevant pseudo op flags
-  let SubtargetPredicate = ps.SubtargetPredicate;
-  let OtherPredicates    = ps.OtherPredicates;
-  let AsmMatchConverter  = ps.AsmMatchConverter;
+  let SubtargetPredicate   = ps.SubtargetPredicate;
+  let OtherPredicates      = ps.OtherPredicates;
+  let AsmMatchConverter    = ps.AsmMatchConverter;
   let UseNamedOperandTable = ps.UseNamedOperandTable;
-  let TSFlags = ps.TSFlags;
+  let TSFlags              = ps.TSFlags;
+  let SchedRW              = ps.SchedRW;
+  let mayLoad              = ps.mayLoad;
+  let mayStore             = ps.mayStore;
   bits <16> simm16;
 }
 
-class SOPP_Real_32 <bits<7> op, SOPP_Pseudo ps, string real_name = ps.Mnemonic> : SOPP_Real<op, ps, real_name>,
+class SOPP_Real_32 <bits<7> op, SOPP_Pseudo ps, string real_name = ps.Mnemonic> : SOPP_Real<ps, real_name>,
 Enc32 {
   let Inst{15-0} = !if(ps.fixed_imm, ps.simm16, simm16);
   let Inst{22-16} = op;
   let Inst{31-23} = 0x17f;
 }
 
-class SOPP_Real_64 <bits<7> op, SOPP_Pseudo ps, string real_name = ps.Mnemonic> : SOPP_Real<op, ps, real_name>,
+class SOPP_Real_64 <bits<7> op, SOPP_Pseudo ps, string real_name = ps.Mnemonic> : SOPP_Real<ps, real_name>,
 Enc64 {
   // encoding
   let Inst{15-0} = !if(ps.fixed_imm, ps.simm16, simm16);
@@ -1223,10 +1263,11 @@ def S_WAKEUP : SOPP_Pseudo <"s_wakeup", (ins) > {
   let mayStore = 1;
 }
 
-let mayLoad = 0, mayStore = 0, hasSideEffects = 1 in
+let hasSideEffects = 1 in
 def S_WAITCNT : SOPP_Pseudo <"s_waitcnt" , (ins WAIT_FLAG:$simm16), "$simm16",
     [(int_amdgcn_s_waitcnt timm:$simm16)]>;
-def S_SETHALT : SOPP_Pseudo <"s_sethalt" , (ins i16imm:$simm16), "$simm16">;
+def S_SETHALT : SOPP_Pseudo <"s_sethalt" , (ins i32imm:$simm16), "$simm16",
+    [(int_amdgcn_s_sethalt timm:$simm16)]>;
 def S_SETKILL : SOPP_Pseudo <"s_setkill" , (ins i16imm:$simm16), "$simm16">;
 
 // On SI the documentation says sleep for approximately 64 * low 2
@@ -1236,8 +1277,6 @@ def S_SETKILL : SOPP_Pseudo <"s_setkill" , (ins i16imm:$simm16), "$simm16">;
 def S_SLEEP : SOPP_Pseudo <"s_sleep", (ins i32imm:$simm16),
   "$simm16", [(int_amdgcn_s_sleep timm:$simm16)]> {
   let hasSideEffects = 1;
-  let mayLoad = 0;
-  let mayStore = 0;
 }
 
 def S_SETPRIO : SOPP_Pseudo <"s_setprio" , (ins i16imm:$simm16), "$simm16">;
@@ -1263,14 +1302,10 @@ def S_ICACHE_INV : SOPP_Pseudo <"s_icache_inv", (ins)> {
 def S_INCPERFLEVEL : SOPP_Pseudo <"s_incperflevel", (ins i32imm:$simm16), "$simm16",
   [(int_amdgcn_s_incperflevel timm:$simm16)]> {
   let hasSideEffects = 1;
-  let mayLoad = 0;
-  let mayStore = 0;
 }
 def S_DECPERFLEVEL : SOPP_Pseudo <"s_decperflevel", (ins i32imm:$simm16), "$simm16",
   [(int_amdgcn_s_decperflevel timm:$simm16)]> {
   let hasSideEffects = 1;
-  let mayLoad = 0;
-  let mayStore = 0;
 }
 def S_TTRACEDATA : SOPP_Pseudo <"s_ttracedata", (ins)> {
   let simm16 = 0;
@@ -1335,7 +1370,7 @@ def : GCNPat <
 >;
 
 def : GCNPat <
-  (i64 (ctpop i64:$src)),
+  (i64 (UniformUnaryFrag<ctpop> i64:$src)),
     (i64 (REG_SEQUENCE SReg_64,
      (i32 (COPY_TO_REGCLASS (S_BCNT1_I32_B64 $src), SReg_32)), sub0,
      (S_MOV_B32 (i32 0)), sub1))
@@ -1433,8 +1468,9 @@ class Select_gfx6_gfx7<string opName> : SIMCInstr<opName, SIEncodingFamily.SI> {
 //===----------------------------------------------------------------------===//
 
 multiclass SOP1_Real_gfx10<bits<8> op> {
-  def _gfx10 : SOP1_Real<op, !cast<SOP1_Pseudo>(NAME)>,
-               Select_gfx10<!cast<SOP1_Pseudo>(NAME).Mnemonic>;
+  defvar ps = !cast<SOP1_Pseudo>(NAME);
+  def _gfx10 : SOP1_Real<op, ps>,
+               Select_gfx10<ps.Mnemonic>;
 }
 
 defm S_ANDN1_SAVEEXEC_B64   : SOP1_Real_gfx10<0x037>;
@@ -1462,8 +1498,9 @@ defm S_MOVRELSD_2_B32       : SOP1_Real_gfx10<0x049>;
 
 
 multiclass SOP1_Real_gfx6_gfx7<bits<8> op> {
-  def _gfx6_gfx7 : SOP1_Real<op, !cast<SOP1_Pseudo>(NAME)>,
-                   Select_gfx6_gfx7<!cast<SOP1_Pseudo>(NAME).Mnemonic>;
+  defvar ps = !cast<SOP1_Pseudo>(NAME);
+  def _gfx6_gfx7 : SOP1_Real<op, ps>,
+                   Select_gfx6_gfx7<ps.Mnemonic>;
 }
 
 multiclass SOP1_Real_gfx6_gfx7_gfx10<bits<8> op> :
@@ -1524,8 +1561,9 @@ defm S_ABS_I32            : SOP1_Real_gfx6_gfx7_gfx10<0x034>;
 //===----------------------------------------------------------------------===//
 
 multiclass SOP2_Real_gfx10<bits<7> op> {
-  def _gfx10 : SOP2_Real<op, !cast<SOP2_Pseudo>(NAME)>,
-               Select_gfx10<!cast<SOP2_Pseudo>(NAME).Mnemonic>;
+  defvar ps = !cast<SOP2_Pseudo>(NAME);
+  def _gfx10 : SOP2_Real<op, ps>,
+               Select_gfx10<ps.Mnemonic>;
 }
 
 defm S_LSHL1_ADD_U32   : SOP2_Real_gfx10<0x02e>;
@@ -1543,8 +1581,9 @@ defm S_MUL_HI_I32      : SOP2_Real_gfx10<0x036>;
 //===----------------------------------------------------------------------===//
 
 multiclass SOP2_Real_gfx6_gfx7<bits<7> op> {
-  def _gfx6_gfx7 : SOP2_Real<op, !cast<SOP_Pseudo>(NAME)>,
-                   Select_gfx6_gfx7<!cast<SOP_Pseudo>(NAME).Mnemonic>;
+  defvar ps = !cast<SOP_Pseudo>(NAME);
+  def _gfx6_gfx7 : SOP2_Real<op, ps>,
+                   Select_gfx6_gfx7<ps.Mnemonic>;
 }
 
 multiclass SOP2_Real_gfx6_gfx7_gfx10<bits<7> op> :
@@ -1600,13 +1639,15 @@ defm S_ABSDIFF_I32 : SOP2_Real_gfx6_gfx7_gfx10<0x02c>;
 //===----------------------------------------------------------------------===//
 
 multiclass SOPK_Real32_gfx10<bits<5> op> {
-  def _gfx10 : SOPK_Real32<op, !cast<SOPK_Pseudo>(NAME)>,
-               Select_gfx10<!cast<SOPK_Pseudo>(NAME).Mnemonic>;
+  defvar ps = !cast<SOPK_Pseudo>(NAME);
+  def _gfx10 : SOPK_Real32<op, ps>,
+               Select_gfx10<ps.Mnemonic>;
 }
 
 multiclass SOPK_Real64_gfx10<bits<5> op> {
-  def _gfx10 : SOPK_Real64<op, !cast<SOPK_Pseudo>(NAME)>,
-               Select_gfx10<!cast<SOPK_Pseudo>(NAME).Mnemonic>;
+  defvar ps = !cast<SOPK_Pseudo>(NAME);
+  def _gfx10 : SOPK_Real64<op, ps>,
+               Select_gfx10<ps.Mnemonic>;
 }
 
 defm S_VERSION              : SOPK_Real32_gfx10<0x001>;
@@ -1623,13 +1664,15 @@ defm S_SUBVECTOR_LOOP_END   : SOPK_Real32_gfx10<0x01c>;
 //===----------------------------------------------------------------------===//
 
 multiclass SOPK_Real32_gfx6_gfx7<bits<5> op> {
-  def _gfx6_gfx7 : SOPK_Real32<op, !cast<SOPK_Pseudo>(NAME)>,
-                   Select_gfx6_gfx7<!cast<SOPK_Pseudo>(NAME).Mnemonic>;
+  defvar ps = !cast<SOPK_Pseudo>(NAME);
+  def _gfx6_gfx7 : SOPK_Real32<op, ps>,
+                   Select_gfx6_gfx7<ps.Mnemonic>;
 }
 
 multiclass SOPK_Real64_gfx6_gfx7<bits<5> op> {
-  def _gfx6_gfx7 : SOPK_Real64<op, !cast<SOPK_Pseudo>(NAME)>,
-                   Select_gfx6_gfx7<!cast<SOPK_Pseudo>(NAME).Mnemonic>;
+  defvar ps = !cast<SOPK_Pseudo>(NAME);
+  def _gfx6_gfx7 : SOPK_Real64<op, ps>,
+                   Select_gfx6_gfx7<ps.Mnemonic>;
 }
 
 multiclass SOPK_Real32_gfx6_gfx7_gfx10<bits<5> op> :
@@ -1665,21 +1708,24 @@ defm S_SETREG_IMM32_B32 : SOPK_Real64_gfx6_gfx7_gfx10<0x015>;
 //===----------------------------------------------------------------------===//
 
 multiclass SOPP_Real_32_gfx6_gfx7<bits<7> op, string real_name = !cast<SOPP_Pseudo>(NAME).Mnemonic> {
-  def _gfx6_gfx7 : SOPP_Real_32<op, !cast<SOPP_Pseudo>(NAME), real_name>,
-                   Select_gfx6_gfx7<!cast<SOPP_Pseudo>(NAME).Mnemonic>,
-                   SOPPRelaxTable<0, !cast<SOPP_Pseudo>(NAME).KeyName, "_gfx6_gfx7">;
+  defvar ps = !cast<SOPP_Pseudo>(NAME);
+  def _gfx6_gfx7 : SOPP_Real_32<op, ps, real_name>,
+                   Select_gfx6_gfx7<ps.Mnemonic>,
+                   SOPPRelaxTable<0, ps.KeyName, "_gfx6_gfx7">;
 }
 
 multiclass SOPP_Real_32_gfx8_gfx9<bits<7> op, string real_name = !cast<SOPP_Pseudo>(NAME).Mnemonic # " "> {
-  def _vi : SOPP_Real_32<op, !cast<SOPP_Pseudo>(NAME), real_name>,
-            Select_vi<!cast<SOPP_Pseudo>(NAME).Mnemonic>,
-            SOPPRelaxTable<0, !cast<SOPP_Pseudo>(NAME).KeyName, "_vi">;
+  defvar ps = !cast<SOPP_Pseudo>(NAME);
+  def _vi : SOPP_Real_32<op, ps, real_name>,
+            Select_vi<ps.Mnemonic>,
+            SOPPRelaxTable<0, ps.KeyName, "_vi">;
 }
 
 multiclass SOPP_Real_32_gfx10<bits<7> op, string real_name = !cast<SOPP_Pseudo>(NAME).Mnemonic # " "> {
-  def _gfx10 : SOPP_Real_32<op, !cast<SOPP_Pseudo>(NAME), real_name>,
-               Select_gfx10<!cast<SOPP_Pseudo>(NAME).Mnemonic>,
-               SOPPRelaxTable<0, !cast<SOPP_Pseudo>(NAME).KeyName, "_gfx10">;
+  defvar ps = !cast<SOPP_Pseudo>(NAME);
+  def _gfx10 : SOPP_Real_32<op, ps, real_name>,
+               Select_gfx10<ps.Mnemonic>,
+               SOPPRelaxTable<0, ps.KeyName, "_gfx10">;
 }
 
 multiclass SOPP_Real_32_gfx8_gfx9_gfx10<bits<7> op, string real_name = !cast<SOPP_Pseudo>(NAME).Mnemonic # " "> :
@@ -1693,21 +1739,24 @@ multiclass SOPP_Real_32_gfx6_gfx7_gfx8_gfx9_gfx10<bits<7> op, string real_name =
 
 //64 bit encodings, for Relaxation
 multiclass SOPP_Real_64_gfx6_gfx7<bits<7> op, string real_name = !cast<SOPP_Pseudo>(NAME).Mnemonic # " "> {
-  def _gfx6_gfx7 : SOPP_Real_64<op, !cast<SOPP_Pseudo>(NAME), real_name>,
-                   Select_gfx6_gfx7<!cast<SOPP_Pseudo>(NAME).Mnemonic>,
-                   SOPPRelaxTable<1, !cast<SOPP_Pseudo>(NAME).KeyName, "_gfx6_gfx7">;
+  defvar ps = !cast<SOPP_Pseudo>(NAME);
+  def _gfx6_gfx7 : SOPP_Real_64<op, ps, real_name>,
+                   Select_gfx6_gfx7<ps.Mnemonic>,
+                   SOPPRelaxTable<1, ps.KeyName, "_gfx6_gfx7">;
 }
 
 multiclass SOPP_Real_64_gfx8_gfx9<bits<7> op, string real_name = !cast<SOPP_Pseudo>(NAME).Mnemonic # " "> {
-  def _vi : SOPP_Real_64<op, !cast<SOPP_Pseudo>(NAME), real_name>,
-            Select_vi<!cast<SOPP_Pseudo>(NAME).Mnemonic>,
-            SOPPRelaxTable<1, !cast<SOPP_Pseudo>(NAME).KeyName, "_vi">;
+  defvar ps = !cast<SOPP_Pseudo>(NAME);
+  def _vi : SOPP_Real_64<op, ps, real_name>,
+            Select_vi<ps.Mnemonic>,
+            SOPPRelaxTable<1, ps.KeyName, "_vi">;
 }
 
 multiclass SOPP_Real_64_gfx10<bits<7> op, string real_name = !cast<SOPP_Pseudo>(NAME).Mnemonic # " "> {
-  def _gfx10 : SOPP_Real_64<op, !cast<SOPP_Pseudo>(NAME), real_name>,
-               Select_gfx10<!cast<SOPP_Pseudo>(NAME).Mnemonic>,
-               SOPPRelaxTable<1, !cast<SOPP_Pseudo>(NAME).KeyName, "_gfx10">;
+  defvar ps = !cast<SOPP_Pseudo>(NAME);
+  def _gfx10 : SOPP_Real_64<op, ps, real_name>,
+               Select_gfx10<ps.Mnemonic>,
+               SOPPRelaxTable<1, ps.KeyName, "_gfx10">;
 }
 
 multiclass SOPP_Real_64_gfx8_gfx9_gfx10<bits<7> op, string real_name = !cast<SOPP_Pseudo>(NAME).Mnemonic # " "> :
@@ -1727,18 +1776,7 @@ multiclass SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<bits<7> op> {
 
 defm S_NOP                      : SOPP_Real_32_gfx6_gfx7_gfx8_gfx9_gfx10<0x000>;
 defm S_ENDPGM                   : SOPP_Real_32_gfx6_gfx7_gfx8_gfx9_gfx10<0x001, "s_endpgm">;
-defm S_BRANCH                   : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x002>;
 defm S_WAKEUP                   : SOPP_Real_32_gfx8_gfx9_gfx10<0x003>;
-defm S_CBRANCH_SCC0             : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x004>;
-defm S_CBRANCH_SCC1             : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x005>;
-defm S_CBRANCH_VCCZ             : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x006>;
-defm S_CBRANCH_VCCNZ            : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x007>;
-defm S_CBRANCH_EXECZ            : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x008>;
-defm S_CBRANCH_EXECNZ           : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x009>;
-defm S_CBRANCH_CDBGSYS          : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x017>;
-defm S_CBRANCH_CDBGUSER         : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x018>;
-defm S_CBRANCH_CDBGSYS_OR_USER  : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x019>;
-defm S_CBRANCH_CDBGSYS_AND_USER : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x01A>;
 defm S_BARRIER                  : SOPP_Real_32_gfx6_gfx7_gfx8_gfx9_gfx10<0x00a>;
 defm S_WAITCNT                  : SOPP_Real_32_gfx6_gfx7_gfx8_gfx9_gfx10<0x00c>;
 defm S_SETHALT                  : SOPP_Real_32_gfx6_gfx7_gfx8_gfx9_gfx10<0x00d>;
@@ -1765,23 +1803,40 @@ defm S_ROUND_MODE               : SOPP_Real_32_gfx10<0x024>;
 defm S_DENORM_MODE              : SOPP_Real_32_gfx10<0x025>;
 defm S_TTRACEDATA_IMM           : SOPP_Real_32_gfx10<0x028>;
 
+let isBranch = 1 in {
+defm S_BRANCH                   : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x002>;
+defm S_CBRANCH_SCC0             : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x004>;
+defm S_CBRANCH_SCC1             : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x005>;
+defm S_CBRANCH_VCCZ             : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x006>;
+defm S_CBRANCH_VCCNZ            : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x007>;
+defm S_CBRANCH_EXECZ            : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x008>;
+defm S_CBRANCH_EXECNZ           : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x009>;
+defm S_CBRANCH_CDBGSYS          : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x017>;
+defm S_CBRANCH_CDBGUSER         : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x018>;
+defm S_CBRANCH_CDBGSYS_OR_USER  : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x019>;
+defm S_CBRANCH_CDBGSYS_AND_USER : SOPP_Real_With_Relaxation_gfx6_gfx7_gfx8_gfx9_gfx10<0x01A>;
+}
+
 //===----------------------------------------------------------------------===//
 // SOPC - GFX6, GFX7, GFX8, GFX9, GFX10
 //===----------------------------------------------------------------------===//
 
 multiclass SOPC_Real_gfx6_gfx7<bits<7> op> {
-  def _gfx6_gfx7 : SOPC_Real<op, !cast<SOPC_Pseudo>(NAME)>,
-                   Select_gfx6_gfx7<!cast<SOPC_Pseudo>(NAME).Mnemonic>;
+  defvar ps = !cast<SOPC_Pseudo>(NAME);
+  def _gfx6_gfx7 : SOPC_Real<op, ps>,
+                   Select_gfx6_gfx7<ps.Mnemonic>;
 }
 
 multiclass SOPC_Real_gfx8_gfx9<bits<7> op> {
-  def _vi : SOPC_Real<op, !cast<SOPC_Pseudo>(NAME)>,
-            Select_vi<!cast<SOPC_Pseudo>(NAME).Mnemonic>;
+  defvar ps = !cast<SOPC_Pseudo>(NAME);
+  def _vi : SOPC_Real<op, ps>,
+            Select_vi<ps.Mnemonic>;
 }
 
 multiclass SOPC_Real_gfx10<bits<7> op> {
-  def _gfx10 : SOPC_Real<op, !cast<SOPC_Pseudo>(NAME)>,
-               Select_gfx10<!cast<SOPC_Pseudo>(NAME).Mnemonic>;
+  defvar ps = !cast<SOPC_Pseudo>(NAME);
+  def _gfx10 : SOPC_Real<op, ps>,
+               Select_gfx10<ps.Mnemonic>;
 }
 
 multiclass SOPC_Real_gfx8_gfx9_gfx10<bits<7> op> :

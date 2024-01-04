@@ -716,9 +716,8 @@ void LoopReroll::DAGRootTracker::collectInLoopUserSet(
       }
 
     // We also want to collect single-user "feeder" values.
-    for (User::op_iterator OI = I->op_begin(),
-         OIE = I->op_end(); OI != OIE; ++OI) {
-      if (Instruction *Op = dyn_cast<Instruction>(*OI))
+    for (Use &U : I->operands()) {
+      if (Instruction *Op = dyn_cast<Instruction>(U))
         if (Op->hasOneUse() && L->contains(Op) && !Exclude.count(Op) &&
             !Final.count(Op))
           Queue.push_back(Op);
@@ -912,6 +911,8 @@ bool LoopReroll::DAGRootTracker::validateRootSet(DAGRootSet &DRS) {
   // Check that the first root is evenly spaced.
   unsigned N = DRS.Roots.size() + 1;
   const SCEV *StepSCEV = SE->getMinusSCEV(SE->getSCEV(DRS.Roots[0]), ADR);
+  if (isa<SCEVCouldNotCompute>(StepSCEV) || StepSCEV->getType()->isPointerTy())
+    return false;
   const SCEV *ScaleSCEV = SE->getConstant(StepSCEV->getType(), N);
   if (ADR->getStepRecurrence(*SE) != SE->getMulExpr(StepSCEV, ScaleSCEV))
     return false;
@@ -1455,16 +1456,12 @@ void LoopReroll::DAGRootTracker::replace(const SCEV *BackedgeTakenCount) {
   }
 
   // Remove instructions associated with non-base iterations.
-  for (BasicBlock::reverse_iterator J = Header->rbegin(), JE = Header->rend();
-       J != JE;) {
-    unsigned I = Uses[&*J].find_first();
+  for (Instruction &Inst : llvm::make_early_inc_range(llvm::reverse(*Header))) {
+    unsigned I = Uses[&Inst].find_first();
     if (I > 0 && I < IL_All) {
-      LLVM_DEBUG(dbgs() << "LRR: removing: " << *J << "\n");
-      J++->eraseFromParent();
-      continue;
+      LLVM_DEBUG(dbgs() << "LRR: removing: " << Inst << "\n");
+      Inst.eraseFromParent();
     }
-
-    ++J;
   }
 
   // Rewrite each BaseInst using SCEV.

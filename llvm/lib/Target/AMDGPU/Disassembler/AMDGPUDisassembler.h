@@ -87,6 +87,7 @@ public:
   DecodeStatus decodeCOMPUTE_PGM_RSRC2(uint32_t FourByteBuffer,
                                        raw_string_ostream &KdStream) const;
 
+  DecodeStatus convertFMAanyK(MCInst &MI, int ImmLitIdx) const;
   DecodeStatus convertSDWAInst(MCInst &MI) const;
   DecodeStatus convertDPP8Inst(MCInst &MI) const;
   DecodeStatus convertMIMGInst(MCInst &MI) const;
@@ -99,12 +100,14 @@ public:
   MCOperand decodeOperand_VS_128(unsigned Val) const;
   MCOperand decodeOperand_VSrc16(unsigned Val) const;
   MCOperand decodeOperand_VSrcV216(unsigned Val) const;
+  MCOperand decodeOperand_VSrcV232(unsigned Val) const;
 
   MCOperand decodeOperand_VReg_64(unsigned Val) const;
   MCOperand decodeOperand_VReg_96(unsigned Val) const;
   MCOperand decodeOperand_VReg_128(unsigned Val) const;
   MCOperand decodeOperand_VReg_256(unsigned Val) const;
   MCOperand decodeOperand_VReg_512(unsigned Val) const;
+  MCOperand decodeOperand_VReg_1024(unsigned Val) const;
 
   MCOperand decodeOperand_SReg_32(unsigned Val) const;
   MCOperand decodeOperand_SReg_32_XM0_XEXEC(unsigned Val) const;
@@ -117,7 +120,9 @@ public:
   MCOperand decodeOperand_SReg_512(unsigned Val) const;
 
   MCOperand decodeOperand_AGPR_32(unsigned Val) const;
+  MCOperand decodeOperand_AReg_64(unsigned Val) const;
   MCOperand decodeOperand_AReg_128(unsigned Val) const;
+  MCOperand decodeOperand_AReg_256(unsigned Val) const;
   MCOperand decodeOperand_AReg_512(unsigned Val) const;
   MCOperand decodeOperand_AReg_1024(unsigned Val) const;
   MCOperand decodeOperand_AV_32(unsigned Val) const;
@@ -126,12 +131,15 @@ public:
   enum OpWidthTy {
     OPW32,
     OPW64,
+    OPW96,
     OPW128,
+    OPW160,
     OPW256,
     OPW512,
     OPW1024,
     OPW16,
     OPWV216,
+    OPWV232,
     OPW_LAST_,
     OPW_FIRST_ = OPW32
   };
@@ -143,9 +151,11 @@ public:
 
   static MCOperand decodeIntImmed(unsigned Imm);
   static MCOperand decodeFPImmed(OpWidthTy Width, unsigned Imm);
+  MCOperand decodeMandatoryLiteralConstant(unsigned Imm) const;
   MCOperand decodeLiteralConstant() const;
 
-  MCOperand decodeSrcOp(const OpWidthTy Width, unsigned Val) const;
+  MCOperand decodeSrcOp(const OpWidthTy Width, unsigned Val,
+                        bool MandatoryLiteral = false) const;
   MCOperand decodeDstOp(const OpWidthTy Width, unsigned Val) const;
   MCOperand decodeSpecialReg32(unsigned Val) const;
   MCOperand decodeSpecialReg64(unsigned Val) const;
@@ -159,11 +169,16 @@ public:
 
   int getTTmpIdx(unsigned Val) const;
 
+  const MCInstrInfo *getMCII() const { return MCII.get(); }
+
   bool isVI() const;
   bool isGFX9() const;
+  bool isGFX90A() const;
   bool isGFX9Plus() const;
   bool isGFX10() const;
   bool isGFX10Plus() const;
+
+  bool hasArchitectedFlatScratch() const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -173,6 +188,7 @@ public:
 class AMDGPUSymbolizer : public MCSymbolizer {
 private:
   void *DisInfo;
+  std::vector<uint64_t> ReferencedAddresses;
 
 public:
   AMDGPUSymbolizer(MCContext &Ctx, std::unique_ptr<MCRelocationInfo> &&RelInfo,
@@ -187,6 +203,10 @@ public:
   void tryAddingPcLoadReferenceComment(raw_ostream &cStream,
                                        int64_t Value,
                                        uint64_t Address) override;
+
+  ArrayRef<uint64_t> getReferencedAddresses() const override {
+    return ReferencedAddresses;
+  }
 };
 
 } // end namespace llvm

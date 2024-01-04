@@ -3,6 +3,10 @@
 ; RUN:   | FileCheck -check-prefix=RV32F %s
 ; RUN: llc -mtriple=riscv64 -mattr=+f -verify-machineinstrs < %s \
 ; RUN:   | FileCheck -check-prefix=RV64F %s
+; RUN: llc -mtriple=riscv32 -mattr=+d -verify-machineinstrs < %s \
+; RUN:   | FileCheck -check-prefix=RV32F %s
+; RUN: llc -mtriple=riscv64 -mattr=+d -verify-machineinstrs < %s \
+; RUN:   | FileCheck -check-prefix=RV64F %s
 
 @gf = external global float
 
@@ -58,4 +62,24 @@ define float @constraint_f_float_abi_name(float %a) nounwind {
   %1 = load float, float* @gf
   %2 = tail call float asm "fadd.s $0, $1, $2", "={ft0},{fa0},{fs0}"(float %a, float %1)
   ret float %2
+}
+
+define float @constraint_gpr(float %x) {
+; RV32F-LABEL: constraint_gpr:
+; RV32F:       # %bb.0:
+; RV32F-NEXT:    .cfi_def_cfa_offset 0
+; RV32F-NEXT:    #APP
+; RV32F-NEXT:    mv a0, a0
+; RV32F-NEXT:    #NO_APP
+; RV32F-NEXT:    ret
+;
+; RV64F-LABEL: constraint_gpr:
+; RV64F:       # %bb.0:
+; RV64F-NEXT:    .cfi_def_cfa_offset 0
+; RV64F-NEXT:    #APP
+; RV64F-NEXT:    mv a0, a0
+; RV64F-NEXT:    #NO_APP
+; RV64F-NEXT:    ret
+  %1 = tail call float asm sideeffect alignstack "mv $0, $1", "={x10},{x10}"(float %x)
+  ret float %1
 }

@@ -124,8 +124,8 @@ bool LiveIntervalUnion::Query::isSeenInterference(LiveInterval *VirtReg) const {
 // 2. SeenAllInterferences == true: InterferingVRegs complete, iterators unused.
 // 3. Iterators left at the last seen intersection.
 //
-unsigned LiveIntervalUnion::Query::
-collectInterferingVRegs(unsigned MaxInterferingRegs) {
+unsigned
+LiveIntervalUnion::Query::collectInterferingVRegs(unsigned MaxInterferingRegs) {
   // Fast path return if we already have the desired information.
   if (SeenAllInterferences || InterferingVRegs.size() >= MaxInterferingRegs)
     return InterferingVRegs.size();

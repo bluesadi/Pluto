@@ -84,6 +84,8 @@ public:
     return Eng.getContext();
   }
 
+  const ASTContext &getASTContext() const { return Eng.getContext(); }
+
   const LangOptions &getLangOpts() const {
     return Eng.getContext().getLangOpts();
   }
@@ -255,7 +257,7 @@ public:
   ///        to omit the note from the report if it would make the displayed
   ///        bug path significantly shorter.
   const NoteTag *getNoteTag(NoteTag::Callback &&Cb, bool IsPrunable = false) {
-    return Eng.getNoteTags().makeNoteTag(std::move(Cb), IsPrunable);
+    return Eng.getDataTags().make<NoteTag>(std::move(Cb), IsPrunable);
   }
 
   /// A shorthand version of getNoteTag that doesn't require you to accept

@@ -34,7 +34,6 @@ struct X86Operand final : public MCParsedAsmOperand {
   StringRef SymName;
   void *OpDecl;
   bool AddressOf;
-  bool CallOperand;
 
   struct TokOp {
     const char *Data;
@@ -78,7 +77,8 @@ struct X86Operand final : public MCParsedAsmOperand {
   };
 
   X86Operand(KindTy K, SMLoc Start, SMLoc End)
-      : Kind(K), StartLoc(Start), EndLoc(End), CallOperand(false) {}
+      : Kind(K), StartLoc(Start), EndLoc(End), OpDecl(nullptr),
+        AddressOf(false) {}
 
   StringRef getSymName() override { return SymName; }
   void *getOpDecl() override { return OpDecl; }
@@ -284,6 +284,12 @@ struct X86Operand final : public MCParsedAsmOperand {
   }
 
   bool isOffsetOfLocal() const override { return isImm() && Imm.LocalRef; }
+
+  bool isMemPlaceholder(const MCInstrDesc &Desc) const override {
+    // Only MS InlineAsm uses global variables with registers rather than
+    // rip/eip.
+    return isMem() && !Mem.DefaultBaseReg && Mem.FrontendSize;
+  }
 
   bool needAddressOf() const override { return AddressOf; }
 

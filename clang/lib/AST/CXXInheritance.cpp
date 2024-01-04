@@ -386,9 +386,9 @@ static bool isOrdinaryMember(const NamedDecl *ND) {
 
 static bool findOrdinaryMember(const CXXRecordDecl *RD, CXXBasePath &Path,
                                DeclarationName Name) {
-  Path.Decls = RD->lookup(Name);
-  for (NamedDecl *ND : Path.Decls)
-    if (isOrdinaryMember(ND))
+  Path.Decls = RD->lookup(Name).begin();
+  for (DeclContext::lookup_iterator I = Path.Decls, E = I.end(); I != E; ++I)
+    if (isOrdinaryMember(*I))
       return true;
 
   return false;
@@ -453,9 +453,10 @@ std::vector<const NamedDecl *> CXXRecordDecl::lookupDependentName(
           },
           Paths, /*LookupInDependent=*/true))
     return Results;
-  for (const NamedDecl *ND : Paths.front().Decls) {
-    if (isOrdinaryMember(ND) && Filter(ND))
-      Results.push_back(ND);
+  for (DeclContext::lookup_iterator I = Paths.front().Decls, E = I.end();
+       I != E; ++I) {
+    if (isOrdinaryMember(*I) && Filter(*I))
+      Results.push_back(*I);
   }
   return Results;
 }
@@ -464,7 +465,7 @@ void OverridingMethods::add(unsigned OverriddenSubobject,
                             UniqueVirtualMethod Overriding) {
   SmallVectorImpl<UniqueVirtualMethod> &SubobjectOverrides
     = Overrides[OverriddenSubobject];
-  if (llvm::find(SubobjectOverrides, Overriding) == SubobjectOverrides.end())
+  if (!llvm::is_contained(SubobjectOverrides, Overriding))
     SubobjectOverrides.push_back(Overriding);
 }
 
@@ -670,9 +671,7 @@ CXXRecordDecl::getFinalOverriders(CXXFinalOverriderMap &FinalOverriders) const {
 
       // FIXME: IsHidden reads from Overriding from the middle of a remove_if
       // over the same sequence! Is this guaranteed to work?
-      Overriding.erase(
-          std::remove_if(Overriding.begin(), Overriding.end(), IsHidden),
-          Overriding.end());
+      llvm::erase_if(Overriding, IsHidden);
     }
   }
 }

@@ -1,0 +1,12 @@
+[submodule "tests/tiny-AES-c"]
+	path = tests/tiny-AES-c
+	url = https://github.com/kokke/tiny-AES-c.git
+[submodule "tests/openssl"]
+	path = tests/openssl
+	url = https://github.com/openssl/openssl.git
+[submodule "tests/jsoncpp"]
+	path = tests/jsoncpp
+	url = https://github.com/open-source-parsers/jsoncpp.git
+[submodule "tests/json"]
+	path = tests/json
+	url = https://github.com/nlohmann/json.git

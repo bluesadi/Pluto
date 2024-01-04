@@ -123,8 +123,7 @@ Value *SSAUpdater::GetValueInMiddleOfBlock(BasicBlock *BB) {
     }
   } else {
     bool isFirstPred = true;
-    for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; ++PI) {
-      BasicBlock *PredBB = *PI;
+    for (BasicBlock *PredBB : predecessors(BB)) {
       Value *PredVal = GetValueAtEndOfBlock(PredBB);
       PredValues.push_back(std::make_pair(PredBB, PredVal));
 
@@ -447,6 +446,9 @@ void LoadAndStorePromoter::run(const SmallVectorImpl<Instruction *> &Insts) {
   // Now that everything is rewritten, delete the old instructions from the
   // function.  They should all be dead now.
   for (Instruction *User : Insts) {
+    if (!shouldDelete(User))
+      continue;
+
     // If this is a load that still has uses, then the load must have been added
     // as a live value in the SSAUpdate data structure for a block (e.g. because
     // the loaded value was stored later).  In this case, we need to recursively

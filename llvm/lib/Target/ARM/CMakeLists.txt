@@ -25,6 +25,7 @@ add_llvm_target(ARMCodeGen
   ARMBaseInstrInfo.cpp
   ARMBaseRegisterInfo.cpp
   ARMBasicBlockInfo.cpp
+  ARMBranchTargets.cpp
   ARMCallingConv.cpp
   ARMCallLowering.cpp
   ARMConstantIslandPass.cpp
@@ -56,9 +57,10 @@ add_llvm_target(ARMCodeGen
   ARMTargetTransformInfo.cpp
   MLxExpansionPass.cpp
   MVEGatherScatterLowering.cpp
+  MVELaneInterleavingPass.cpp
   MVETailPredication.cpp
   MVEVPTBlockPass.cpp
-  MVEVPTOptimisationsPass.cpp
+  MVETPAndVPTOptimisationsPass.cpp
   Thumb1FrameLowering.cpp
   Thumb1InstrInfo.cpp
   ThumbRegisterInfo.cpp
@@ -73,6 +75,7 @@ add_llvm_target(ARMCodeGen
   AsmPrinter
   CodeGen
   Core
+  IPO
   MC
   Scalar
   SelectionDAG

@@ -6,8 +6,7 @@
 
 ; CHECK-LABEL: test1
 ; CHECK: entry:
-; CHECK:   [[CMP:%[^ ]+]] = icmp ugt i32 %N, 2
-; CHECK:   [[MAX:%[^ ]+]] = select i1 [[CMP]], i32 %N, i32 2
+; CHECK:   [[MAX:%[^ ]+]] = call i32 @llvm.umax.i32(i32 %N, i32 2)
 ; CHECK:   [[COUNT:%[^ ]+]] = add i32 [[MAX]], -1
 ; CHECK:   br i1 %t1, label %do.body.preheader
 ; CHECK: do.body.preheader:
@@ -60,8 +59,7 @@ if.end:                                           ; preds = %do.body, %entry
 
 ; CHECK-LABEL: test3
 ; CHECK: entry:
-; CHECK:   [[CMP:%[^ ]+]] = icmp ugt i32 %N, 1
-; CHECK:   [[COUNT:%[^ ]+]] = select i1 [[CMP]], i32 %N, i32 1
+; CHECK:   [[COUNT:%[^ ]+]] = call i32 @llvm.umax.i32(i32 %N, i32 1)
 ; CHECK:   br i1 %brmerge.demorgan, label %do.body.preheader
 ; CHECK: do.body.preheader:
 ; CHECK-EXIT:   call void @llvm.set.loop.iterations.i32(i32 [[COUNT]])
@@ -155,7 +153,9 @@ if.end:                                           ; preds = %while.body, %entry
 ; CHECK: entry:
 ; CHECK:   br i1 %brmerge.demorgan, label %while.preheader
 ; CHECK: while.preheader:
-; CHECK:   [[TEST:%[^ ]+]] = call i1 @llvm.test.set.loop.iterations.i32(i32 %N)
+; CHECK-EXIT:   [[TEST:%[^ ]+]] = call i1 @llvm.test.set.loop.iterations.i32(i32 %N)
+; CHECK-LATCH:   [[TEST1:%[^ ]+]] = call { i32, i1 } @llvm.test.start.loop.iterations.i32(i32 %N)
+; CHECK-LATCH:  [[TEST:%[^ ]+]] = extractvalue { i32, i1 } [[TEST1]], 1
 ; CHECK:   br i1 [[TEST]], label %while.body.preheader, label %if.end
 ; CHECK: while.body.preheader:
 ; CHECK:   br label %while.body
@@ -188,7 +188,9 @@ if.end:                                           ; preds = %while.body, %while.
 ; CHECK: entry:
 ; CHECK:   br i1 %brmerge.demorgan, label %while.preheader
 ; CHECK: while.preheader:
-; CHECK:   [[TEST:%[^ ]+]] = call i1 @llvm.test.set.loop.iterations.i32(i32 %N)
+; CHECK-EXIT:   [[TEST:%[^ ]+]] = call i1 @llvm.test.set.loop.iterations.i32(i32 %N)
+; CHECK-LATCH:   [[TEST1:%[^ ]+]] = call { i32, i1 } @llvm.test.start.loop.iterations.i32(i32 %N)
+; CHECK-LATCH:  [[TEST:%[^ ]+]] = extractvalue { i32, i1 } [[TEST1]], 1
 ; CHECK:   br i1 [[TEST]], label %while.body.preheader, label %if.end
 ; CHECK: while.body.preheader:
 ; CHECK:   br label %while.body
@@ -317,7 +319,9 @@ if.end:                                           ; preds = %do.body, %entry
 ; CHECK: entry:
 ; CHECK:   br label %do.body.preheader
 ; CHECK: do.body.preheader:
-; CHECK:   [[TEST:%[^ ]+]] = call i1 @llvm.test.set.loop.iterations.i32(i32 %N)
+; CHECK-EXIT:   [[TEST:%[^ ]+]] = call i1 @llvm.test.set.loop.iterations.i32(i32 %N)
+; CHECK-LATCH:  [[TEST1:%[^ ]+]] = call { i32, i1 } @llvm.test.start.loop.iterations.i32(i32 %N)
+; CHECK-LATCH:  [[TEST:%[^ ]+]] = extractvalue { i32, i1 } [[TEST1]], 1
 ; CHECK:   br i1 [[TEST]], label %do.body.preheader1, label %if.end
 ; CHECK: do.body.preheader1:
 ; CHECK:   br label %do.body
@@ -342,5 +346,34 @@ do.body:
   br i1 %cmp.1, label %do.body, label %if.end
 
 if.end:                                           ; preds = %do.body, %entry
+  ret void
+}
+
+; CHECK-LABEL: test12
+; CHECK: entry:
+; CHECK-EXIT:   [[TEST:%[^ ]+]] = call i1 @llvm.test.set.loop.iterations.i32(i32 %conv)
+; CHECK-LATCH:  [[TEST1:%[^ ]+]] = call { i32, i1 } @llvm.test.start.loop.iterations.i32(i32 %conv)
+; CHECK-LATCH:  [[TEST:%[^ ]+]] = extractvalue { i32, i1 } [[TEST1]], 1
+; CHECK:   br i1 [[TEST]], label %for.body.preheader, label %for.end
+; CHECK: for.body.preheader:
+; CHECK:   br label %for.body
+
+define void @test12(i32* nocapture %a, i32* nocapture readonly %b, i16 zeroext %length) {
+entry:
+  %conv = zext i16 %length to i32
+  %cmp8.not = icmp eq i16 %length, 0
+  br i1 %cmp8.not, label %for.end, label %for.body
+
+for.body:                                         ; preds = %entry, %for.body
+  %i.09 = phi i32 [ %inc, %for.body ], [ 0, %entry ]
+  %arrayidx = getelementptr inbounds i32, i32* %b, i32 %i.09
+  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds i32, i32* %a, i32 %i.09
+  store i32 %0, i32* %arrayidx2, align 4
+  %inc = add nuw nsw i32 %i.09, 1
+  %exitcond.not = icmp eq i32 %inc, %conv
+  br i1 %exitcond.not, label %for.end, label %for.body
+
+for.end:                                          ; preds = %for.body, %entry
   ret void
 }

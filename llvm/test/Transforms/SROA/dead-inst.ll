@@ -4,11 +4,10 @@
 ; RUN: opt < %s -passes=bdce,sroa,bdce -o %t -debug-pass-manager 2>&1 | FileCheck %s
 ; CHECK: Running pass: BDCEPass on H
 ; CHECK: Running analysis: DemandedBitsAnalysis on H
-; CHECK: Running pass: SROA on H
+; CHECK: Running pass: SROAPass on H
 ; CHECK: Invalidating analysis: DemandedBitsAnalysis on H
 ; CHECK: Running pass: BDCEPass on H
 ; CHECK: Running analysis: DemandedBitsAnalysis on H
-; CHECK: Finished llvm::Function pass manager run.
 
 target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "powerpc64le-grtev4-linux-gnu"

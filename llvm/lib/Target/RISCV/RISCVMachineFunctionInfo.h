@@ -14,10 +14,33 @@
 #define LLVM_LIB_TARGET_RISCV_RISCVMACHINEFUNCTIONINFO_H
 
 #include "RISCVSubtarget.h"
+#include "llvm/CodeGen/MIRYamlMapping.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 
 namespace llvm {
+
+class RISCVMachineFunctionInfo;
+
+namespace yaml {
+struct RISCVMachineFunctionInfo final : public yaml::MachineFunctionInfo {
+  int VarArgsFrameIndex;
+  int VarArgsSaveSize;
+
+  RISCVMachineFunctionInfo() = default;
+  RISCVMachineFunctionInfo(const llvm::RISCVMachineFunctionInfo &MFI);
+
+  void mappingImpl(yaml::IO &YamlIO) override;
+  ~RISCVMachineFunctionInfo() = default;
+};
+
+template <> struct MappingTraits<RISCVMachineFunctionInfo> {
+  static void mapping(IO &YamlIO, RISCVMachineFunctionInfo &MFI) {
+    YamlIO.mapOptional("varArgsFrameIndex", MFI.VarArgsFrameIndex);
+    YamlIO.mapOptional("varArgsSaveSize", MFI.VarArgsSaveSize);
+  }
+};
+} // end namespace yaml
 
 /// RISCVMachineFunctionInfo - This class is derived from MachineFunctionInfo
 /// and contains private RISCV-specific information for each MachineFunction.
@@ -32,6 +55,12 @@ private:
   int MoveF64FrameIndex = -1;
   /// Size of any opaque stack adjustment due to save/restore libcalls.
   unsigned LibCallStackSize = 0;
+  /// Size of RVV stack.
+  uint64_t RVVStackSize = 0;
+  /// Padding required to keep RVV stack aligned within the main stack.
+  uint64_t RVVPadding = 0;
+  /// Size of stack frame to save callee saved registers
+  unsigned CalleeSavedStackSize = 0;
 
 public:
   RISCVMachineFunctionInfo(const MachineFunction &MF) {}
@@ -54,10 +83,22 @@ public:
 
   bool useSaveRestoreLibCalls(const MachineFunction &MF) const {
     // We cannot use fixed locations for the callee saved spill slots if the
-    // function uses a varargs save area.
+    // function uses a varargs save area, or is an interrupt handler.
     return MF.getSubtarget<RISCVSubtarget>().enableSaveRestore() &&
-           VarArgsSaveSize == 0 && !MF.getFrameInfo().hasTailCall();
+           VarArgsSaveSize == 0 && !MF.getFrameInfo().hasTailCall() &&
+           !MF.getFunction().hasFnAttribute("interrupt");
   }
+
+  uint64_t getRVVStackSize() const { return RVVStackSize; }
+  void setRVVStackSize(uint64_t Size) { RVVStackSize = Size; }
+
+  uint64_t getRVVPadding() const { return RVVPadding; }
+  void setRVVPadding(uint64_t Padding) { RVVPadding = Padding; }
+
+  unsigned getCalleeSavedStackSize() const { return CalleeSavedStackSize; }
+  void setCalleeSavedStackSize(unsigned Size) { CalleeSavedStackSize = Size; }
+
+  void initializeBaseYamlFields(const yaml::RISCVMachineFunctionInfo &YamlMFI);
 };
 
 } // end namespace llvm

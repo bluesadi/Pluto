@@ -29,6 +29,16 @@
 #define check(macro, cxx98, cxx11, cxx14, cxx17, cxx20, cxx23) (cxx23 == 0 ? defined(__cpp_##macro) : __cpp_##macro != cxx23)
 #endif
 
+// --- C++2b features ---
+
+#if check(implicit_move, 0, 0, 0, 0, 0, 202011)
+#error "wrong value for __cpp_implicit_move"
+#endif
+
+#if check(size_t_suffix, 0, 0, 0, 0, 0, 202011)
+#error "wrong value for __cpp_size_t_suffix"
+#endif
+
 // --- C++20 features ---
 
 #if check(aggregate_paren_init, 0, 0, 0, 0, 0, 0)
@@ -85,6 +95,10 @@
 #error "wrong value for __cpp_impl_three_way_comparison"
 #endif
 
+#if check(impl_coroutine, 0, 0, 0, 0, 201902L, 201902L)
+#error "wrong value for __cpp_impl_coroutine"
+#endif
+
 // init_captures checked below
 
 #if check(modules, 0, 0, 0, 0, 0, 0)
@@ -92,8 +106,7 @@
 #error "wrong value for __cpp_modules"
 #endif
 
-#if check(using_enum, 0, 0, 0, 0, 0, 0)
-// FIXME: 201907 in C++20
+#if check(using_enum, 0, 0, 0, 0, 201907, 201907)
 #error "wrong value for __cpp_using_enum"
 #endif
 

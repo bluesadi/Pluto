@@ -11,9 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/TableGen/SetTheory.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Format.h"
@@ -21,7 +21,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
-#include "llvm/TableGen/SetTheory.h"
 #include <algorithm>
 #include <cstdint>
 #include <string>
@@ -53,9 +52,9 @@ struct SubOp : public SetTheory::Operator {
     RecSet Add, Sub;
     ST.evaluate(*Expr->arg_begin(), Add, Loc);
     ST.evaluate(Expr->arg_begin() + 1, Expr->arg_end(), Sub, Loc);
-    for (RecSet::iterator I = Add.begin(), E = Add.end(); I != E; ++I)
-      if (!Sub.count(*I))
-        Elts.insert(*I);
+    for (const auto &I : Add)
+      if (!Sub.count(I))
+        Elts.insert(I);
   }
 };
 
@@ -69,9 +68,9 @@ struct AndOp : public SetTheory::Operator {
     RecSet S1, S2;
     ST.evaluate(Expr->arg_begin()[0], S1, Loc);
     ST.evaluate(Expr->arg_begin()[1], S2, Loc);
-    for (RecSet::iterator I = S1.begin(), E = S1.end(); I != E; ++I)
-      if (S2.count(*I))
-        Elts.insert(*I);
+    for (const auto &I : S1)
+      if (S2.count(I))
+        Elts.insert(I);
   }
 };
 

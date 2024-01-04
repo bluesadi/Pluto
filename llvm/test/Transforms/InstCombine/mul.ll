@@ -45,8 +45,8 @@ define i32 @neg(i32 %i) {
 
 define i32 @test10(i32 %a, i32 %b) {
 ; CHECK-LABEL: @test10(
-; CHECK-NEXT:    [[TMP1:%.*]] = ashr i32 [[A:%.*]], 31
-; CHECK-NEXT:    [[E:%.*]] = and i32 [[TMP1]], [[B:%.*]]
+; CHECK-NEXT:    [[ISNEG:%.*]] = icmp slt i32 [[A:%.*]], 0
+; CHECK-NEXT:    [[E:%.*]] = select i1 [[ISNEG]], i32 [[B:%.*]], i32 0
 ; CHECK-NEXT:    ret i32 [[E]]
 ;
   %c = icmp slt i32 %a, 0
@@ -57,8 +57,8 @@ define i32 @test10(i32 %a, i32 %b) {
 
 define i32 @test11(i32 %a, i32 %b) {
 ; CHECK-LABEL: @test11(
-; CHECK-NEXT:    [[TMP1:%.*]] = ashr i32 [[A:%.*]], 31
-; CHECK-NEXT:    [[E:%.*]] = and i32 [[TMP1]], [[B:%.*]]
+; CHECK-NEXT:    [[ISNEG:%.*]] = icmp slt i32 [[A:%.*]], 0
+; CHECK-NEXT:    [[E:%.*]] = select i1 [[ISNEG]], i32 [[B:%.*]], i32 0
 ; CHECK-NEXT:    ret i32 [[E]]
 ;
   %c = icmp sle i32 %a, -1
@@ -72,8 +72,8 @@ declare void @use32(i32)
 define i32 @test12(i32 %a, i32 %b) {
 ; CHECK-LABEL: @test12(
 ; CHECK-NEXT:    [[A_LOBIT:%.*]] = lshr i32 [[A:%.*]], 31
-; CHECK-NEXT:    [[TMP1:%.*]] = ashr i32 [[A]], 31
-; CHECK-NEXT:    [[E:%.*]] = and i32 [[TMP1]], [[B:%.*]]
+; CHECK-NEXT:    [[ISNEG:%.*]] = icmp slt i32 [[A]], 0
+; CHECK-NEXT:    [[E:%.*]] = select i1 [[ISNEG]], i32 [[B:%.*]], i32 0
 ; CHECK-NEXT:    call void @use32(i32 [[A_LOBIT]])
 ; CHECK-NEXT:    ret i32 [[E]]
 ;
@@ -103,11 +103,9 @@ define i32 @mul_bool(i32 %x, i1 %y) {
 ; CHECK-NEXT:    ret i32 [[M]]
 ;
   %z = zext i1 %y to i32
-  %m = mul i32 %x, %z
+  %m = mul i32 %z, %x
   ret i32 %m
 }
-
-; Commute and test vector type.
 
 define <2 x i32> @mul_bool_vec(<2 x i32> %x, <2 x i1> %y) {
 ; CHECK-LABEL: @mul_bool_vec(
@@ -115,18 +113,55 @@ define <2 x i32> @mul_bool_vec(<2 x i32> %x, <2 x i1> %y) {
 ; CHECK-NEXT:    ret <2 x i32> [[M]]
 ;
   %z = zext <2 x i1> %y to <2 x i32>
+  %m = mul <2 x i32> %z, %x
+  ret <2 x i32> %m
+}
+
+define <2 x i32> @mul_bool_vec_commute(<2 x i32> %px, <2 x i1> %y) {
+; CHECK-LABEL: @mul_bool_vec_commute(
+; CHECK-NEXT:    [[X:%.*]] = mul <2 x i32> [[PX:%.*]], [[PX]]
+; CHECK-NEXT:    [[M:%.*]] = select <2 x i1> [[Y:%.*]], <2 x i32> [[X]], <2 x i32> zeroinitializer
+; CHECK-NEXT:    ret <2 x i32> [[M]]
+;
+  %x = mul <2 x i32> %px, %px  ; thwart complexity-based canonicalization
+  %z = zext <2 x i1> %y to <2 x i32>
   %m = mul <2 x i32> %x, %z
   ret <2 x i32> %m
 }
 
-define <2 x i32> @mul_bool_vec_commute(<2 x i32> %x, <2 x i1> %y) {
-; CHECK-LABEL: @mul_bool_vec_commute(
-; CHECK-NEXT:    [[M:%.*]] = select <2 x i1> [[Y:%.*]], <2 x i32> [[X:%.*]], <2 x i32> zeroinitializer
-; CHECK-NEXT:    ret <2 x i32> [[M]]
+; X * C (when X is a sext boolean) --> X ? -C : 0
+
+define i32 @mul_sext_bool(i1 %x) {
+; CHECK-LABEL: @mul_sext_bool(
+; CHECK-NEXT:    [[M:%.*]] = select i1 [[X:%.*]], i32 -42, i32 0
+; CHECK-NEXT:    ret i32 [[M]]
 ;
-  %z = zext <2 x i1> %y to <2 x i32>
-  %m = mul <2 x i32> %z, %x
-  ret <2 x i32> %m
+  %s = sext i1 %x to i32
+  %m = mul i32 %s, 42
+  ret i32 %m
+}
+
+define i32 @mul_sext_bool_use(i1 %x) {
+; CHECK-LABEL: @mul_sext_bool_use(
+; CHECK-NEXT:    [[S:%.*]] = sext i1 [[X:%.*]] to i32
+; CHECK-NEXT:    call void @use32(i32 [[S]])
+; CHECK-NEXT:    [[M:%.*]] = select i1 [[X]], i32 -42, i32 0
+; CHECK-NEXT:    ret i32 [[M]]
+;
+  %s = sext i1 %x to i32
+  call void @use32(i32 %s)
+  %m = mul i32 %s, 42
+  ret i32 %m
+}
+
+define <2 x i8> @mul_sext_bool_vec(<2 x i1> %x) {
+; CHECK-LABEL: @mul_sext_bool_vec(
+; CHECK-NEXT:    [[M:%.*]] = select <2 x i1> [[X:%.*]], <2 x i8> <i8 -42, i8 -128>, <2 x i8> zeroinitializer
+; CHECK-NEXT:    ret <2 x i8> [[M]]
+;
+  %s = sext <2 x i1> %x to <2 x i8>
+  %m = mul <2 x i8> %s, <i8 42, i8 -128>
+  ret <2 x i8> %m
 }
 
 define <3 x i7> @mul_bools(<3 x i1> %x, <3 x i1> %y) {
@@ -247,6 +282,76 @@ define i32 @mul_bools_sext_use3(i1 %x, i1 %y) {
   ret i32 %r
 }
 
+define i32 @mul_bools_sext_one_use_per_op(i1 %x, i1 %y) {
+; CHECK-LABEL: @mul_bools_sext_one_use_per_op(
+; CHECK-NEXT:    [[MULBOOL:%.*]] = and i1 [[X:%.*]], [[Y:%.*]]
+; CHECK-NEXT:    [[R:%.*]] = zext i1 [[MULBOOL]] to i32
+; CHECK-NEXT:    ret i32 [[R]]
+;
+  %sx = sext i1 %x to i32
+  %sy = sext i1 %y to i32
+  %r = mul i32 %sx, %sy
+  ret i32 %r
+}
+
+define i32 @mul_bool_sext_one_user(i1 %x) {
+; CHECK-LABEL: @mul_bool_sext_one_user(
+; CHECK-NEXT:    [[R:%.*]] = zext i1 [[X:%.*]] to i32
+; CHECK-NEXT:    ret i32 [[R]]
+;
+  %sx = sext i1 %x to i32
+  %r = mul i32 %sx, %sx
+  ret i32 %r
+}
+
+define i32 @mul_bools_zext_one_use_per_op(i1 %x, i1 %y) {
+; CHECK-LABEL: @mul_bools_zext_one_use_per_op(
+; CHECK-NEXT:    [[MULBOOL:%.*]] = and i1 [[X:%.*]], [[Y:%.*]]
+; CHECK-NEXT:    [[R:%.*]] = zext i1 [[MULBOOL]] to i32
+; CHECK-NEXT:    ret i32 [[R]]
+;
+  %zx = zext i1 %x to i32
+  %zy = zext i1 %y to i32
+  %r = mul i32 %zx, %zy
+  ret i32 %r
+}
+
+define i32 @mul_bool_zext_one_user(i1 %x) {
+; CHECK-LABEL: @mul_bool_zext_one_user(
+; CHECK-NEXT:    [[R:%.*]] = zext i1 [[X:%.*]] to i32
+; CHECK-NEXT:    ret i32 [[R]]
+;
+  %sx = zext i1 %x to i32
+  %r = mul i32 %sx, %sx
+  ret i32 %r
+}
+
+define i32 @mul_bool_sext_one_extra_user(i1 %x) {
+; CHECK-LABEL: @mul_bool_sext_one_extra_user(
+; CHECK-NEXT:    [[SX:%.*]] = sext i1 [[X:%.*]] to i32
+; CHECK-NEXT:    call void @use32(i32 [[SX]])
+; CHECK-NEXT:    [[R:%.*]] = zext i1 [[X]] to i32
+; CHECK-NEXT:    ret i32 [[R]]
+;
+  %sx = sext i1 %x to i32
+  call void @use32(i32 %sx)
+  %r = mul i32 %sx, %sx
+  ret i32 %r
+}
+
+define i32 @mul_bool_zext_one_extra_user(i1 %x) {
+; CHECK-LABEL: @mul_bool_zext_one_extra_user(
+; CHECK-NEXT:    [[SX:%.*]] = zext i1 [[X:%.*]] to i32
+; CHECK-NEXT:    call void @use32(i32 [[SX]])
+; CHECK-NEXT:    [[R:%.*]] = zext i1 [[X]] to i32
+; CHECK-NEXT:    ret i32 [[R]]
+;
+  %sx = zext i1 %x to i32
+  call void @use32(i32 %sx)
+  %r = mul i32 %sx, %sx
+  ret i32 %r
+}
+
 define <3 x i32> @mul_bools_mixed_ext(<3 x i1> %x, <3 x i1> %y) {
 ; CHECK-LABEL: @mul_bools_mixed_ext(
 ; CHECK-NEXT:    [[MULBOOL:%.*]] = and <3 x i1> [[X:%.*]], [[Y:%.*]]
@@ -306,12 +411,12 @@ define i32 @mul_bools_mixed_ext_use3(i1 %x, i1 %y) {
   ret i32 %r
 }
 
-; (A >>u 31) * B --> (A >>s 31) & B
+; (A >>u 31) * B --> (A >>s 31) & B --> A < 0 ? B : 0
 
 define i32 @signbit_mul(i32 %a, i32 %b) {
 ; CHECK-LABEL: @signbit_mul(
-; CHECK-NEXT:    [[TMP1:%.*]] = ashr i32 [[A:%.*]], 31
-; CHECK-NEXT:    [[E:%.*]] = and i32 [[TMP1]], [[B:%.*]]
+; CHECK-NEXT:    [[ISNEG:%.*]] = icmp slt i32 [[A:%.*]], 0
+; CHECK-NEXT:    [[E:%.*]] = select i1 [[ISNEG]], i32 [[B:%.*]], i32 0
 ; CHECK-NEXT:    ret i32 [[E]]
 ;
   %d = lshr i32 %a, 31
@@ -322,8 +427,8 @@ define i32 @signbit_mul(i32 %a, i32 %b) {
 define i32 @signbit_mul_commute_extra_use(i32 %a, i32 %b) {
 ; CHECK-LABEL: @signbit_mul_commute_extra_use(
 ; CHECK-NEXT:    [[D:%.*]] = lshr i32 [[A:%.*]], 31
-; CHECK-NEXT:    [[TMP1:%.*]] = ashr i32 [[A]], 31
-; CHECK-NEXT:    [[E:%.*]] = and i32 [[TMP1]], [[B:%.*]]
+; CHECK-NEXT:    [[ISNEG:%.*]] = icmp slt i32 [[A]], 0
+; CHECK-NEXT:    [[E:%.*]] = select i1 [[ISNEG]], i32 [[B:%.*]], i32 0
 ; CHECK-NEXT:    call void @use32(i32 [[D]])
 ; CHECK-NEXT:    ret i32 [[E]]
 ;
@@ -333,12 +438,12 @@ define i32 @signbit_mul_commute_extra_use(i32 %a, i32 %b) {
   ret i32 %e
 }
 
-; (A >>u 31)) * B --> (A >>s 31) & B
+; (A >>u 31)) * B --> (A >>s 31) & B --> A < 0 ? B : 0
 
 define <2 x i32> @signbit_mul_vec(<2 x i32> %a, <2 x i32> %b) {
 ; CHECK-LABEL: @signbit_mul_vec(
-; CHECK-NEXT:    [[TMP1:%.*]] = ashr <2 x i32> [[A:%.*]], <i32 31, i32 31>
-; CHECK-NEXT:    [[E:%.*]] = and <2 x i32> [[TMP1]], [[B:%.*]]
+; CHECK-NEXT:    [[ISNEG:%.*]] = icmp slt <2 x i32> [[A:%.*]], zeroinitializer
+; CHECK-NEXT:    [[E:%.*]] = select <2 x i1> [[ISNEG]], <2 x i32> [[B:%.*]], <2 x i32> zeroinitializer
 ; CHECK-NEXT:    ret <2 x i32> [[E]]
 ;
   %d = lshr <2 x i32> %a, <i32 31, i32 31>
@@ -348,8 +453,8 @@ define <2 x i32> @signbit_mul_vec(<2 x i32> %a, <2 x i32> %b) {
 
 define <2 x i32> @signbit_mul_vec_commute(<2 x i32> %a, <2 x i32> %b) {
 ; CHECK-LABEL: @signbit_mul_vec_commute(
-; CHECK-NEXT:    [[TMP1:%.*]] = ashr <2 x i32> [[A:%.*]], <i32 31, i32 31>
-; CHECK-NEXT:    [[E:%.*]] = and <2 x i32> [[TMP1]], [[B:%.*]]
+; CHECK-NEXT:    [[ISNEG:%.*]] = icmp slt <2 x i32> [[A:%.*]], zeroinitializer
+; CHECK-NEXT:    [[E:%.*]] = select <2 x i1> [[ISNEG]], <2 x i32> [[B:%.*]], <2 x i32> zeroinitializer
 ; CHECK-NEXT:    ret <2 x i32> [[E]]
 ;
   %d = lshr <2 x i32> %a, <i32 31, i32 31>
@@ -985,8 +1090,8 @@ define <2 x i32> @mulsub2_vec_nonuniform_undef(<2 x i32> %a0) {
 
 define i32 @muladd2(i32 %a0) {
 ; CHECK-LABEL: @muladd2(
-; CHECK-NEXT:    [[ADD_NEG_NEG:%.*]] = mul i32 [[A0:%.*]], -4
-; CHECK-NEXT:    [[MUL:%.*]] = add i32 [[ADD_NEG_NEG]], -64
+; CHECK-NEXT:    [[DOTNEG:%.*]] = mul i32 [[A0:%.*]], -4
+; CHECK-NEXT:    [[MUL:%.*]] = add i32 [[DOTNEG]], -64
 ; CHECK-NEXT:    ret i32 [[MUL]]
 ;
   %add = add i32 %a0, 16
@@ -996,8 +1101,8 @@ define i32 @muladd2(i32 %a0) {
 
 define <2 x i32> @muladd2_vec(<2 x i32> %a0) {
 ; CHECK-LABEL: @muladd2_vec(
-; CHECK-NEXT:    [[ADD_NEG_NEG:%.*]] = mul <2 x i32> [[A0:%.*]], <i32 -4, i32 -4>
-; CHECK-NEXT:    [[MUL:%.*]] = add <2 x i32> [[ADD_NEG_NEG]], <i32 -64, i32 -64>
+; CHECK-NEXT:    [[DOTNEG:%.*]] = mul <2 x i32> [[A0:%.*]], <i32 -4, i32 -4>
+; CHECK-NEXT:    [[MUL:%.*]] = add <2 x i32> [[DOTNEG]], <i32 -64, i32 -64>
 ; CHECK-NEXT:    ret <2 x i32> [[MUL]]
 ;
   %add = add <2 x i32> %a0, <i32 16, i32 16>

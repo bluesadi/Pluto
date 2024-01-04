@@ -11,12 +11,12 @@ Standalone Tool
 ===============
 
 :program:`clang-format` is located in `clang/tools/clang-format` and can be used
-to format C/C++/Java/JavaScript/Objective-C/Protobuf/C# code.
+to format C/C++/Java/JavaScript/JSON/Objective-C/Protobuf/C# code.
 
 .. code-block:: console
 
   $ clang-format -help
-  OVERVIEW: A tool to format C/C++/Java/JavaScript/Objective-C/Protobuf/C# code.
+  OVERVIEW: A tool to format C/C++/Java/JavaScript/JSON/Objective-C/Protobuf/C# code.
 
   If no arguments are specified, it formats the code from standard input
   and writes the result to the standard output.
@@ -82,6 +82,10 @@ to format C/C++/Java/JavaScript/Objective-C/Protobuf/C# code.
                                  .clang-format file located in one of the parent
                                  directories of the source file (or current
                                  directory for stdin).
+                                 Use -style=file:<format_file_path> to load style
+                                 configuration from a format file located at
+                                 <format_file_path>. This path can be absolute or
+                                 relative to the working directory.
                                  Use -style="{key: value, ...}" to set specific
                                  parameters, e.g.:
                                    -style="{BasedOnStyle: llvm, IndentWidth: 8}"

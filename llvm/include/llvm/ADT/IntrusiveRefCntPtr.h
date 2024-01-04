@@ -5,51 +5,56 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-// This file defines the RefCountedBase, ThreadSafeRefCountedBase, and
-// IntrusiveRefCntPtr classes.
-//
-// IntrusiveRefCntPtr is a smart pointer to an object which maintains a
-// reference count.  (ThreadSafe)RefCountedBase is a mixin class that adds a
-// refcount member variable and methods for updating the refcount.  An object
-// that inherits from (ThreadSafe)RefCountedBase deletes itself when its
-// refcount hits zero.
-//
-// For example:
-//
-//   class MyClass : public RefCountedBase<MyClass> {};
-//
-//   void foo() {
-//     // Constructing an IntrusiveRefCntPtr increases the pointee's refcount by
-//     // 1 (from 0 in this case).
-//     IntrusiveRefCntPtr<MyClass> Ptr1(new MyClass());
-//
-//     // Copying an IntrusiveRefCntPtr increases the pointee's refcount by 1.
-//     IntrusiveRefCntPtr<MyClass> Ptr2(Ptr1);
-//
-//     // Constructing an IntrusiveRefCntPtr has no effect on the object's
-//     // refcount.  After a move, the moved-from pointer is null.
-//     IntrusiveRefCntPtr<MyClass> Ptr3(std::move(Ptr1));
-//     assert(Ptr1 == nullptr);
-//
-//     // Clearing an IntrusiveRefCntPtr decreases the pointee's refcount by 1.
-//     Ptr2.reset();
-//
-//     // The object deletes itself when we return from the function, because
-//     // Ptr3's destructor decrements its refcount to 0.
-//   }
-//
-// You can use IntrusiveRefCntPtr with isa<T>(), dyn_cast<T>(), etc.:
-//
-//   IntrusiveRefCntPtr<MyClass> Ptr(new MyClass());
-//   OtherClass *Other = dyn_cast<OtherClass>(Ptr);  // Ptr.get() not required
-//
-// IntrusiveRefCntPtr works with any class that
-//
-//  - inherits from (ThreadSafe)RefCountedBase,
-//  - has Retain() and Release() methods, or
-//  - specializes IntrusiveRefCntPtrInfo.
-//
+///
+/// \file
+/// This file defines the RefCountedBase, ThreadSafeRefCountedBase, and
+/// IntrusiveRefCntPtr classes.
+///
+/// IntrusiveRefCntPtr is a smart pointer to an object which maintains a
+/// reference count.  (ThreadSafe)RefCountedBase is a mixin class that adds a
+/// refcount member variable and methods for updating the refcount.  An object
+/// that inherits from (ThreadSafe)RefCountedBase deletes itself when its
+/// refcount hits zero.
+///
+/// For example:
+///
+/// ```
+///   class MyClass : public RefCountedBase<MyClass> {};
+///
+///   void foo() {
+///     // Constructing an IntrusiveRefCntPtr increases the pointee's refcount
+///     // by 1 (from 0 in this case).
+///     IntrusiveRefCntPtr<MyClass> Ptr1(new MyClass());
+///
+///     // Copying an IntrusiveRefCntPtr increases the pointee's refcount by 1.
+///     IntrusiveRefCntPtr<MyClass> Ptr2(Ptr1);
+///
+///     // Constructing an IntrusiveRefCntPtr has no effect on the object's
+///     // refcount.  After a move, the moved-from pointer is null.
+///     IntrusiveRefCntPtr<MyClass> Ptr3(std::move(Ptr1));
+///     assert(Ptr1 == nullptr);
+///
+///     // Clearing an IntrusiveRefCntPtr decreases the pointee's refcount by 1.
+///     Ptr2.reset();
+///
+///     // The object deletes itself when we return from the function, because
+///     // Ptr3's destructor decrements its refcount to 0.
+///   }
+/// ```
+///
+/// You can use IntrusiveRefCntPtr with isa<T>(), dyn_cast<T>(), etc.:
+///
+/// ```
+///   IntrusiveRefCntPtr<MyClass> Ptr(new MyClass());
+///   OtherClass *Other = dyn_cast<OtherClass>(Ptr);  // Ptr.get() not required
+/// ```
+///
+/// IntrusiveRefCntPtr works with any class that
+///
+///  - inherits from (ThreadSafe)RefCountedBase,
+///  - has Retain() and Release() methods, or
+///  - specializes IntrusiveRefCntPtrInfo.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_INTRUSIVEREFCNTPTR_H
@@ -171,18 +176,15 @@ public:
   IntrusiveRefCntPtr(const IntrusiveRefCntPtr &S) : Obj(S.Obj) { retain(); }
   IntrusiveRefCntPtr(IntrusiveRefCntPtr &&S) : Obj(S.Obj) { S.Obj = nullptr; }
 
-  template <class X>
-  IntrusiveRefCntPtr(IntrusiveRefCntPtr<X> &&S) : Obj(S.get()) {
+  template <class X,
+            std::enable_if_t<std::is_convertible<X *, T *>::value, bool> = true>
+  IntrusiveRefCntPtr(IntrusiveRefCntPtr<X> S) : Obj(S.get()) {
     S.Obj = nullptr;
   }
 
-  template <class X>
+  template <class X,
+            std::enable_if_t<std::is_convertible<X *, T *>::value, bool> = true>
   IntrusiveRefCntPtr(std::unique_ptr<X> S) : Obj(S.release()) {
-    retain();
-  }
-
-  template <class X>
-  IntrusiveRefCntPtr(const IntrusiveRefCntPtr<X> &S) : Obj(S.get()) {
     retain();
   }
 
@@ -258,7 +260,7 @@ inline bool operator!=(T *A, const IntrusiveRefCntPtr<U> &B) {
 }
 
 template <class T>
-bool operator==(std::nullptr_t A, const IntrusiveRefCntPtr<T> &B) {
+bool operator==(std::nullptr_t, const IntrusiveRefCntPtr<T> &B) {
   return !B;
 }
 

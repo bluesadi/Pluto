@@ -37,7 +37,7 @@ define void @func_mov_fi_i32() #0 {
 
 ; GFX9-MUBUF-NEXT:   v_lshrrev_b32_e64 v0, 6, s32
 ; GFX9-FLATSCR:      v_mov_b32_e32 v0, s32
-; GFX9-FLATSCR:      s_add_u32 [[ADD:[^,]+]], s32, 4
+; GFX9-FLATSCR:      s_add_i32 [[ADD:[^,]+]], s32, 4
 ; GFX9-NEXT:         ds_write_b32 v0, v0
 ; GFX9-MUBUF-NEXT:   v_lshrrev_b32_e64 [[SCALED:v[0-9]+]], 6, s32
 ; GFX9-MUBUF-NEXT:   v_add_u32_e32 v0, 4, [[SCALED]]
@@ -77,6 +77,8 @@ define void @func_add_constant_to_fi_i32() #0 {
 
 ; A user the materialized frame index can't be meaningfully folded
 ; into.
+; FIXME: Should use s_mul but the frame index always gets materialized into a
+; vgpr
 
 ; GCN-LABEL: {{^}}func_other_fi_user_i32:
 
@@ -85,7 +87,7 @@ define void @func_add_constant_to_fi_i32() #0 {
 ; GFX9-MUBUF:   v_lshrrev_b32_e64 v0, 6, s32
 ; GFX9-FLATSCR: v_mov_b32_e32 v0, s32
 
-; GCN-NEXT: v_mul_u32_u24_e32 v0, 9, v0
+; GCN-NEXT: v_mul_lo_u32 v0, v0, 9
 ; GCN-NOT: v_mov
 ; GCN: ds_write_b32 v0, v0
 define void @func_other_fi_user_i32() #0 {
@@ -154,19 +156,19 @@ define void @void_func_byval_struct_i8_i32_ptr_value({ i8, i32 } addrspace(5)* b
 
 ; GCN-LABEL: {{^}}void_func_byval_struct_i8_i32_ptr_nonentry_block:
 
+; GCN: s_and_saveexec_b64
+
+; CI: buffer_load_dword v{{[0-9]+}}, off, s[0:3], s32 offset:4 glc{{$}}
+; GFX9-MUBUF:   buffer_load_dword v{{[0-9]+}}, off, s[0:3], s32 offset:4 glc{{$}}
+; GFX9-FLATSCR: scratch_load_dword v{{[0-9]+}}, off, s32 offset:4 glc{{$}}
+
 ; CI: v_lshr_b32_e64 [[SHIFT:v[0-9]+]], s32, 6
+; CI: v_add_i32_e32 [[GEP:v[0-9]+]], vcc, 4, [[SHIFT]]
 
 ; GFX9-MUBUF:   v_lshrrev_b32_e64 [[SP:v[0-9]+]], 6, s32
 ; GFX9-FLATSCR: v_mov_b32_e32 [[SP:v[0-9]+]], s32
 
-; GCN: s_and_saveexec_b64
-
-; CI: v_add_i32_e32 [[GEP:v[0-9]+]], vcc, 4, [[SHIFT]]
-; CI: buffer_load_dword v{{[0-9]+}}, off, s[0:3], s32 offset:4 glc{{$}}
-
 ; GFX9: v_add_u32_e32 [[GEP:v[0-9]+]], 4, [[SP]]
-; GFX9-MUBUF:   buffer_load_dword v{{[0-9]+}}, off, s[0:3], s32 offset:4 glc{{$}}
-; GFX9-FLATSCR: scratch_load_dword v{{[0-9]+}}, off, s32 offset:4 glc{{$}}
 
 ; GCN: ds_write_b32 v{{[0-9]+}}, [[GEP]]
 define void @void_func_byval_struct_i8_i32_ptr_nonentry_block({ i8, i32 } addrspace(5)* byval({ i8, i32 }) %arg0, i32 %arg2) #0 {
@@ -194,10 +196,10 @@ ret:
 ; GFX9-MUBUF-DAG: v_lshrrev_b32_e64 [[SCALED:v[0-9]+]], 6, s32
 ; GFX9-MUBUF:     v_add_u32_e32 [[VZ:v[0-9]+]], 0x200, [[SCALED]]
 
-; GFX9-FLATSCR-DAG: s_add_u32 [[SZ:[^,]+]], s32, 0x200
+; GFX9-FLATSCR-DAG: s_add_i32 [[SZ:[^,]+]], s32, 0x200
 ; GFX9-FLATSCR:     v_mov_b32_e32 [[VZ:v[0-9]+]], [[SZ]]
 
-; GCN: v_mul_u32_u24_e32 [[VZ]], 9, [[VZ]]
+; GCN: v_mul_lo_u32 [[VZ]], [[VZ]], 9
 ; GCN: ds_write_b32 v0, [[VZ]]
 define void @func_other_fi_user_non_inline_imm_offset_i32() #0 {
   %alloca0 = alloca [128 x i32], align 4, addrspace(5)
@@ -220,10 +222,10 @@ define void @func_other_fi_user_non_inline_imm_offset_i32() #0 {
 ; GFX9-MUBUF-DAG: v_lshrrev_b32_e64 [[SCALED:v[0-9]+]], 6, s32
 ; GFX9-MUBUF:     v_add_u32_e32 [[VZ:v[0-9]+]], 0x200, [[SCALED]]
 
-; GFX9-FLATSCR-DAG: s_add_u32 [[SZ:[^,]+]], s32, 0x200
+; GFX9-FLATSCR-DAG: s_add_i32 [[SZ:[^,]+]], s32, 0x200
 ; GFX9-FLATSCR:     v_mov_b32_e32 [[VZ:v[0-9]+]], [[SZ]]
 
-; GCN: v_mul_u32_u24_e32 [[VZ]], 9, [[VZ]]
+; GCN: v_mul_lo_u32 [[VZ]], [[VZ]], 9
 ; GCN: ds_write_b32 v0, [[VZ]]
 define void @func_other_fi_user_non_inline_imm_offset_i32_vcc_live() #0 {
   %alloca0 = alloca [128 x i32], align 4, addrspace(5)

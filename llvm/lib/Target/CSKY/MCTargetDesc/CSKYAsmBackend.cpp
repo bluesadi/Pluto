@@ -8,6 +8,7 @@
 
 #include "CSKYAsmBackend.h"
 #include "MCTargetDesc/CSKYMCTargetDesc.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/MC/MCAsmLayout.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
@@ -24,14 +25,145 @@ CSKYAsmBackend::createObjectTargetWriter() const {
   return createCSKYELFObjectWriter();
 }
 
-unsigned int CSKYAsmBackend::getNumFixupKinds() const { return 1; }
+const MCFixupKindInfo &
+CSKYAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
+
+  static llvm::DenseMap<unsigned, MCFixupKindInfo> Infos = {
+      {CSKY::Fixups::fixup_csky_addr32, {"fixup_csky_addr32", 0, 32, 0}},
+      {CSKY::Fixups::fixup_csky_addr_hi16, {"fixup_csky_addr_hi16", 0, 32, 0}},
+      {CSKY::Fixups::fixup_csky_addr_lo16, {"fixup_csky_addr_lo16", 0, 32, 0}},
+      {CSKY::Fixups::fixup_csky_pcrel_imm16_scale2,
+       {"fixup_csky_pcrel_imm16_scale2", 0, 32, MCFixupKindInfo::FKF_IsPCRel}},
+      {CSKY::Fixups::fixup_csky_pcrel_uimm16_scale4,
+       {"fixup_csky_pcrel_uimm16_scale4", 0, 32,
+        MCFixupKindInfo::FKF_IsPCRel |
+            MCFixupKindInfo::FKF_IsAlignedDownTo32Bits}},
+      {CSKY::Fixups::fixup_csky_pcrel_uimm8_scale4,
+       {"fixup_csky_pcrel_uimm8_scale4", 0, 32,
+        MCFixupKindInfo::FKF_IsPCRel |
+            MCFixupKindInfo::FKF_IsAlignedDownTo32Bits}},
+      {CSKY::Fixups::fixup_csky_pcrel_imm26_scale2,
+       {"fixup_csky_pcrel_imm26_scale2", 0, 32, MCFixupKindInfo::FKF_IsPCRel}},
+      {CSKY::Fixups::fixup_csky_pcrel_imm18_scale2,
+       {"fixup_csky_pcrel_imm18_scale2", 0, 32, MCFixupKindInfo::FKF_IsPCRel}},
+      {CSKY::Fixups::fixup_csky_got32, {"fixup_csky_got32", 0, 32, 0}},
+      {CSKY::Fixups::fixup_csky_got_imm18_scale4,
+       {"fixup_csky_got_imm18_scale4", 0, 32, 0}},
+      {CSKY::Fixups::fixup_csky_gotoff, {"fixup_csky_gotoff", 0, 32, 0}},
+      {CSKY::Fixups::fixup_csky_gotpc,
+       {"fixup_csky_gotpc", 0, 32, MCFixupKindInfo::FKF_IsPCRel}},
+      {CSKY::Fixups::fixup_csky_plt32, {"fixup_csky_plt32", 0, 32, 0}},
+      {CSKY::Fixups::fixup_csky_plt_imm18_scale4,
+       {"fixup_csky_plt_imm18_scale4", 0, 32, 0}},
+      {CSKY::Fixups::fixup_csky_pcrel_imm10_scale2,
+       {"fixup_csky_pcrel_imm10_scale2", 0, 16, MCFixupKindInfo::FKF_IsPCRel}},
+      {CSKY::Fixups::fixup_csky_pcrel_uimm7_scale4,
+       {"fixup_csky_pcrel_uimm7_scale4", 0, 16,
+        MCFixupKindInfo::FKF_IsPCRel |
+            MCFixupKindInfo::FKF_IsAlignedDownTo32Bits}},
+      {CSKY::Fixups::fixup_csky_doffset_imm18,
+       {"fixup_csky_doffset_imm18", 0, 18, 0}},
+      {CSKY::Fixups::fixup_csky_doffset_imm18_scale2,
+       {"fixup_csky_doffset_imm18_scale2", 0, 18, 0}},
+      {CSKY::Fixups::fixup_csky_doffset_imm18_scale4,
+       {"fixup_csky_doffset_imm18_scale4", 0, 18, 0}}};
+
+  assert(Infos.size() == CSKY::NumTargetFixupKinds &&
+         "Not all fixup kinds added to Infos array");
+
+  if (FirstTargetFixupKind <= Kind && Kind < FirstLiteralRelocationKind) {
+    assert(unsigned(Kind - FirstTargetFixupKind) < getNumFixupKinds() &&
+           "Invalid kind!");
+
+    return Infos[Kind];
+  } else if (Kind < FirstTargetFixupKind) {
+    return MCAsmBackend::getFixupKindInfo(Kind);
+  } else {
+    return MCAsmBackend::getFixupKindInfo(FK_NONE);
+  }
+}
+
+static uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
+                                 MCContext &Ctx) {
+  switch (Fixup.getTargetKind()) {
+  default:
+    llvm_unreachable("Unknown fixup kind!");
+  case FK_Data_1:
+  case FK_Data_2:
+  case FK_Data_4:
+  case FK_Data_8:
+    return Value;
+  case CSKY::fixup_csky_addr32:
+    return Value & 0xffffffff;
+  case CSKY::fixup_csky_pcrel_imm16_scale2:
+    if (!isIntN(17, Value))
+      Ctx.reportError(Fixup.getLoc(), "out of range pc-relative fixup value.");
+    if (Value & 0x1)
+      Ctx.reportError(Fixup.getLoc(), "fixup value must be 2-byte aligned.");
+
+    return (Value >> 1) & 0xffff;
+  case CSKY::fixup_csky_pcrel_uimm16_scale4:
+    if (!isUIntN(18, Value))
+      Ctx.reportError(Fixup.getLoc(), "out of range pc-relative fixup value.");
+    if (Value & 0x3)
+      Ctx.reportError(Fixup.getLoc(), "fixup value must be 4-byte aligned.");
+
+    return (Value >> 2) & 0xffff;
+  case CSKY::fixup_csky_pcrel_imm26_scale2:
+    if (!isIntN(27, Value))
+      Ctx.reportError(Fixup.getLoc(), "out of range pc-relative fixup value.");
+    if (Value & 0x1)
+      Ctx.reportError(Fixup.getLoc(), "fixup value must be 2-byte aligned.");
+
+    return (Value >> 1) & 0x3ffffff;
+  case CSKY::fixup_csky_pcrel_imm18_scale2:
+    if (!isIntN(19, Value))
+      Ctx.reportError(Fixup.getLoc(), "out of range pc-relative fixup value.");
+    if (Value & 0x1)
+      Ctx.reportError(Fixup.getLoc(), "fixup value must be 2-byte aligned.");
+
+    return (Value >> 1) & 0x3ffff;
+  }
+}
 
 void CSKYAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
                                 const MCValue &Target,
                                 MutableArrayRef<char> Data, uint64_t Value,
                                 bool IsResolved,
                                 const MCSubtargetInfo *STI) const {
-  return;
+  MCFixupKind Kind = Fixup.getKind();
+  if (Kind >= FirstLiteralRelocationKind)
+    return;
+  MCContext &Ctx = Asm.getContext();
+  MCFixupKindInfo Info = getFixupKindInfo(Kind);
+  if (!Value)
+    return; // Doesn't change encoding.
+  // Apply any target-specific value adjustments.
+  Value = adjustFixupValue(Fixup, Value, Ctx);
+
+  // Shift the value into position.
+  Value <<= Info.TargetOffset;
+
+  unsigned Offset = Fixup.getOffset();
+  unsigned NumBytes = alignTo(Info.TargetSize + Info.TargetOffset, 8) / 8;
+
+  assert(Offset + NumBytes <= Data.size() && "Invalid fixup offset!");
+
+  // For each byte of the fragment that the fixup touches, mask in the
+  // bits from the fixup value.
+  bool IsLittleEndian = (Endian == support::little);
+
+  if (IsLittleEndian && (NumBytes == 4)) {
+    Data[Offset + 0] |= uint8_t((Value >> 16) & 0xff);
+    Data[Offset + 1] |= uint8_t((Value >> 24) & 0xff);
+    Data[Offset + 2] |= uint8_t(Value & 0xff);
+    Data[Offset + 3] |= uint8_t((Value >> 8) & 0xff);
+  } else {
+    for (unsigned I = 0; I != NumBytes; I++) {
+      unsigned Idx = IsLittleEndian ? I : (NumBytes - 1 - I);
+      Data[Offset + Idx] |= uint8_t((Value >> (I * 8)) & 0xff);
+    }
+  }
 }
 
 bool CSKYAsmBackend::fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
@@ -45,7 +177,8 @@ void CSKYAsmBackend::relaxInstruction(MCInst &Inst,
   llvm_unreachable("CSKYAsmBackend::relaxInstruction() unimplemented");
 }
 
-bool CSKYAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count) const {
+bool CSKYAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count,
+                                  const MCSubtargetInfo *STI) const {
   if (Count % 2)
     return false;
 

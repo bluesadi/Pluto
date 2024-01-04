@@ -19,6 +19,7 @@
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/ErrorOr.h"
 
 namespace clang {
@@ -120,8 +121,7 @@ public:
   MapEntryOptionalStorage() : MaybeRef(optional_none_tag()) {}
 
   template <class... ArgTypes>
-  explicit MapEntryOptionalStorage(llvm::optional_detail::in_place_t,
-                                   ArgTypes &&...Args)
+  explicit MapEntryOptionalStorage(llvm::in_place_t, ArgTypes &&...Args)
       : MaybeRef(std::forward<ArgTypes>(Args)...) {}
 
   void reset() { MaybeRef = optional_none_tag(); }

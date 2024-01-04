@@ -23,6 +23,7 @@
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/SectionKind.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SMLoc.h"
@@ -194,6 +195,8 @@ public:
     addDirectiveHandler<&DarwinAsmParser::parseMacOSXVersionMin>(
       ".macosx_version_min");
     addDirectiveHandler<&DarwinAsmParser::parseBuildVersion>(".build_version");
+    addDirectiveHandler<&DarwinAsmParser::parseDirectiveCGProfile>(
+        ".cg_profile");
 
     LastVersionDirective = SMLoc();
   }
@@ -466,6 +469,7 @@ public:
   bool parseSDKVersion(VersionTuple &SDKVersion);
   void checkVersion(StringRef Directive, StringRef Arg, SMLoc Loc,
                     Triple::OSType ExpectedOS);
+  bool parseDirectiveCGProfile(StringRef Directive, SMLoc Loc);
 };
 
 } // end anonymous namespace
@@ -689,15 +693,12 @@ bool DarwinAsmParser::parseDirectiveSection(StringRef, SMLoc) {
   unsigned StubSize;
   unsigned TAA;
   bool TAAParsed;
-  std::string ErrorStr =
-    MCSectionMachO::ParseSectionSpecifier(SectionSpec, Segment, Section,
-                                          TAA, TAAParsed, StubSize);
-
-  if (!ErrorStr.empty())
-    return Error(Loc, ErrorStr);
+  if (class Error E = MCSectionMachO::ParseSectionSpecifier(
+          SectionSpec, Segment, Section, TAA, TAAParsed, StubSize))
+    return Error(Loc, toString(std::move(E)));
 
   // Issue a warning if the target is not powerpc and Section is a *coal* section.
-  Triple TT = getParser().getContext().getObjectFileInfo()->getTargetTriple();
+  Triple TT = getParser().getContext().getTargetTriple();
   Triple::ArchType ArchTy = TT.getArch();
 
   if (ArchTy != Triple::ppc && ArchTy != Triple::ppc64) {
@@ -778,8 +779,9 @@ bool DarwinAsmParser::parseDirectiveSecureLogUnique(StringRef, SMLoc IDLoc) {
   raw_fd_ostream *OS = getContext().getSecureLog();
   if (!OS) {
     std::error_code EC;
-    auto NewOS = std::make_unique<raw_fd_ostream>(
-        StringRef(SecureLogFile), EC, sys::fs::OF_Append | sys::fs::OF_Text);
+    auto NewOS = std::make_unique<raw_fd_ostream>(StringRef(SecureLogFile), EC,
+                                                  sys::fs::OF_Append |
+                                                      sys::fs::OF_TextWithCRLF);
     if (EC)
        return Error(IDLoc, Twine("can't open secure log file: ") +
                                SecureLogFile + " (" + EC.message() + ")");
@@ -1092,7 +1094,7 @@ bool DarwinAsmParser::parseSDKVersion(VersionTuple &SDKVersion) {
 
 void DarwinAsmParser::checkVersion(StringRef Directive, StringRef Arg,
                                    SMLoc Loc, Triple::OSType ExpectedOS) {
-  const Triple &Target = getContext().getObjectFileInfo()->getTargetTriple();
+  const Triple &Target = getContext().getTargetTriple();
   if (Target.getOS() != ExpectedOS)
     Warning(Loc, Twine(Directive) +
             (Arg.empty() ? Twine() : Twine(' ') + Arg) +
@@ -1143,6 +1145,8 @@ bool DarwinAsmParser::parseVersionMin(StringRef Directive, SMLoc Loc,
 
 static Triple::OSType getOSTypeFromPlatform(MachO::PlatformType Type) {
   switch (Type) {
+  case MachO::PLATFORM_UNKNOWN: /* silence warning */
+    break;
   case MachO::PLATFORM_MACOS:   return Triple::MacOSX;
   case MachO::PLATFORM_IOS:     return Triple::IOS;
   case MachO::PLATFORM_TVOS:    return Triple::TvOS;
@@ -1199,6 +1203,11 @@ bool DarwinAsmParser::parseBuildVersion(StringRef Directive, SMLoc Loc) {
   return false;
 }
 
+/// parseDirectiveCGProfile
+///   ::= .cg_profile from, to, count
+bool DarwinAsmParser::parseDirectiveCGProfile(StringRef S, SMLoc Loc) {
+  return MCAsmParserExtension::ParseDirectiveCGProfile(S, Loc);
+}
 
 namespace llvm {
 

@@ -12,19 +12,23 @@
 
 #include "CSKYMCTargetDesc.h"
 #include "CSKYAsmBackend.h"
+#include "CSKYInstPrinter.h"
 #include "CSKYMCAsmInfo.h"
 #include "CSKYMCCodeEmitter.h"
 #include "TargetInfo/CSKYTargetInfo.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 
 #define GET_INSTRINFO_MC_DESC
 #include "CSKYGenInstrInfo.inc"
 
 #define GET_REGINFO_MC_DESC
 #include "CSKYGenRegisterInfo.inc"
+
+#define GET_SUBTARGETINFO_MC_DESC
+#include "CSKYGenSubtargetInfo.inc"
 
 using namespace llvm;
 
@@ -46,10 +50,26 @@ static MCInstrInfo *createCSKYMCInstrInfo() {
   return Info;
 }
 
+static MCInstPrinter *createCSKYMCInstPrinter(const Triple &T,
+                                              unsigned SyntaxVariant,
+                                              const MCAsmInfo &MAI,
+                                              const MCInstrInfo &MII,
+                                              const MCRegisterInfo &MRI) {
+  return new CSKYInstPrinter(MAI, MII, MRI);
+}
+
 static MCRegisterInfo *createCSKYMCRegisterInfo(const Triple &TT) {
   MCRegisterInfo *Info = new MCRegisterInfo();
   InitCSKYMCRegisterInfo(Info, CSKY::R15);
   return Info;
+}
+
+static MCSubtargetInfo *createCSKYMCSubtargetInfo(const Triple &TT,
+                                                  StringRef CPU, StringRef FS) {
+  std::string CPUName = std::string(CPU);
+  if (CPUName.empty())
+    CPUName = "generic";
+  return createCSKYMCSubtargetInfoImpl(TT, CPUName, /*TuneCPU=*/CPUName, FS);
 }
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeCSKYTargetMC() {
@@ -59,4 +79,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeCSKYTargetMC() {
   TargetRegistry::RegisterMCInstrInfo(CSKYTarget, createCSKYMCInstrInfo);
   TargetRegistry::RegisterMCRegInfo(CSKYTarget, createCSKYMCRegisterInfo);
   TargetRegistry::RegisterMCCodeEmitter(CSKYTarget, createCSKYMCCodeEmitter);
+  TargetRegistry::RegisterMCInstPrinter(CSKYTarget, createCSKYMCInstPrinter);
+  TargetRegistry::RegisterMCSubtargetInfo(CSKYTarget,
+                                          createCSKYMCSubtargetInfo);
 }

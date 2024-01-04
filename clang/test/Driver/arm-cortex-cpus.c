@@ -28,7 +28,6 @@
 // RUN: %clang -target armv5 -mthumb -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V5-THUMB %s
 // RUN: %clang -target arm -march=armv5 -mthumb -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V5-THUMB %s
 // RUN: %clang -target armv5t -mthumb -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V5-THUMB %s
-// RUN: %clang -target arm -march=armv5 -mthumb -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V5-THUMB %s
 // CHECK-V5-THUMB: "-cc1"{{.*}} "-triple" "thumbv5-{{.*}} "-target-cpu" "arm10tdmi"
 
 // RUN: %clang -target armv5e -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V5E %s
@@ -143,7 +142,7 @@
 // RUN: %clang -target arm -march=armv8 -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V8A %s
 // RUN: %clang -target armv8a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V8A %s
 // RUN: %clang -target arm -march=armv8a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V8A %s
-// RUN: %clang -target arm -mlittle-endian -march=armv8-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V8A %s
+// RUN: %clang -target arm -march=armv8-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V8A %s
 // CHECK-V8A: "-cc1"{{.*}} "-triple" "armv8-{{.*}}" "-target-cpu" "generic"
 
 // RUN: %clang -target armv8r-linux-gnueabi -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V8R %s
@@ -176,7 +175,7 @@
 // RUN: %clang -mcpu=generic -target arm -march=armv8 -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V8A-GENERIC %s
 // RUN: %clang -mcpu=generic -target armv8a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V8A-GENERIC %s
 // RUN: %clang -mcpu=generic -target arm -march=armv8a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V8A-GENERIC %s
-// RUN: %clang -mcpu=generic -target arm -mlittle-endian -march=armv8-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V8A-GENERIC %s
+// RUN: %clang -mcpu=generic -target arm -march=armv8-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V8A-GENERIC %s
 // CHECK-V8A-GENERIC: "-cc1"{{.*}} "-triple" "armv8-{{.*}}" "-target-cpu" "generic"
 
 // RUN: %clang -target armebv8 -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V8A %s
@@ -214,17 +213,15 @@
 // RUN: %clang -target arm -march=armv8.1a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
 // RUN: %clang -target armv8.1a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
 // RUN: %clang -target arm -march=armv8.1-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
-// RUN: %clang -target arm -march=armv8.1a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
 // RUN: %clang -target armv8.1a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
 // RUN: %clang -target arm -march=armv8.1a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
-// RUN: %clang -target arm -mlittle-endian -march=armv8.1-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
+// RUN: %clang -target arm -march=armv8.1-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
 // RUN: %clang -mcpu=generic -target arm -march=armv8.1a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
 // RUN: %clang -mcpu=generic -target armv8.1a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
 // RUN: %clang -mcpu=generic -target arm -march=armv8.1-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
-// RUN: %clang -mcpu=generic -target arm -march=armv8.1a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
 // RUN: %clang -mcpu=generic -target armv8.1a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
 // RUN: %clang -mcpu=generic -target arm -march=armv8.1a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
-// RUN: %clang -mcpu=generic -target arm -mlittle-endian -march=armv8.1-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
+// RUN: %clang -mcpu=generic -target arm -march=armv8.1-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V81A %s
 // CHECK-V81A: "-cc1"{{.*}} "-triple" "armv8.1a-{{.*}}" "-target-cpu" "generic"
 
 // RUN: %clang -target armebv8.1a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V81A %s
@@ -254,10 +251,9 @@
 // RUN: %clang -target armv8.2a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V82A %s
 // RUN: %clang -target arm -march=armv8.2a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V82A %s
 // RUN: %clang -target arm -march=armv8.2-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V82A %s
-// RUN: %clang -target arm -march=armv8.2a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V82A %s
 // RUN: %clang -target armv8.2a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V82A %s
 // RUN: %clang -target arm -march=armv8.2a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V82A %s
-// RUN: %clang -target arm -mlittle-endian -march=armv8.2-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V82A %s
+// RUN: %clang -target arm -march=armv8.2-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V82A %s
 // CHECK-V82A: "-cc1"{{.*}} "-triple" "armv8.2{{.*}}" "-target-cpu" "generic"
 
 // RUN: %clang -target armebv8.2a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V82A %s
@@ -287,10 +283,9 @@
 // RUN: %clang -target armv8.3a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V83A %s
 // RUN: %clang -target arm -march=armv8.3a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V83A %s
 // RUN: %clang -target arm -march=armv8.3-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V83A %s
-// RUN: %clang -target arm -march=armv8.3a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V83A %s
 // RUN: %clang -target armv8.3a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V83A %s
 // RUN: %clang -target arm -march=armv8.3a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V83A %s
-// RUN: %clang -target arm -mlittle-endian -march=armv8.3-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V83A %s
+// RUN: %clang -target arm -march=armv8.3-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V83A %s
 // CHECK-V83A: "-cc1"{{.*}} "-triple" "armv8.3{{.*}}" "-target-cpu" "generic"
 
 // RUN: %clang -target armebv8.3a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V83A %s
@@ -304,10 +299,9 @@
 // RUN: %clang -target armv8.4a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V84A %s
 // RUN: %clang -target arm -march=armv8.4a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V84A %s
 // RUN: %clang -target arm -march=armv8.4-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V84A %s
-// RUN: %clang -target arm -march=armv8.4a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V84A %s
 // RUN: %clang -target armv8.4a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V84A %s
 // RUN: %clang -target arm -march=armv8.4a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V84A %s
-// RUN: %clang -target arm -mlittle-endian -march=armv8.4-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V84A %s
+// RUN: %clang -target arm -march=armv8.4-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V84A %s
 // CHECK-V84A: "-cc1"{{.*}} "-triple" "armv8.4{{.*}}" "-target-cpu" "generic"
 
 // RUN: %clang -target armebv8.4a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V84A %s
@@ -321,10 +315,9 @@
 // RUN: %clang -target armv8.5a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V85A %s
 // RUN: %clang -target arm -march=armv8.5a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V85A %s
 // RUN: %clang -target arm -march=armv8.5-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V85A %s
-// RUN: %clang -target arm -march=armv8.5a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V85A %s
 // RUN: %clang -target armv8.5a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V85A %s
 // RUN: %clang -target arm -march=armv8.5a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V85A %s
-// RUN: %clang -target arm -mlittle-endian -march=armv8.5-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V85A %s
+// RUN: %clang -target arm -march=armv8.5-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V85A %s
 // CHECK-V85A: "-cc1"{{.*}} "-triple" "armv8.5{{.*}}" "-target-cpu" "generic"
 
 // RUN: %clang -target armebv8.5a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V85A %s
@@ -338,10 +331,9 @@
 // RUN: %clang -target armv8.6a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V86A %s
 // RUN: %clang -target arm -march=armv8.6a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V86A %s
 // RUN: %clang -target arm -march=armv8.6-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V86A %s
-// RUN: %clang -target arm -march=armv8.6a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V86A %s
 // RUN: %clang -target armv8.6a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V86A %s
 // RUN: %clang -target arm -march=armv8.6a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V86A %s
-// RUN: %clang -target arm -mlittle-endian -march=armv8.6-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V86A %s
+// RUN: %clang -target arm -march=armv8.6-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V86A %s
 // CHECK-V86A: "-cc1"{{.*}} "-triple" "armv8.6{{.*}}" "-target-cpu" "generic"
 
 // RUN: %clang -target armebv8.6a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V86A %s
@@ -355,10 +347,9 @@
 // RUN: %clang -target armv8.7a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V87A %s
 // RUN: %clang -target arm -march=armv8.7a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V87A %s
 // RUN: %clang -target arm -march=armv8.7-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V87A %s
-// RUN: %clang -target arm -march=armv8.7a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V87A %s
 // RUN: %clang -target armv8.7a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V87A %s
 // RUN: %clang -target arm -march=armv8.7a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V87A %s
-// RUN: %clang -target arm -mlittle-endian -march=armv8.7-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V87A %s
+// RUN: %clang -target arm -march=armv8.7-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V87A %s
 // CHECK-V87A: "-cc1"{{.*}} "-triple" "armv8.7{{.*}}" "-target-cpu" "generic"
 
 // RUN: %clang -target armebv8.7a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V87A %s
@@ -368,6 +359,86 @@
 // RUN: %clang -target arm -march=armebv8.7a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V87A %s
 // RUN: %clang -target arm -march=armebv8.7-a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V87A %s
 // CHECK-BE-V87A: "-cc1"{{.*}} "-triple" "armebv8.7{{.*}}" "-target-cpu" "generic"
+
+// RUN: %clang -target armv8.8a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V88A %s
+// RUN: %clang -target arm -march=armv8.8a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V88A %s
+// RUN: %clang -target arm -march=armv8.8-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V88A %s
+// RUN: %clang -target armv8.8a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V88A %s
+// RUN: %clang -target arm -march=armv8.8a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V88A %s
+// RUN: %clang -target arm -march=armv8.8-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V88A %s
+// CHECK-V88A: "-cc1"{{.*}} "-triple" "armv8.8{{.*}}" "-target-cpu" "generic"
+
+// RUN: %clang -target armebv8.8a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V88A %s
+// RUN: %clang -target armv8.8a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V88A %s
+// RUN: %clang -target armeb -march=armebv8.8a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V88A %s
+// RUN: %clang -target armeb -march=armebv8.8-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V88A %s
+// RUN: %clang -target arm -march=armebv8.8a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V88A %s
+// RUN: %clang -target arm -march=armebv8.8-a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V88A %s
+// CHECK-BE-V88A: "-cc1"{{.*}} "-triple" "armebv8.8{{.*}}" "-target-cpu" "generic"
+
+// RUN: %clang -target armv9a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V9A %s
+// RUN: %clang -target arm -march=armv9a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V9A %s
+// RUN: %clang -target arm -march=armv9-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V9A %s
+// RUN: %clang -target armv9a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V9A %s
+// RUN: %clang -target arm -march=armv9a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V9A %s
+// RUN: %clang -target arm -march=armv9-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V9A %s
+// CHECK-V9A: "-cc1"{{.*}} "-triple" "armv9{{.*}}" "-target-cpu" "generic"
+
+// RUN: %clang -target armebv9a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V9A %s
+// RUN: %clang -target armv9a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V9A %s
+// RUN: %clang -target armeb -march=armebv9a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V9A %s
+// RUN: %clang -target armeb -march=armebv9-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V9A %s
+// RUN: %clang -target arm -march=armebv9a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V9A %s
+// RUN: %clang -target arm -march=armebv9-a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V9A %s
+// CHECK-BE-V9A: "-cc1"{{.*}} "-triple" "armebv9{{.*}}" "-target-cpu" "generic"
+
+// RUN: %clang -target armv9.1a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V91A %s
+// RUN: %clang -target arm -march=armv9.1a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V91A %s
+// RUN: %clang -target arm -march=armv9.1-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V91A %s
+// RUN: %clang -target armv9.1a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V91A %s
+// RUN: %clang -target arm -march=armv9.1a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V91A %s
+// RUN: %clang -target arm -march=armv9.1-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V91A %s
+// CHECK-V91A: "-cc1"{{.*}} "-triple" "armv9.1{{.*}}" "-target-cpu" "generic"
+
+// RUN: %clang -target armebv9.1a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V91A %s
+// RUN: %clang -target armv9.1a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V91A %s
+// RUN: %clang -target armeb -march=armebv9.1a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V91A %s
+// RUN: %clang -target armeb -march=armebv9.1-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V91A %s
+// RUN: %clang -target arm -march=armebv9.1a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V91A %s
+// RUN: %clang -target arm -march=armebv9.1-a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V91A %s
+// CHECK-BE-V91A: "-cc1"{{.*}} "-triple" "armebv9.1{{.*}}" "-target-cpu" "generic"
+
+// RUN: %clang -target armv9.2a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V92A %s
+// RUN: %clang -target arm -march=armv9.2a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V92A %s
+// RUN: %clang -target arm -march=armv9.2-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V92A %s
+// RUN: %clang -target armv9.2a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V92A %s
+// RUN: %clang -target arm -march=armv9.2a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V92A %s
+// RUN: %clang -target arm -march=armv9.2-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V92A %s
+// CHECK-V92A: "-cc1"{{.*}} "-triple" "armv9.2{{.*}}" "-target-cpu" "generic"
+
+// RUN: %clang -target armebv9.2a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V92A %s
+// RUN: %clang -target armv9.2a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V92A %s
+// RUN: %clang -target armeb -march=armebv9.2a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V92A %s
+// RUN: %clang -target armeb -march=armebv9.2-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V92A %s
+// RUN: %clang -target arm -march=armebv9.2a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V92A %s
+// RUN: %clang -target arm -march=armebv9.2-a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V92A %s
+// CHECK-BE-V92A: "-cc1"{{.*}} "-triple" "armebv9.2{{.*}}" "-target-cpu" "generic"
+
+// RUN: %clang -target armv9.3a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V93A %s
+// RUN: %clang -target arm -march=armv9.3a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V93A %s
+// RUN: %clang -target arm -march=armv9.3-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V93A %s
+// RUN: %clang -target armv9.3a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V93A %s
+// RUN: %clang -target arm -march=armv9.3a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V93A %s
+// RUN: %clang -target arm -march=armv9.3-a -mlittle-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V93A %s
+// CHECK-V93A: "-cc1"{{.*}} "-triple" "armv9.3{{.*}}" "-target-cpu" "generic"
+
+// RUN: %clang -target armebv9.3a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V93A %s
+// RUN: %clang -target armv9.3a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V93A %s
+// RUN: %clang -target armeb -march=armebv9.3a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V93A %s
+// RUN: %clang -target armeb -march=armebv9.3-a -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V93A %s
+// RUN: %clang -target arm -march=armebv9.3a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V93A %s
+// RUN: %clang -target arm -march=armebv9.3-a -mbig-endian -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-BE-V93A %s
+// CHECK-BE-V93A: "-cc1"{{.*}} "-triple" "armebv9.3{{.*}}" "-target-cpu" "generic"
 
 // Once we have CPUs with optional v8.2-A FP16, we will need a way to turn it
 // on and off. Cortex-A53 is a placeholder for now.
@@ -408,7 +479,7 @@
 // CHECK-V82A-FP16-NOFP16FML: "-target-feature" "+fullfp16" "-target-feature" "-fp16fml"
 
 // RUN: %clang -target armv8a-linux-eabi -march=armv8.2-a+nofp16fml+fp16 -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V82A-NOFP16FML-FP16 %s
-// CHECK-V82A-NOFP16FML-FP16: "-target-feature" "-fp16fml" "-target-feature" "+fullfp16"
+// CHECK-V82A-NOFP16FML-FP16: "-target-feature" "+fullfp16" "-target-feature" "-fp16fml"
 
 // RUN: %clang -target armv8a-linux-eabi -march=armv8.2-a+fp16fml+nofp16 -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V82A-FP16FML-NOFP16 %s
 // CHECK-V82A-FP16FML-NOFP16: "-target-feature" "-fullfp16" "-target-feature" "-fp16fml"
@@ -433,7 +504,7 @@
 // CHECK-V83A-FP16-NOFP16FML: "-target-feature" "+fullfp16" "-target-feature" "-fp16fml"
 
 // RUN: %clang -target armv8a-linux-eabi -march=armv8.3-a+nofp16fml+fp16 -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V83A-NOFP16FML-FP16 %s
-// CHECK-V83A-NOFP16FML-FP16: "-target-feature" "-fp16fml" "-target-feature" "+fullfp16"
+// CHECK-V83A-NOFP16FML-FP16: "-target-feature" "+fullfp16" "-target-feature" "-fp16fml"
 
 // RUN: %clang -target armv8a-linux-eabi -march=armv8.3-a+fp16fml+nofp16 -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-V83A-FP16FML-NOFP16 %s
 // CHECK-V83A-FP16FML-NOFP16: "-target-feature" "-fullfp16" "-target-feature" "-fp16fml"
@@ -826,7 +897,8 @@
 // RUN: %clang -target armv8a-arm-none-eabi -mcpu=cortex-a73 -mfloat-abi=soft -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-CORTEX-A73-SOFT %s
 // CHECK-CORTEX-A73: "-cc1"{{.*}} "-triple" "armv8-{{.*}} "-target-cpu" "cortex-a73"
 // CHECK-CORTEX-A73-MFPU: "-cc1"{{.*}} "-target-feature" "+fp-armv8"
-// CHECK-CORTEX-A73-MFPU: "-target-feature" "+crypto"
+// CHECK-CORTEX-A73-MFPU: "-target-feature" "+sha2"
+// CHECK-CORTEX-A73-MFPU: "-target-feature" "+aes"
 // CHECK-CORTEX-A73-SOFT: "-target-feature" "+soft-float"
 // CHECK-CORTEX-A73-SOFT: "-target-feature" "+soft-float-abi"
 
@@ -835,7 +907,8 @@
 // RUN: %clang -target armv8a-arm-none-eabi -mcpu=cortex-a75 -mfloat-abi=soft -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-CORTEX-A75-SOFT %s
 // CHECK-CORTEX-A75: "-cc1"{{.*}} "-triple" "armv8.2a-{{.*}} "-target-cpu" "cortex-a75"
 // CHECK-CORTEX-A75-MFPU: "-cc1"{{.*}} "-target-feature" "+fp-armv8"
-// CHECK-CORTEX-A75-MFPU: "-target-feature" "+crypto"
+// CHECK-CORTEX-A75-MFPU: "-target-feature" "+sha2"
+// CHECK-CORTEX-A75-MFPU: "-target-feature" "+aes"
 // CHECK-CORTEX-A75-SOFT: "-target-feature" "+soft-float"
 // CHECK-CORTEX-A75-SOFT: "-target-feature" "+soft-float-abi"
 
@@ -844,7 +917,8 @@
 // RUN: %clang -target armv8a-arm-none-eabi -mcpu=cortex-a76 -mfloat-abi=soft -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-CORTEX-A76-SOFT %s
 // CHECK-CORTEX-A76: "-cc1"{{.*}} "-triple" "armv8.2a-{{.*}} "-target-cpu" "cortex-a76"
 // CHECK-CORTEX-A76-MFPU: "-cc1"{{.*}} "-target-feature" "+fp-armv8"
-// CHECK-CORTEX-A76-MFPU: "-target-feature" "+crypto"
+// CHECK-CORTEX-A76-MFPU: "-target-feature" "+sha2"
+// CHECK-CORTEX-A76-MFPU: -target-feature" "+aes"
 // CHECK-CORTEX-A76-SOFT: "-target-feature" "+soft-float"
 // CHECK-CORTEX-A76-SOFT: "-target-feature" "+soft-float-abi"
 
@@ -853,7 +927,8 @@
 // RUN: %clang -target armv8a-arm-none-eabi -mcpu=cortex-a76ae -mfloat-abi=soft -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-CORTEX-A76AE-SOFT %s
 // CHECK-CORTEX-A76AE: "-cc1"{{.*}} "-triple" "armv8.2a-{{.*}} "-target-cpu" "cortex-a76ae"
 // CHECK-CORTEX-A76AE-MFPU: "-cc1"{{.*}} "-target-feature" "+fp-armv8"
-// CHECK-CORTEX-A76AE-MFPU: "-target-feature" "+crypto"
+// CHECK-CORTEX-A76AE-MFPU: "-target-feature" "+sha2"
+// CHECK-CORTEX-A76AE-MFPU: -target-feature" "+aes"
 // CHECK-CORTEX-A76AE-SOFT: "-target-feature" "+soft-float"
 // CHECK-CORTEX-A76AE-SOFT: "-target-feature" "+soft-float-abi"
 
@@ -877,13 +952,38 @@
 // RUN: %clang -target armv8a-arm-none-eabi -mcpu=cortex-x1 -mfpu=crypto-neon-fp-armv8 -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-CORTEX-X1-MFPU %s
 // CHECK-CORTEX-X1: "-cc1"{{.*}} "-triple" "armv8.2a-{{.*}} "-target-cpu" "cortex-x1"
 // CHECK-CORTEX-X1-MFPU: "-cc1"{{.*}} "-target-feature" "+fp-armv8"
-// CHECK-CORTEX-X1-MFPU: "-target-feature" "+crypto"
+// CHECK-CORTEX-X1-MFPU: "-target-feature" "+sha2"
+// CHECK-CORTEX-X1-MFPU: "-target-feature" "+aes"
+
+// RUN: %clang -target armv8a-arm-none-eabi -mcpu=cortex-x1c -mfpu=crypto-neon-fp-armv8 -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-CORTEX-CORTEX-X1C-MFPU %s
+// CHECK-CORTEX-CORTEX-X1C: "-cc1"{{.*}} "-triple" "armv8.2a-{{.*}} "-target-cpu" "cortex-x1c"
+// CHECK-CORTEX-CORTEX-X1C-MFPU: "-cc1"{{.*}} "-target-feature" "+fp-armv8"
+// CHECK-CORTEX-CORTEX-X1C-MFPU: "-target-feature" "+crypto"
 
 // RUN: %clang -target armv8a-arm-none-eabi -mcpu=cortex-a78 -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-CORTEX-A78 %s
 // RUN: %clang -target armv8a-arm-none-eabi -mcpu=cortex-a78 -mfpu=crypto-neon-fp-armv8 -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-CORTEX-A78-MFPU %s
 // CHECK-CORTEX-A78: "-cc1"{{.*}} "-triple" "armv8.2a-{{.*}} "-target-cpu" "cortex-a78"
 // CHECK-CORTEX-A78-MFPU: "-cc1"{{.*}} "-target-feature" "+fp-armv8"
-// CHECK-CORTEX-A78-MFPU: "-target-feature" "+crypto"
+// CHECK-CORTEX-A78-MFPU: "-target-feature" "+sha2"
+// CHECK-CORTEX-A78-MFPU: "-target-feature" "+aes"
+
+// RUN: %clang -target armv8a-arm-none-eabi -mcpu=cortex-a78c -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-CORTEX-A78C %s
+// RUN: %clang -target armv8a-arm-none-eabi -mcpu=cortex-a78c -mfpu=crypto-neon-fp-armv8 -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-CORTEX-A78C-MFPU %s
+// CHECK-CORTEX-A78C: "-cc1"{{.*}} "-triple" "armv8.2a-{{.*}} "-target-cpu" "cortex-a78c"
+// CHECK-CORTEX-A78C-MFPU: "-cc1"{{.*}} "-target-feature" "+fp-armv8"
+// CHECK-CORTEX-A78C-MFPU: "-target-feature" "+sha2"
+// CHECK-CORTEX-A78C-MFPU: "-target-feature" "+aes"
+
+// RUN: %clang -target armv8a-arm-none-eabi -mcpu=cortex-a710 -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-CORTEX-A710 %s
+// RUN: %clang -target armv8a-arm-none-eabi -mcpu=cortex-a710 -mfpu=crypto-neon-fp-armv8 -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-CORTEX-A710-MFPU %s
+// CHECK-CORTEX-A710: "-cc1"{{.*}} "-triple" "armv9a-{{.*}} "-target-cpu" "cortex-a710"
+// CHECK-CORTEX-A710-NOT: "-target-feature" "{{[+-]}}sm4"
+// CHECK-CORTEX-A710-NOT: "-target-feature" "{{[+-]}}sha3"
+// CHECK-CORTEX-A710: "-target-feature" "-aes"
+// CHECK-CORTEX-A710-SAME: {{$}}
+// CHECK-CORTEX-A710-MFPU: "-cc1"{{.*}} "-target-feature" "+fp-armv8"
+// CHECK-CORTEX-A710-MFPU: "-target-feature" "+sha2"
+// CHECK-CORTEX-A710-MFPU: "-target-feature" "+aes"
 
 // RUN: %clang -target arm -mcpu=cortex-m23 -### -c %s 2>&1 | FileCheck -check-prefix=CHECK-CPUV8MBASE %s
 // CHECK-CPUV8MBASE:  "-cc1"{{.*}} "-triple" "thumbv8m.base-

@@ -13,7 +13,6 @@
 #include "llvm/IR/Metadata.h"
 #include "LLVMContextImpl.h"
 #include "MetadataImpl.h"
-#include "SymbolTableListTraitsImpl.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -44,7 +43,6 @@
 #include "llvm/IR/TrackingMDRef.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
-#include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
@@ -52,8 +50,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <iterator>
-#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -195,6 +191,25 @@ bool MetadataTracking::isReplaceable(const Metadata &MD) {
   return ReplaceableMetadataImpl::isReplaceable(MD);
 }
 
+SmallVector<Metadata *> ReplaceableMetadataImpl::getAllArgListUsers() {
+  SmallVector<std::pair<OwnerTy, uint64_t> *> MDUsersWithID;
+  for (auto Pair : UseMap) {
+    OwnerTy Owner = Pair.second.first;
+    if (!Owner.is<Metadata *>())
+      continue;
+    Metadata *OwnerMD = Owner.get<Metadata *>();
+    if (OwnerMD->getMetadataID() == Metadata::DIArgListKind)
+      MDUsersWithID.push_back(&UseMap[Pair.first]);
+  }
+  llvm::sort(MDUsersWithID, [](auto UserA, auto UserB) {
+    return UserA->second < UserB->second;
+  });
+  SmallVector<Metadata *> MDUsers;
+  for (auto UserWithID : MDUsersWithID)
+    MDUsers.push_back(UserWithID->first.get<Metadata *>());
+  return MDUsers;
+}
+
 void ReplaceableMetadataImpl::addRef(void *Ref, OwnerTy Owner) {
   bool WasInserted =
       UseMap.insert(std::make_pair(Ref, std::make_pair(Owner, NextIndex)))
@@ -326,7 +341,7 @@ ReplaceableMetadataImpl *ReplaceableMetadataImpl::getIfExists(Metadata &MD) {
 bool ReplaceableMetadataImpl::isReplaceable(const Metadata &MD) {
   if (auto *N = dyn_cast<MDNode>(&MD))
     return !N->isResolved();
-  return dyn_cast<ValueAsMetadata>(&MD);
+  return isa<ValueAsMetadata>(&MD);
 }
 
 static DISubprogram *getLocalFunctionMetadata(Value *V) {
@@ -1348,6 +1363,15 @@ void Instruction::addAnnotationMetadata(StringRef Name) {
   setMetadata(LLVMContext::MD_annotation, MD);
 }
 
+AAMDNodes Instruction::getAAMetadata() const {
+  AAMDNodes Result;
+  Result.TBAA = getMetadata(LLVMContext::MD_tbaa);
+  Result.TBAAStruct = getMetadata(LLVMContext::MD_tbaa_struct);
+  Result.Scope = getMetadata(LLVMContext::MD_alias_scope);
+  Result.NoAlias = getMetadata(LLVMContext::MD_noalias);
+  return Result;
+}
+
 void Instruction::setAAMetadata(const AAMDNodes &N) {
   setMetadata(LLVMContext::MD_tbaa, N.TBAA);
   setMetadata(LLVMContext::MD_tbaa_struct, N.TBAAStruct);
@@ -1400,12 +1424,12 @@ bool Instruction::extractProfMetadata(uint64_t &TrueVal,
 }
 
 bool Instruction::extractProfTotalWeight(uint64_t &TotalVal) const {
-  assert((getOpcode() == Instruction::Br ||
-          getOpcode() == Instruction::Select ||
-          getOpcode() == Instruction::Call ||
-          getOpcode() == Instruction::Invoke ||
-          getOpcode() == Instruction::Switch) &&
-         "Looking for branch weights on something besides branch");
+  assert(
+      (getOpcode() == Instruction::Br || getOpcode() == Instruction::Select ||
+       getOpcode() == Instruction::Call || getOpcode() == Instruction::Invoke ||
+       getOpcode() == Instruction::IndirectBr ||
+       getOpcode() == Instruction::Switch) &&
+      "Looking for branch weights on something besides branch");
 
   TotalVal = 0;
   auto *ProfileData = getMetadata(LLVMContext::MD_prof);

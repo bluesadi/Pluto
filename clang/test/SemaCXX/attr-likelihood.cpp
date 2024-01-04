@@ -147,5 +147,30 @@ void o()
   if constexpr (true) [[likely]] {
   // expected-warning@+1 {{attribute 'likely' has no effect when annotating an 'if constexpr' statement}}
   } else [[likely]];
+
+  if (1) [[likely, unlikely]] { // expected-error {{'unlikely' and 'likely' attributes are not compatible}} \
+                                // expected-note {{conflicting attribute is here}}
+  } else [[unlikely]][[likely]] { // expected-error {{'likely' and 'unlikely' attributes are not compatible}} \
+                                  // expected-note {{conflicting attribute is here}}
+  }
 }
+
+constexpr int constexpr_function() {
+  [[likely]] return 0;
+}
+static_assert(constexpr_function() == 0);
+
+constexpr double pow(double x, long long n) noexcept {
+    if (n > 0) [[likely]]
+        return x * pow(x, n - 1);
+    else [[unlikely]]
+        return 1;
+}
+constexpr long long fact(long long n) noexcept {
+    if (n > 1) [[likely]]
+        return n * fact(n - 1);
+    else [[unlikely]]
+        return 1;
+}
+
 #endif

@@ -53,6 +53,8 @@ TEST(MinimizeSourceToDependencyDirectivesTest, AllTokens) {
                                            "#if A\n"
                                            "#ifdef A\n"
                                            "#ifndef A\n"
+                                           "#elifdef A\n"
+                                           "#elifndef A\n"
                                            "#elif A\n"
                                            "#else\n"
                                            "#include <A>\n"
@@ -61,6 +63,9 @@ TEST(MinimizeSourceToDependencyDirectivesTest, AllTokens) {
                                            "#import <A>\n"
                                            "@import A;\n"
                                            "#pragma clang module import A\n"
+                                           "#pragma push_macro(A)\n"
+                                           "#pragma pop_macro(A)\n"
+                                           "#pragma include_alias(<A>, <B>)\n"
                                            "export module m;\n"
                                            "import m;\n",
                                            Out, Tokens));
@@ -70,18 +75,23 @@ TEST(MinimizeSourceToDependencyDirectivesTest, AllTokens) {
   EXPECT_EQ(pp_if, Tokens[3].K);
   EXPECT_EQ(pp_ifdef, Tokens[4].K);
   EXPECT_EQ(pp_ifndef, Tokens[5].K);
-  EXPECT_EQ(pp_elif, Tokens[6].K);
-  EXPECT_EQ(pp_else, Tokens[7].K);
-  EXPECT_EQ(pp_include, Tokens[8].K);
-  EXPECT_EQ(pp_include_next, Tokens[9].K);
-  EXPECT_EQ(pp___include_macros, Tokens[10].K);
-  EXPECT_EQ(pp_import, Tokens[11].K);
-  EXPECT_EQ(decl_at_import, Tokens[12].K);
-  EXPECT_EQ(pp_pragma_import, Tokens[13].K);
-  EXPECT_EQ(cxx_export_decl, Tokens[14].K);
-  EXPECT_EQ(cxx_module_decl, Tokens[15].K);
-  EXPECT_EQ(cxx_import_decl, Tokens[16].K);
-  EXPECT_EQ(pp_eof, Tokens[17].K);
+  EXPECT_EQ(pp_elifdef, Tokens[6].K);
+  EXPECT_EQ(pp_elifndef, Tokens[7].K);
+  EXPECT_EQ(pp_elif, Tokens[8].K);
+  EXPECT_EQ(pp_else, Tokens[9].K);
+  EXPECT_EQ(pp_include, Tokens[10].K);
+  EXPECT_EQ(pp_include_next, Tokens[11].K);
+  EXPECT_EQ(pp___include_macros, Tokens[12].K);
+  EXPECT_EQ(pp_import, Tokens[13].K);
+  EXPECT_EQ(decl_at_import, Tokens[14].K);
+  EXPECT_EQ(pp_pragma_import, Tokens[15].K);
+  EXPECT_EQ(pp_pragma_push_macro, Tokens[16].K);
+  EXPECT_EQ(pp_pragma_pop_macro, Tokens[17].K);
+  EXPECT_EQ(pp_pragma_include_alias, Tokens[18].K);
+  EXPECT_EQ(cxx_export_decl, Tokens[19].K);
+  EXPECT_EQ(cxx_module_decl, Tokens[20].K);
+  EXPECT_EQ(cxx_import_decl, Tokens[21].K);
+  EXPECT_EQ(pp_eof, Tokens[22].K);
 }
 
 TEST(MinimizeSourceToDependencyDirectivesTest, Define) {
@@ -324,6 +334,44 @@ TEST(MinimizeSourceToDependencyDirectivesTest, Ifdef) {
                Out.data());
 }
 
+TEST(MinimizeSourceToDependencyDirectivesTest, Elifdef) {
+  SmallVector<char, 128> Out;
+
+  ASSERT_FALSE(minimizeSourceToDependencyDirectives("#ifdef A\n"
+                                                    "#define B\n"
+                                                    "#elifdef C\n"
+                                                    "#define D\n"
+                                                    "#endif\n",
+                                                    Out));
+  EXPECT_STREQ("#ifdef A\n"
+               "#define B\n"
+               "#elifdef C\n"
+               "#define D\n"
+               "#endif\n",
+               Out.data());
+
+  ASSERT_FALSE(minimizeSourceToDependencyDirectives("#ifdef A\n"
+                                                    "#define B\n"
+                                                    "#elifdef B\n"
+                                                    "#define C\n"
+                                                    "#elifndef C\n"
+                                                    "#define D\n"
+                                                    "#else\n"
+                                                    "#define E\n"
+                                                    "#endif\n",
+                                                    Out));
+  EXPECT_STREQ("#ifdef A\n"
+               "#define B\n"
+               "#elifdef B\n"
+               "#define C\n"
+               "#elifndef C\n"
+               "#define D\n"
+               "#else\n"
+               "#define E\n"
+               "#endif\n",
+               Out.data());
+}
+
 TEST(MinimizeSourceToDependencyDirectivesTest, EmptyIfdef) {
   SmallVector<char, 128> Out;
 
@@ -341,11 +389,44 @@ TEST(MinimizeSourceToDependencyDirectivesTest, EmptyIfdef) {
                Out.data());
 }
 
+TEST(MinimizeSourceToDependencyDirectivesTest, EmptyElifdef) {
+  SmallVector<char, 128> Out;
+
+  ASSERT_FALSE(minimizeSourceToDependencyDirectives("#ifdef A\n"
+                                                    "void skip();\n"
+                                                    "#elifdef B\n"
+                                                    "#elifndef C\n"
+                                                    "#else D\n"
+                                                    "#endif\n",
+                                                    Out));
+  EXPECT_STREQ("#ifdef A\n"
+               "#elifdef B\n"
+               "#elifndef C\n"
+               "#endif\n",
+               Out.data());
+}
+
 TEST(MinimizeSourceToDependencyDirectivesTest, Pragma) {
   SmallVector<char, 128> Out;
 
   ASSERT_FALSE(minimizeSourceToDependencyDirectives("#pragma A\n", Out));
   EXPECT_STREQ("", Out.data());
+
+  ASSERT_FALSE(minimizeSourceToDependencyDirectives(
+      "#pragma push_macro(\"MACRO\")\n", Out));
+  EXPECT_STREQ("#pragma push_macro(\"MACRO\")\n", Out.data());
+
+  ASSERT_FALSE(minimizeSourceToDependencyDirectives(
+      "#pragma pop_macro(\"MACRO\")\n", Out));
+  EXPECT_STREQ("#pragma pop_macro(\"MACRO\")\n", Out.data());
+
+  ASSERT_FALSE(minimizeSourceToDependencyDirectives(
+      "#pragma include_alias(\"A\", \"B\")\n", Out));
+  EXPECT_STREQ("#pragma include_alias(\"A\", \"B\")\n", Out.data());
+
+  ASSERT_FALSE(minimizeSourceToDependencyDirectives(
+      "#pragma include_alias(<A>, <B>)\n", Out));
+  EXPECT_STREQ("#pragma include_alias(<A>, <B>)\n", Out.data());
 
   ASSERT_FALSE(minimizeSourceToDependencyDirectives("#pragma clang\n", Out));
   EXPECT_STREQ("", Out.data());
@@ -706,6 +787,29 @@ TEST(MinimizeSourceToDependencyDirectivesTest, SkippedPPRangesBasic) {
   EXPECT_EQ(Ranges.size(), 1u);
   EXPECT_EQ(Ranges[0].Offset, 0);
   EXPECT_EQ(Ranges[0].Length, (int)Out.find("#endif"));
+}
+
+TEST(MinimizeSourceToDependencyDirectivesTest, SkippedPPRangesBasicElifdef) {
+  SmallString<128> Out;
+  SmallVector<Token, 32> Toks;
+  StringRef Source = "#ifdef BLAH\n"
+                     "void skip();\n"
+                     "#elifdef BLAM\n"
+                     "void skip();\n"
+                     "#elifndef GUARD\n"
+                     "#define GUARD\n"
+                     "void foo();\n"
+                     "#endif\n";
+  ASSERT_FALSE(minimizeSourceToDependencyDirectives(Source, Out, Toks));
+  SmallVector<SkippedRange, 4> Ranges;
+  ASSERT_FALSE(computeSkippedRanges(Toks, Ranges));
+  EXPECT_EQ(Ranges.size(), 3u);
+  EXPECT_EQ(Ranges[0].Offset, 0);
+  EXPECT_EQ(Ranges[0].Length, (int)Out.find("#elifdef"));
+  EXPECT_EQ(Ranges[1].Offset, (int)Out.find("#elifdef"));
+  EXPECT_EQ(Ranges[1].Offset + Ranges[1].Length, (int)Out.find("#elifndef"));
+  EXPECT_EQ(Ranges[2].Offset, (int)Out.find("#elifndef"));
+  EXPECT_EQ(Ranges[2].Offset + Ranges[2].Length, (int)Out.rfind("#endif"));
 }
 
 TEST(MinimizeSourceToDependencyDirectivesTest, SkippedPPRangesNested) {

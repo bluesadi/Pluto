@@ -9,10 +9,11 @@
 #ifndef LLVM_CLANG_LIB_CODEGEN_CGBUILDER_H
 #define LLVM_CLANG_LIB_CODEGEN_CGBUILDER_H
 
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/IRBuilder.h"
 #include "Address.h"
 #include "CodeGenTypeCache.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Type.h"
 
 namespace clang {
 namespace CodeGen {
@@ -66,35 +67,29 @@ public:
   // Note that we intentionally hide the CreateLoad APIs that don't
   // take an alignment.
   llvm::LoadInst *CreateLoad(Address Addr, const llvm::Twine &Name = "") {
-    return CreateAlignedLoad(Addr.getPointer(),
+    return CreateAlignedLoad(Addr.getElementType(), Addr.getPointer(),
                              Addr.getAlignment().getAsAlign(), Name);
   }
   llvm::LoadInst *CreateLoad(Address Addr, const char *Name) {
     // This overload is required to prevent string literals from
     // ending up in the IsVolatile overload.
-    return CreateAlignedLoad(Addr.getPointer(),
+    return CreateAlignedLoad(Addr.getElementType(), Addr.getPointer(),
                              Addr.getAlignment().getAsAlign(), Name);
   }
   llvm::LoadInst *CreateLoad(Address Addr, bool IsVolatile,
                              const llvm::Twine &Name = "") {
-    return CreateAlignedLoad(
-        Addr.getPointer(), Addr.getAlignment().getAsAlign(), IsVolatile, Name);
+    return CreateAlignedLoad(Addr.getElementType(), Addr.getPointer(),
+                             Addr.getAlignment().getAsAlign(), IsVolatile,
+                             Name);
   }
 
   using CGBuilderBaseTy::CreateAlignedLoad;
-  llvm::LoadInst *CreateAlignedLoad(llvm::Value *Addr, CharUnits Align,
-                                    const llvm::Twine &Name = "") {
-    return CreateAlignedLoad(Addr, Align.getAsAlign(), Name);
-  }
-  llvm::LoadInst *CreateAlignedLoad(llvm::Value *Addr, CharUnits Align,
-                                    const char *Name) {
-    return CreateAlignedLoad(Addr, Align.getAsAlign(), Name);
-  }
   llvm::LoadInst *CreateAlignedLoad(llvm::Type *Ty, llvm::Value *Addr,
                                     CharUnits Align,
                                     const llvm::Twine &Name = "") {
-    assert(Addr->getType()->getPointerElementType() == Ty);
-    return CreateAlignedLoad(Addr, Align.getAsAlign(), Name);
+    assert(llvm::cast<llvm::PointerType>(Addr->getType())
+               ->isOpaqueOrPointeeTypeMatches(Ty));
+    return CreateAlignedLoad(Ty, Addr, Align.getAsAlign(), Name);
   }
 
   // Note that we intentionally hide the CreateStore APIs that don't
@@ -122,14 +117,38 @@ public:
   /// Emit a load from an i1 flag variable.
   llvm::LoadInst *CreateFlagLoad(llvm::Value *Addr,
                                  const llvm::Twine &Name = "") {
-    assert(Addr->getType()->getPointerElementType() == getInt1Ty());
+    assert(llvm::cast<llvm::PointerType>(Addr->getType())
+               ->isOpaqueOrPointeeTypeMatches(getInt1Ty()));
     return CreateAlignedLoad(getInt1Ty(), Addr, CharUnits::One(), Name);
   }
 
   /// Emit a store to an i1 flag variable.
   llvm::StoreInst *CreateFlagStore(bool Value, llvm::Value *Addr) {
-    assert(Addr->getType()->getPointerElementType() == getInt1Ty());
+    assert(llvm::cast<llvm::PointerType>(Addr->getType())
+               ->isOpaqueOrPointeeTypeMatches(getInt1Ty()));
     return CreateAlignedStore(getInt1(Value), Addr, CharUnits::One());
+  }
+
+  // Temporarily use old signature; clang will be updated to an Address overload
+  // in a subsequent patch.
+  llvm::AtomicCmpXchgInst *
+  CreateAtomicCmpXchg(llvm::Value *Ptr, llvm::Value *Cmp, llvm::Value *New,
+                      llvm::AtomicOrdering SuccessOrdering,
+                      llvm::AtomicOrdering FailureOrdering,
+                      llvm::SyncScope::ID SSID = llvm::SyncScope::System) {
+    return CGBuilderBaseTy::CreateAtomicCmpXchg(
+        Ptr, Cmp, New, llvm::MaybeAlign(), SuccessOrdering, FailureOrdering,
+        SSID);
+  }
+
+  // Temporarily use old signature; clang will be updated to an Address overload
+  // in a subsequent patch.
+  llvm::AtomicRMWInst *
+  CreateAtomicRMW(llvm::AtomicRMWInst::BinOp Op, llvm::Value *Ptr,
+                  llvm::Value *Val, llvm::AtomicOrdering Ordering,
+                  llvm::SyncScope::ID SSID = llvm::SyncScope::System) {
+    return CGBuilderBaseTy::CreateAtomicRMW(Op, Ptr, Val, llvm::MaybeAlign(),
+                                            Ordering, SSID);
   }
 
   using CGBuilderBaseTy::CreateBitCast;
@@ -150,8 +169,9 @@ public:
   /// preserving information like the alignment and address space.
   Address CreateElementBitCast(Address Addr, llvm::Type *Ty,
                                const llvm::Twine &Name = "") {
-    auto PtrTy = Ty->getPointerTo(Addr.getAddressSpace());
-    return CreateBitCast(Addr, PtrTy, Name);
+    auto *PtrTy = Ty->getPointerTo(Addr.getAddressSpace());
+    return Address(CreateBitCast(Addr.getPointer(), PtrTy, Name),
+                   Ty, Addr.getAlignment());
   }
 
   using CGBuilderBaseTy::CreatePointerBitCastOrAddrSpaceCast;
@@ -179,6 +199,7 @@ public:
 
     return Address(CreateStructGEP(Addr.getElementType(),
                                    Addr.getPointer(), Index, Name),
+                   ElTy->getElementType(Index),
                    Addr.getAlignment().alignmentAtOffset(Offset));
   }
 
@@ -198,8 +219,9 @@ public:
         CharUnits::fromQuantity(DL.getTypeAllocSize(ElTy->getElementType()));
 
     return Address(
-        CreateInBoundsGEP(Addr.getPointer(),
+        CreateInBoundsGEP(Addr.getElementType(), Addr.getPointer(),
                           {getSize(CharUnits::Zero()), getSize(Index)}, Name),
+        ElTy->getElementType(),
         Addr.getAlignment().alignmentAtOffset(Index * EltSize));
   }
 
@@ -216,6 +238,7 @@ public:
 
     return Address(CreateInBoundsGEP(Addr.getElementType(), Addr.getPointer(),
                                      getSize(Index), Name),
+                   ElTy,
                    Addr.getAlignment().alignmentAtOffset(Index * EltSize));
   }
 
@@ -232,20 +255,40 @@ public:
 
     return Address(CreateGEP(Addr.getElementType(), Addr.getPointer(),
                              getSize(Index), Name),
+                   Addr.getElementType(),
                    Addr.getAlignment().alignmentAtOffset(Index * EltSize));
+  }
+
+  /// Create GEP with single dynamic index. The address alignment is reduced
+  /// according to the element size.
+  using CGBuilderBaseTy::CreateGEP;
+  Address CreateGEP(Address Addr, llvm::Value *Index,
+                    const llvm::Twine &Name = "") {
+    const llvm::DataLayout &DL = BB->getParent()->getParent()->getDataLayout();
+    CharUnits EltSize =
+        CharUnits::fromQuantity(DL.getTypeAllocSize(Addr.getElementType()));
+
+    return Address(CreateGEP(Addr.getElementType(), Addr.getPointer(), Index,
+                             Name),
+                   Addr.getElementType(),
+                   Addr.getAlignment().alignmentOfArrayElement(EltSize));
   }
 
   /// Given a pointer to i8, adjust it by a given constant offset.
   Address CreateConstInBoundsByteGEP(Address Addr, CharUnits Offset,
                                      const llvm::Twine &Name = "") {
     assert(Addr.getElementType() == TypeCache.Int8Ty);
-    return Address(CreateInBoundsGEP(Addr.getPointer(), getSize(Offset), Name),
+    return Address(CreateInBoundsGEP(Addr.getElementType(), Addr.getPointer(),
+                                     getSize(Offset), Name),
+                   Addr.getElementType(),
                    Addr.getAlignment().alignmentAtOffset(Offset));
   }
   Address CreateConstByteGEP(Address Addr, CharUnits Offset,
                              const llvm::Twine &Name = "") {
     assert(Addr.getElementType() == TypeCache.Int8Ty);
-    return Address(CreateGEP(Addr.getPointer(), getSize(Offset), Name),
+    return Address(CreateGEP(Addr.getElementType(), Addr.getPointer(),
+                             getSize(Offset), Name),
+                   Addr.getElementType(),
                    Addr.getAlignment().alignmentAtOffset(Offset));
   }
 
@@ -261,8 +304,9 @@ public:
         /*isSigned=*/true);
     if (!GEP->accumulateConstantOffset(DL, Offset))
       llvm_unreachable("offset of GEP with constants is always computable");
-    return Address(GEP, Addr.getAlignment().alignmentAtOffset(
-                            CharUnits::fromQuantity(Offset.getSExtValue())));
+    return Address(GEP, GEP->getResultElementType(),
+                   Addr.getAlignment().alignmentAtOffset(
+                       CharUnits::fromQuantity(Offset.getSExtValue())));
   }
 
   using CGBuilderBaseTy::CreateMemCpy;
@@ -313,7 +357,13 @@ public:
 
     return Address(CreatePreserveStructAccessIndex(ElTy, Addr.getPointer(),
                                                    Index, FieldIndex, DbgInfo),
+                   ElTy->getElementType(Index),
                    Addr.getAlignment().alignmentAtOffset(Offset));
+  }
+
+  using CGBuilderBaseTy::CreateLaunderInvariantGroup;
+  Address CreateLaunderInvariantGroup(Address Addr) {
+    return Addr.withPointer(CreateLaunderInvariantGroup(Addr.getPointer()));
   }
 };
 

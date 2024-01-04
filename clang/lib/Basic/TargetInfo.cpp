@@ -17,7 +17,6 @@
 #include "clang/Basic/LangOptions.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TargetParser.h"
 #include <cstdlib>
@@ -26,7 +25,7 @@ using namespace clang;
 static const LangASMap DefaultAddrSpaceMap = {0};
 
 // TargetInfo Constructor.
-TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
+TargetInfo::TargetInfo(const llvm::Triple &T) : Triple(T) {
   // Set defaults.  Defaults are set for a 32-bit RISC platform, like PPC or
   // SPARC.  These should be overridden by concrete targets as needed.
   BigEndian = !T.isLittleEndian();
@@ -35,8 +34,11 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   NoAsmVariants = false;
   HasLegalHalfType = false;
   HasFloat128 = false;
+  HasIbm128 = false;
   HasFloat16 = false;
   HasBFloat16 = false;
+  HasLongDouble = true;
+  HasFPReturn = true;
   HasStrictFP = false;
   PointerWidth = PointerAlign = 32;
   BoolWidth = BoolAlign = 8;
@@ -67,9 +69,12 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   // From the glibc documentation, on GNU systems, malloc guarantees 16-byte
   // alignment on 64-bit systems and 8-byte alignment on 32-bit systems. See
   // https://www.gnu.org/software/libc/manual/html_node/Malloc-Examples.html.
-  // This alignment guarantee also applies to Windows and Android.
+  // This alignment guarantee also applies to Windows and Android. On Darwin
+  // and OpenBSD, the alignment is 16 bytes on both 64-bit and 32-bit systems.
   if (T.isGNUEnvironment() || T.isWindowsMSVCEnvironment() || T.isAndroid())
     NewAlign = Triple.isArch64Bit() ? 128 : Triple.isArch32Bit() ? 64 : 0;
+  else if (T.isOSDarwin() || T.isOSOpenBSD())
+    NewAlign = 128;
   else
     NewAlign = 0; // Infer from basic type alignment.
   HalfWidth = 16;
@@ -81,6 +86,7 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   LongDoubleWidth = 64;
   LongDoubleAlign = 64;
   Float128Align = 128;
+  Ibm128Align = 128;
   LargeArrayMinWidth = 0;
   LargeArrayAlign = 0;
   MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 0;
@@ -96,25 +102,31 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   Char16Type = UnsignedShort;
   Char32Type = UnsignedInt;
   Int64Type = SignedLongLong;
+  Int16Type = SignedShort;
   SigAtomicType = SignedInt;
   ProcessIDType = SignedInt;
   UseSignedCharForObjCBool = true;
   UseBitFieldTypeAlignment = true;
   UseZeroLengthBitfieldAlignment = false;
+  UseLeadingZeroLengthBitfield = true;
   UseExplicitBitFieldAlignment = true;
   ZeroLengthBitfieldBoundary = 0;
+  MaxAlignedAttribute = 0;
   HalfFormat = &llvm::APFloat::IEEEhalf();
   FloatFormat = &llvm::APFloat::IEEEsingle();
   DoubleFormat = &llvm::APFloat::IEEEdouble();
   LongDoubleFormat = &llvm::APFloat::IEEEdouble();
   Float128Format = &llvm::APFloat::IEEEquad();
+  Ibm128Format = &llvm::APFloat::PPCDoubleDouble();
   MCountName = "mcount";
+  UserLabelPrefix = "_";
   RegParmMax = 0;
   SSERegParmMax = 0;
   HasAlignMac68kSupport = false;
   HasBuiltinMSVaList = false;
   IsRenderScriptTarget = false;
   HasAArch64SVETypes = false;
+  HasRISCVVTypes = false;
   AllowAMDGPUUnsafeFPAtomics = false;
   ARMCDECoprocMask = 0;
 
@@ -138,13 +150,15 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   PlatformMinVersion = VersionTuple();
 
   MaxOpenCLWorkGroupSize = 1024;
+  ProgramAddrSpace = 0;
 }
 
 // Out of line virtual dtor for TargetInfo.
 TargetInfo::~TargetInfo() {}
 
-void TargetInfo::resetDataLayout(StringRef DL) {
-  DataLayout.reset(new llvm::DataLayout(DL));
+void TargetInfo::resetDataLayout(StringRef DL, const char *ULP) {
+  DataLayoutString = DL.str();
+  UserLabelPrefix = ULP;
 }
 
 bool
@@ -268,32 +282,36 @@ TargetInfo::IntType TargetInfo::getLeastIntTypeByWidth(unsigned BitWidth,
   return NoInt;
 }
 
-TargetInfo::RealType TargetInfo::getRealTypeByWidth(unsigned BitWidth,
-                                                    bool ExplicitIEEE) const {
+FloatModeKind TargetInfo::getRealTypeByWidth(unsigned BitWidth,
+                                             FloatModeKind ExplicitType) const {
   if (getFloatWidth() == BitWidth)
-    return Float;
+    return FloatModeKind::Float;
   if (getDoubleWidth() == BitWidth)
-    return Double;
+    return FloatModeKind::Double;
 
   switch (BitWidth) {
   case 96:
     if (&getLongDoubleFormat() == &llvm::APFloat::x87DoubleExtended())
-      return LongDouble;
+      return FloatModeKind::LongDouble;
     break;
   case 128:
     // The caller explicitly asked for an IEEE compliant type but we still
     // have to check if the target supports it.
-    if (ExplicitIEEE)
-      return hasFloat128Type() ? Float128 : NoFloat;
+    if (ExplicitType == FloatModeKind::Float128)
+      return hasFloat128Type() ? FloatModeKind::Float128
+                               : FloatModeKind::NoFloat;
+    if (ExplicitType == FloatModeKind::Ibm128)
+      return hasIbm128Type() ? FloatModeKind::Ibm128
+                             : FloatModeKind::NoFloat;
     if (&getLongDoubleFormat() == &llvm::APFloat::PPCDoubleDouble() ||
         &getLongDoubleFormat() == &llvm::APFloat::IEEEquad())
-      return LongDouble;
+      return FloatModeKind::LongDouble;
     if (hasFloat128Type())
-      return Float128;
+      return FloatModeKind::Float128;
     break;
   }
 
-  return NoFloat;
+  return FloatModeKind::NoFloat;
 }
 
 /// getTypeAlign - Return the alignment (in bits) of the specified integer type
@@ -338,7 +356,7 @@ bool TargetInfo::isTypeSigned(IntType T) {
 /// Apply changes to the target information with respect to certain
 /// language options which change the target configuration and adjust
 /// the language based on the target options where applicable.
-void TargetInfo::adjust(LangOptions &Opts) {
+void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
   if (Opts.NoBitFieldTypeAlign)
     UseBitFieldTypeAlignment = false;
 
@@ -388,6 +406,25 @@ void TargetInfo::adjust(LangOptions &Opts) {
     HalfFormat = &llvm::APFloat::IEEEhalf();
     FloatFormat = &llvm::APFloat::IEEEsingle();
     LongDoubleFormat = &llvm::APFloat::IEEEquad();
+
+    // OpenCL C v3.0 s6.7.5 - The generic address space requires support for
+    // OpenCL C 2.0 or OpenCL C 3.0 with the __opencl_c_generic_address_space
+    // feature
+    // OpenCL C v3.0 s6.2.1 - OpenCL pipes require support of OpenCL C 2.0
+    // or later and __opencl_c_pipes feature
+    // FIXME: These language options are also defined in setLangDefaults()
+    // for OpenCL C 2.0 but with no access to target capabilities. Target
+    // should be immutable once created and thus these language options need
+    // to be defined only once.
+    if (Opts.getOpenCLCompatibleVersion() == 300) {
+      const auto &OpenCLFeaturesMap = getSupportedOpenCLOpts();
+      Opts.OpenCLGenericAddressSpace = hasFeatureEnabled(
+          OpenCLFeaturesMap, "__opencl_c_generic_address_space");
+      Opts.OpenCLPipes =
+          hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_pipes");
+      Opts.Blocks =
+          hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_device_enqueue");
+    }
   }
 
   if (Opts.DoubleSize) {
@@ -422,6 +459,11 @@ void TargetInfo::adjust(LangOptions &Opts) {
   // its corresponding signed type.
   PaddingOnUnsignedFixedPoint |= Opts.PaddingOnUnsignedFixedPoint;
   CheckFixedPointBits();
+
+  if (Opts.ProtectParens && !checkArithmeticFenceSupported()) {
+    Diags.Report(diag::err_opt_not_valid_on_target) << "-fprotect-parens";
+    Opts.ProtectParens = false;
+  }
 }
 
 bool TargetInfo::initFeatureMap(
@@ -472,8 +514,8 @@ static StringRef removeGCCRegisterPrefix(StringRef Name) {
 /// a valid clobber in an inline asm statement. This is used by
 /// Sema.
 bool TargetInfo::isValidClobber(StringRef Name) const {
-  return (isValidGCCRegisterName(Name) ||
-          Name == "memory" || Name == "cc");
+  return (isValidGCCRegisterName(Name) || Name == "memory" || Name == "cc" ||
+          Name == "unwind");
 }
 
 /// isValidGCCRegisterName - Returns whether the passed in string

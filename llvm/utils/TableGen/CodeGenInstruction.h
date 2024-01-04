@@ -13,6 +13,7 @@
 #ifndef LLVM_UTILS_TABLEGEN_CODEGENINSTRUCTION_H
 #define LLVM_UTILS_TABLEGEN_CODEGENINSTRUCTION_H
 
+#include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MachineValueType.h"
 #include "llvm/Support/SMLoc.h"
@@ -106,7 +107,7 @@ template <typename T> class ArrayRef;
       /// DoNotEncode - Bools are set to true in this vector for each operand in
       /// the DisableEncoding list.  These should not be emitted by the code
       /// emitter.
-      std::vector<bool> DoNotEncode;
+      BitVector DoNotEncode;
 
       /// MIOperandInfo - Default MI operand type. Note an operand may be made
       /// up of multiple MI operands.
@@ -182,7 +183,7 @@ template <typename T> class ArrayRef;
     /// where $foo is a whole operand and $foo.bar refers to a suboperand.
     /// This aborts if the name is invalid.  If AllowWholeOp is true, references
     /// to operands with suboperands are allowed, otherwise not.
-    std::pair<unsigned,unsigned> ParseOperandName(const std::string &Op,
+    std::pair<unsigned,unsigned> ParseOperandName(StringRef Op,
                                                   bool AllowWholeOp = true);
 
     /// getFlattenedOperandNumber - Flatten a operand/suboperand pair into a
@@ -211,7 +212,7 @@ template <typename T> class ArrayRef;
       return false;
     }
 
-    void ProcessDisableEncoding(std::string Value);
+    void ProcessDisableEncoding(StringRef Value);
   };
 
 

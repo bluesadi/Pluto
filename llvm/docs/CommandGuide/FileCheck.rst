@@ -431,7 +431,7 @@ However, this would be a bad test: if the value for ``foo`` changes, the test
 would still pass because the "``CHECK: Value: 1``" line would match the value
 from ``baz``. To fix this, you could add ``CHECK-NEXT`` matchers for every
 ``FieldN:`` line, but that would be verbose, and need to be updated when
-``Field4`` is added. A more succint way to write the test using the
+``Field4`` is added. A more succinct way to write the test using the
 "``CHECK-SAME:``" matcher would be as follows:
 
 .. code-block:: text
@@ -773,8 +773,11 @@ The syntax to capture a numeric value is
 * ``<NUMVAR>:`` is an optional definition of variable ``<NUMVAR>`` from the
   captured value.
 
-The syntax of ``<fmtspec>`` is: ``.<precision><conversion specifier>`` where:
+The syntax of ``<fmtspec>`` is: ``#.<precision><conversion specifier>`` where:
 
+* ``#`` is an optional flag available for hex values (see
+  ``<conversion specifier>`` below) which requires the value matched to be
+  prefixed by ``0x``.
 * ``.<precision>`` is an optional printf-style precision specifier in which
   ``<precision>`` indicates the minimum number of digits that the value matched
   must have, expecting leading zeros if needed.

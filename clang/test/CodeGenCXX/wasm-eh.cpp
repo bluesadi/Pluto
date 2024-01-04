@@ -1,6 +1,6 @@
 // REQUIRES: webassembly-registered-target
-// RUN: %clang_cc1 %s -triple wasm32-unknown-unknown -fms-extensions -fexceptions -fcxx-exceptions -exception-model=wasm -target-feature +exception-handling -emit-llvm -o - -std=c++11 | FileCheck %s
-// RUN: %clang_cc1 %s -triple wasm64-unknown-unknown -fms-extensions -fexceptions -fcxx-exceptions -exception-model=wasm -target-feature +exception-handling -emit-llvm -o - -std=c++11 | FileCheck %s
+// RUN: %clang_cc1 %s -triple wasm32-unknown-unknown -fms-extensions -fexceptions -fcxx-exceptions -mllvm -wasm-enable-eh -exception-model=wasm -target-feature +exception-handling -emit-llvm -o - -std=c++11 | FileCheck %s
+// RUN: %clang_cc1 %s -triple wasm64-unknown-unknown -fms-extensions -fexceptions -fcxx-exceptions -mllvm -wasm-enable-eh -exception-model=wasm -target-feature +exception-handling -emit-llvm -o - -std=c++11 | FileCheck %s
 
 void may_throw();
 void dont_throw() noexcept;
@@ -124,7 +124,7 @@ void test3() {
 
 // CHECK: [[EHCLEANUP_BB]]:
 // CHECK-NEXT:   %[[CLEANUPPAD:.*]] = cleanuppad within none []
-// CHECK-NEXT:   call %struct.Cleanup* @_ZN7CleanupD1Ev(%struct.Cleanup* {{[^,]*}} %{{.*}}) {{.*}} [ "funclet"(token %[[CLEANUPPAD]]) ]
+// CHECK-NEXT:   call noundef %struct.Cleanup* @_ZN7CleanupD1Ev(%struct.Cleanup* {{[^,]*}} %{{.*}}) {{.*}} [ "funclet"(token %[[CLEANUPPAD]]) ]
 // CHECK-NEXT:   cleanupret from %[[CLEANUPPAD]] unwind to caller
 
 // Possibly throwing function call within a catch
@@ -188,13 +188,7 @@ void test5() {
 
 // CHECK: [[TERMINATE_BB]]:
 // CHECK-NEXT:   %[[CLEANUPPAD1:.*]] = cleanuppad within %[[CLEANUPPAD0]] []
-// CHECK-NEXT:   %[[EXN:.*]] = call i8* @llvm.wasm.get.exception(token %[[CLEANUPPAD1]])
-// CHECK-NEXT:   call void @__clang_call_terminate(i8* %[[EXN]]) {{.*}} [ "funclet"(token %[[CLEANUPPAD1]]) ]
-// CHECK-NEXT:   unreachable
-
-// CHECK-LABEL: define {{.*}} void @__clang_call_terminate(i8* %0)
-// CHECK-NEXT:   call i8* @__cxa_begin_catch(i8* %{{.*}})
-// CHECK-NEXT:   call void @_ZSt9terminatev()
+// CHECK-NEXT:   call void @_ZSt9terminatev() {{.*}} [ "funclet"(token %[[CLEANUPPAD1]]) ]
 // CHECK-NEXT:   unreachable
 
 // Try-catch with cleanups
@@ -215,7 +209,7 @@ void test6() {
 
 // CHECK: [[EHCLEANUP_BB0]]:
 // CHECK-NEXT:   %[[CLEANUPPAD0:.*]] = cleanuppad within none []
-// CHECK-NEXT:   call %struct.Cleanup* @_ZN7CleanupD1Ev(%struct.Cleanup* {{.*}}) {{.*}} [ "funclet"(token %[[CLEANUPPAD0]]) ]
+// CHECK-NEXT:   call noundef %struct.Cleanup* @_ZN7CleanupD1Ev(%struct.Cleanup* {{.*}}) {{.*}} [ "funclet"(token %[[CLEANUPPAD0]]) ]
 // CHECK-NEXT:   cleanupret from %[[CLEANUPPAD0]] unwind label %[[CATCH_DISPATCH_BB:.*]]
 
 // CHECK: [[CATCH_DISPATCH_BB]]:
@@ -238,7 +232,7 @@ void test6() {
 
 // CHECK: [[EHCLEANUP_BB2]]:
 // CHECK-NEXT:   %[[CLEANUPPAD2:.*]] = cleanuppad within %[[CATCHPAD]] []
-// CHECK-NEXT:   call %struct.Cleanup* @_ZN7CleanupD1Ev(%struct.Cleanup* {{[^,]*}} %{{.*}}) {{.*}} [ "funclet"(token %[[CLEANUPPAD2]]) ]
+// CHECK-NEXT:   call noundef %struct.Cleanup* @_ZN7CleanupD1Ev(%struct.Cleanup* {{[^,]*}} %{{.*}}) {{.*}} [ "funclet"(token %[[CLEANUPPAD2]]) ]
 // CHECK-NEXT:   cleanupret from %[[CLEANUPPAD2]] unwind label %[[EHCLEANUP_BB3:.*]]
 
 // CHECK: [[EHCLEANUP_BB3]]:
@@ -247,7 +241,7 @@ void test6() {
 
 // CHECK: [[EHCLEANUP_BB1]]:
 // CHECK-NEXT:   %[[CLEANUPPAD1:.*]] = cleanuppad within none []
-// CHECK-NEXT:   call %struct.Cleanup* @_ZN7CleanupD1Ev(%struct.Cleanup* {{[^,]*}} %{{.*}}) {{.*}} [ "funclet"(token %[[CLEANUPPAD1]]) ]
+// CHECK-NEXT:   call noundef %struct.Cleanup* @_ZN7CleanupD1Ev(%struct.Cleanup* {{[^,]*}} %{{.*}}) {{.*}} [ "funclet"(token %[[CLEANUPPAD1]]) ]
 // CHECK-NEXT:   cleanupret from %[[CLEANUPPAD1]] unwind to caller
 
 // CHECK: [[UNREACHABLE_BB]]:
@@ -336,7 +330,7 @@ void test7() {
 // CHECK:   unreachable
 
 // CHECK:   %[[CLEANUPPAD7:.*]] = cleanuppad within %[[CLEANUPPAD4]] []
-// CHECK:   call void @__clang_call_terminate(i8* %{{.*}}) {{.*}} [ "funclet"(token %[[CLEANUPPAD7]]) ]
+// CHECK:   call void @_ZSt9terminatev() {{.*}} [ "funclet"(token %[[CLEANUPPAD7]]) ]
 // CHECK:   unreachable
 
 // Nested try-catches within a catch
@@ -387,7 +381,7 @@ void test8() {
 // RUN: %clang_cc1 %s -triple wasm32-unknown-unknown -fms-extensions -fexceptions -fcxx-exceptions -exception-model=wasm -target-feature +exception-handling -emit-llvm -o - -std=c++11 2>&1 | FileCheck %s --check-prefix=WARNING-DEFAULT
 // RUN: %clang_cc1 %s -triple wasm32-unknown-unknown -fms-extensions -fexceptions -fcxx-exceptions -exception-model=wasm -target-feature +exception-handling -Wwasm-exception-spec -emit-llvm -o - -std=c++11 2>&1 | FileCheck %s --check-prefix=WARNING-ON
 // RUN: %clang_cc1 %s -triple wasm32-unknown-unknown -fms-extensions -fexceptions -fcxx-exceptions -exception-model=wasm -target-feature +exception-handling -Wno-wasm-exception-spec -emit-llvm -o - -std=c++11 2>&1 | FileCheck %s --check-prefix=WARNING-OFF
-// RUN: %clang_cc1 %s -triple wasm32-unknown-unknown -fexceptions -fcxx-exceptions -emit-llvm -o - -std=c++11 2>&1 | FileCheck %s --check-prefix=NOT-WASM-EH
+// RUN: %clang_cc1 %s -triple wasm32-unknown-unknown -fexceptions -fcxx-exceptions -emit-llvm -o - -std=c++11 2>&1 | FileCheck %s --check-prefix=EM-EH-WARNING
 
 // Wasm EH ignores dynamic exception specifications with types at the moment.
 // This is controlled by -Wwasm-exception-spec, which is on by default. This
@@ -398,7 +392,7 @@ void test9() throw(int) {
 // WARNING-DEFAULT: warning: dynamic exception specifications with types are currently ignored in wasm
 // WARNING-ON: warning: dynamic exception specifications with types are currently ignored in wasm
 // WARNING-OFF-NOT: warning: dynamic exception specifications with types are currently ignored in wasm
-// NOT-WASM-EH-NOT: warning: dynamic exception specifications with types are currently ignored in wasm
+// EM-EH-WARNING: warning: dynamic exception specifications with types are currently ignored in wasm
 
 // Wasm curremtly treats 'throw()' in the same way as 'noexept'. Check if the
 // same warning message is printed as if when a 'noexcept' function throws.
@@ -411,8 +405,7 @@ void test10() throw() {
 // Here we only check if the command enables wasm exception handling in the
 // backend so that exception handling instructions can be generated in .s file.
 
-// TODO Reenable these lines after updating the backend to the new spec
-// R UN: %clang_cc1 %s -triple wasm32-unknown-unknown -fms-extensions -fexceptions -fcxx-exceptions -exception-model=wasm -target-feature +exception-handling -S -o - -std=c++11 | FileCheck %s --check-prefix=ASSEMBLY
+// RUN: %clang_cc1 %s -triple wasm32-unknown-unknown -fms-extensions -fexceptions -fcxx-exceptions -mllvm -wasm-enable-eh -exception-model=wasm -target-feature +exception-handling -S -o - -std=c++11 | FileCheck %s --check-prefix=ASSEMBLY
 
 // ASSEMBLY: try
 // ASSEMBLY: catch

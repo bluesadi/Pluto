@@ -89,7 +89,7 @@ int main() {
     // LAMBDA: store volatile double 2.0{{.+}}, double* [[G_REF]]
 
     // LAMBDA: store double* %{{.+}}, double** %{{.+}},
-    // LAMBDA: define internal i32 [[TASK_ENTRY]](i32 %0, %{{.+}}* noalias %1)
+    // LAMBDA: define internal noundef i32 [[TASK_ENTRY]](i32 noundef %0, %{{.+}}* noalias noundef %1)
     g = 1;
     sivar = 11;
     // LAMBDA: store double 1.0{{.+}}, double* %{{.+}},
@@ -131,14 +131,14 @@ int main() {
     // BLOCKS-NOT: [[G]]{{[[^:word:]]}}
     // BLOCKS: store volatile double 2.0{{.+}}, double*
     // BLOCKS-NOT: [[G]]{{[[^:word:]]}}
-    // BLOCKS-NOT: [[ISVAR]]{{[[^:word:]]}}
+    // BLOCKS-NOT: [[SIVAR]]{{[[^:word:]]}}
     // BLOCKS: store i{{[0-9]+}} 22, i{{[0-9]+}}*
     // BLOCKS-NOT: [[SIVAR]]{{[[^:word:]]}}
     // BLOCKS: ret
 
     // BLOCKS: store double* %{{.+}}, double** %{{.+}},
     // BLOCKS: store i{{[0-9]+}}* %{{.+}}, i{{[0-9]+}}** %{{.+}},
-    // BLOCKS: define internal i32 [[TASK_ENTRY]](i32 %0, %{{.+}}* noalias %1)
+    // BLOCKS: define internal noundef i32 [[TASK_ENTRY]](i32 noundef %0, %{{.+}}* noalias noundef %1)
     g = 1;
     sivar = 11;
     // BLOCKS: store double 1.0{{.+}}, double* %{{.+}},
@@ -234,7 +234,7 @@ int main() {
 // Start task.
 // CHECK: call i32 @__kmpc_omp_task([[LOC]], i32 [[GTID]], i8* [[RES]])
 
-// CHECK: = call i{{.+}} [[TMAIN_INT:@.+]]()
+// CHECK: = call noundef i{{.+}} [[TMAIN_INT:@.+]]()
 
 // No destructors must be called for private copies of s_arr and var.
 // CHECK-NOT: getelementptr inbounds [[PRIVATES_MAIN_TY]], [[PRIVATES_MAIN_TY]]* [[PRIVATES]], i{{.+}} 0, i{{.+}} 2
@@ -245,7 +245,7 @@ int main() {
 // CHECK: ret
 //
 
-// CHECK: define internal void [[PRIVATES_MAP_FN:@.+]]([[PRIVATES_MAIN_TY]]* noalias %0, i32** noalias %1, [2 x [[S_DOUBLE_TY]]]** noalias %2, [2 x i32]** noalias %3, i32** noalias %4, [[S_DOUBLE_TY]]** noalias %5)
+// CHECK: define internal void [[PRIVATES_MAP_FN:@.+]]([[PRIVATES_MAIN_TY]]* noalias noundef %0, i32** noalias noundef %1, [2 x [[S_DOUBLE_TY]]]** noalias noundef %2, [2 x i32]** noalias noundef %3, i32** noalias noundef %4, [[S_DOUBLE_TY]]** noalias noundef %5)
 // CHECK: [[PRIVATES:%.+]] = load [[PRIVATES_MAIN_TY]]*, [[PRIVATES_MAIN_TY]]**
 // CHECK: [[PRIV_S_VAR:%.+]] = getelementptr inbounds [[PRIVATES_MAIN_TY]], [[PRIVATES_MAIN_TY]]* [[PRIVATES]], i32 0, i32 0
 // CHECK: [[ARG3:%.+]] = load [2 x [[S_DOUBLE_TY]]]**, [2 x [[S_DOUBLE_TY]]]*** %{{.+}},
@@ -264,7 +264,7 @@ int main() {
 // CHECK: store i{{[0-9]+}}* [[PRIV_SIVAR]], i{{[0-9]+}}** [[ARG5]],
 // CHECK: ret void
 
-// CHECK: define internal i32 [[TASK_ENTRY]](i32 %0, [[KMP_TASK_MAIN_TY]]* noalias %1)
+// CHECK: define internal noundef i32 [[TASK_ENTRY]](i32 noundef %0, [[KMP_TASK_MAIN_TY]]* noalias noundef %1)
 
 // CHECK: alloca i32*,
 // CHECK: [[PRIV_T_VAR_ADDR:%.+]] = alloca i32*,
@@ -275,7 +275,8 @@ int main() {
 // CHECK: store void (i8*, ...)* bitcast (void ([[PRIVATES_MAIN_TY]]*, i32**, [2 x [[S_DOUBLE_TY]]]**, [2 x i32]**, i32**, [[S_DOUBLE_TY]]**)* [[PRIVATES_MAP_FN]] to void (i8*, ...)*), void (i8*, ...)** [[MAP_FN_ADDR:%.+]],
 // CHECK: [[MAP_FN:%.+]] = load void (i8*, ...)*, void (i8*, ...)** [[MAP_FN_ADDR]],
 
-// CHECK: call void (i8*, ...) [[MAP_FN]](i8* %{{.+}}, i32** [[PRIV_T_VAR_ADDR]], [2 x [[S_DOUBLE_TY]]]** [[PRIV_S_ARR_ADDR]], [2 x i32]** [[PRIV_VEC_ADDR]], i32** [[PRIV_SIVAR_ADDR]], [[S_DOUBLE_TY]]** [[PRIV_VAR_ADDR]])
+// CHECK: [[FN:%.+]] = bitcast void (i8*, ...)* [[MAP_FN]] to void (i8*,
+// CHECK: call void [[FN]](i8* %{{.+}}, i32** [[PRIV_T_VAR_ADDR]], [2 x [[S_DOUBLE_TY]]]** [[PRIV_S_ARR_ADDR]], [2 x i32]** [[PRIV_VEC_ADDR]], i32** [[PRIV_SIVAR_ADDR]], [[S_DOUBLE_TY]]** [[PRIV_VAR_ADDR]])
 
 // CHECK: [[PRIV_T_VAR:%.+]] = load i32*, i32** [[PRIV_T_VAR_ADDR]],
 // CHECK: [[PRIV_S_ARR:%.+]] = load [2 x [[S_DOUBLE_TY]]]*, [2 x [[S_DOUBLE_TY]]]** [[PRIV_S_ARR_ADDR]],
@@ -292,7 +293,7 @@ int main() {
 
 // CHECK: ret
 
-// CHECK: define internal i32 [[DESTRUCTORS]](i32 %0, [[KMP_TASK_MAIN_TY]]* noalias %1)
+// CHECK: define internal noundef i32 [[DESTRUCTORS]](i32 noundef %0, [[KMP_TASK_MAIN_TY]]* noalias noundef %1)
 // CHECK: [[PRIVATES:%.+]] = getelementptr inbounds [[KMP_TASK_MAIN_TY]], [[KMP_TASK_MAIN_TY]]* [[RES_KMP_TASK:%.+]], i{{[0-9]+}} 0, i{{[0-9]+}} 1
 // CHECK: [[PRIVATE_S_ARR_REF:%.+]] = getelementptr inbounds [[PRIVATES_MAIN_TY]], [[PRIVATES_MAIN_TY]]* [[PRIVATES]], i{{.+}} 0, i{{.+}} 0
 // CHECK: [[PRIVATE_VAR_REF:%.+]] = getelementptr inbounds [[PRIVATES_MAIN_TY]], [[PRIVATES_MAIN_TY]]* [[PRIVATES]], i{{.+}} 0, i{{.+}} 1
@@ -371,7 +372,7 @@ int main() {
 // CHECK: ret
 //
 
-// CHECK: define internal void [[PRIVATES_MAP_FN:@.+]]([[PRIVATES_TMAIN_TY]]* noalias %0, i32** noalias %1, [2 x i32]** noalias %2, [2 x [[S_INT_TY]]]** noalias %3, [[S_INT_TY]]** noalias %4)
+// CHECK: define internal void [[PRIVATES_MAP_FN:@.+]]([[PRIVATES_TMAIN_TY]]* noalias noundef %0, i32** noalias noundef %1, [2 x i32]** noalias noundef %2, [2 x [[S_INT_TY]]]** noalias noundef %3, [[S_INT_TY]]** noalias noundef %4)
 // CHECK: [[PRIVATES:%.+]] = load [[PRIVATES_TMAIN_TY]]*, [[PRIVATES_TMAIN_TY]]**
 // CHECK: [[PRIV_T_VAR:%.+]] = getelementptr inbounds [[PRIVATES_TMAIN_TY]], [[PRIVATES_TMAIN_TY]]* [[PRIVATES]], i32 0, i32 0
 // CHECK: [[ARG1:%.+]] = load i32**, i32*** %{{.+}},
@@ -387,7 +388,7 @@ int main() {
 // CHECK: store [[S_INT_TY]]* [[PRIV_VAR]], [[S_INT_TY]]** [[ARG4]],
 // CHECK: ret void
 
-// CHECK: define internal i32 [[TASK_ENTRY]](i32 %0, [[KMP_TASK_TMAIN_TY]]* noalias %1)
+// CHECK: define internal noundef i32 [[TASK_ENTRY]](i32 noundef %0, [[KMP_TASK_TMAIN_TY]]* noalias noundef %1)
 // CHECK: alloca i32*,
 // CHECK-DAG: [[PRIV_T_VAR_ADDR:%.+]] = alloca i32*,
 // CHECK-DAG: [[PRIV_VEC_ADDR:%.+]] = alloca [2 x i32]*,
@@ -395,7 +396,8 @@ int main() {
 // CHECK-DAG: [[PRIV_VAR_ADDR:%.+]] = alloca [[S_INT_TY]]*,
 // CHECK: store void (i8*, ...)* bitcast (void ([[PRIVATES_TMAIN_TY]]*, i32**, [2 x i32]**, [2 x [[S_INT_TY]]]**, [[S_INT_TY]]**)* [[PRIVATES_MAP_FN]] to void (i8*, ...)*), void (i8*, ...)** [[MAP_FN_ADDR:%.+]],
 // CHECK: [[MAP_FN:%.+]] = load void (i8*, ...)*, void (i8*, ...)** [[MAP_FN_ADDR]],
-// CHECK: call void (i8*, ...) [[MAP_FN]](i8* %{{.+}}, i32** [[PRIV_T_VAR_ADDR]], [2 x i32]** [[PRIV_VEC_ADDR]], [2 x [[S_INT_TY]]]** [[PRIV_S_ARR_ADDR]], [[S_INT_TY]]** [[PRIV_VAR_ADDR]])
+// CHECK: [[FN:%.+]] = bitcast void (i8*, ...)* [[MAP_FN]] to void (i8*,
+// CHECK: call void [[FN]](i8* %{{.+}}, i32** [[PRIV_T_VAR_ADDR]], [2 x i32]** [[PRIV_VEC_ADDR]], [2 x [[S_INT_TY]]]** [[PRIV_S_ARR_ADDR]], [[S_INT_TY]]** [[PRIV_VAR_ADDR]])
 // CHECK: [[PRIV_T_VAR:%.+]] = load i32*, i32** [[PRIV_T_VAR_ADDR]],
 // CHECK: [[PRIV_VEC:%.+]] = load [2 x i32]*, [2 x i32]** [[PRIV_VEC_ADDR]],
 // CHECK: [[PRIV_S_ARR:%.+]] = load [2 x [[S_INT_TY]]]*, [2 x [[S_INT_TY]]]** [[PRIV_S_ARR_ADDR]],
@@ -409,7 +411,7 @@ int main() {
 
 // CHECK: ret
 
-// CHECK: define internal i32 [[DESTRUCTORS]](i32 %0, [[KMP_TASK_TMAIN_TY]]* noalias %1)
+// CHECK: define internal noundef i32 [[DESTRUCTORS]](i32 noundef %0, [[KMP_TASK_TMAIN_TY]]* noalias noundef %1)
 // CHECK: [[PRIVATES:%.+]] = getelementptr inbounds [[KMP_TASK_TMAIN_TY]], [[KMP_TASK_TMAIN_TY]]* [[RES_KMP_TASK:%.+]], i{{[0-9]+}} 0, i{{[0-9]+}} 2
 // CHECK: [[PRIVATE_S_ARR_REF:%.+]] = getelementptr inbounds [[PRIVATES_TMAIN_TY]], [[PRIVATES_TMAIN_TY]]* [[PRIVATES]], i{{.+}} 0, i{{.+}} 2
 // CHECK: [[PRIVATE_VAR_REF:%.+]] = getelementptr inbounds [[PRIVATES_TMAIN_TY]], [[PRIVATES_TMAIN_TY]]* [[PRIVATES]], i{{.+}} 0, i{{.+}} 3

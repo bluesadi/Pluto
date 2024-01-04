@@ -29,6 +29,8 @@ enum MachOARM64RelocationKind : Edge::Kind {
   PageOffset12,
   GOTPage21,
   GOTPageOffset12,
+  TLVPage21,
+  TLVPageOffset12,
   PointerToGOT,
   PairedAddend,
   LDRLiteral19,
@@ -61,7 +63,7 @@ void link_MachO_arm64(std::unique_ptr<LinkGraph> G,
                       std::unique_ptr<JITLinkContext> Ctx);
 
 /// Return the string name of the given MachO arm64 edge kind.
-StringRef getMachOARM64RelocationKindName(Edge::Kind R);
+const char *getMachOARM64RelocationKindName(Edge::Kind R);
 
 } // end namespace jitlink
 } // end namespace llvm

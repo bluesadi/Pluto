@@ -103,8 +103,8 @@ protected:
   }
 };
 
-INSTANTIATE_TEST_CASE_P(TreeTests, TreeTest,
-                        ::testing::ValuesIn(allTestClangConfigs()), );
+INSTANTIATE_TEST_SUITE_P(TreeTests, TreeTest,
+                        ::testing::ValuesIn(allTestClangConfigs()) );
 
 TEST_P(TreeTest, FirstLeaf) {
   buildTree("", GetParam());
@@ -203,7 +203,7 @@ protected:
 
     OS << "]";
 
-    return OS.str();
+    return Storage;
   }
 
   std::string dumpNodes(ArrayRef<Node *> Nodes) {
@@ -218,12 +218,12 @@ protected:
 
     OS << "]";
 
-    return OS.str();
+    return Storage;
   }
 };
 
-INSTANTIATE_TEST_CASE_P(TreeTests, ListTest,
-                        ::testing::ValuesIn(allTestClangConfigs()), );
+INSTANTIATE_TEST_SUITE_P(TreeTests, ListTest,
+                        ::testing::ValuesIn(allTestClangConfigs()) );
 
 /// "a, b, c"  <=> [("a", ","), ("b", ","), ("c", null)]
 TEST_P(ListTest, List_Separated_WellFormed) {

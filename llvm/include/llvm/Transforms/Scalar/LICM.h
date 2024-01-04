@@ -46,15 +46,39 @@ extern cl::opt<unsigned> SetLicmMssaNoAccForPromotionCap;
 class LICMPass : public PassInfoMixin<LICMPass> {
   unsigned LicmMssaOptCap;
   unsigned LicmMssaNoAccForPromotionCap;
+  bool LicmAllowSpeculation;
 
 public:
   LICMPass()
       : LicmMssaOptCap(SetLicmMssaOptCap),
-        LicmMssaNoAccForPromotionCap(SetLicmMssaNoAccForPromotionCap) {}
-  LICMPass(unsigned LicmMssaOptCap, unsigned LicmMssaNoAccForPromotionCap)
+        LicmMssaNoAccForPromotionCap(SetLicmMssaNoAccForPromotionCap),
+        LicmAllowSpeculation(true) {}
+  LICMPass(unsigned LicmMssaOptCap, unsigned LicmMssaNoAccForPromotionCap,
+           bool LicmAllowSpeculation)
       : LicmMssaOptCap(LicmMssaOptCap),
-        LicmMssaNoAccForPromotionCap(LicmMssaNoAccForPromotionCap) {}
+        LicmMssaNoAccForPromotionCap(LicmMssaNoAccForPromotionCap),
+        LicmAllowSpeculation(LicmAllowSpeculation) {}
   PreservedAnalyses run(Loop &L, LoopAnalysisManager &AM,
+                        LoopStandardAnalysisResults &AR, LPMUpdater &U);
+};
+
+/// Performs LoopNest Invariant Code Motion Pass.
+class LNICMPass : public PassInfoMixin<LNICMPass> {
+  unsigned LicmMssaOptCap;
+  unsigned LicmMssaNoAccForPromotionCap;
+  bool LicmAllowSpeculation;
+
+public:
+  LNICMPass()
+      : LicmMssaOptCap(SetLicmMssaOptCap),
+        LicmMssaNoAccForPromotionCap(SetLicmMssaNoAccForPromotionCap),
+        LicmAllowSpeculation(true) {}
+  LNICMPass(unsigned LicmMssaOptCap, unsigned LicmMssaNoAccForPromotionCap,
+            bool LicmAllowSpeculation)
+      : LicmMssaOptCap(LicmMssaOptCap),
+        LicmMssaNoAccForPromotionCap(LicmMssaNoAccForPromotionCap),
+        LicmAllowSpeculation(LicmAllowSpeculation) {}
+  PreservedAnalyses run(LoopNest &L, LoopAnalysisManager &AM,
                         LoopStandardAnalysisResults &AR, LPMUpdater &U);
 };
 } // end namespace llvm

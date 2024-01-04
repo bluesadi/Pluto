@@ -19,6 +19,9 @@
 
 namespace clang {
 
+class DiagnosticsEngine;
+class TargetInfo;
+
 namespace {
 // This enum maps OpenCL version(s) into value. These values are used as
 // a mask to indicate in which OpenCL version(s) extension is a core or
@@ -51,28 +54,48 @@ static inline OpenCLVersionID encodeOpenCLVersion(unsigned OpenCLVersion) {
   }
 }
 
-// Simple helper to check if OpenCL C version is contained in a given encoded
-// OpenCL C version mask
-static inline bool isOpenCLVersionIsContainedInMask(const LangOptions &LO,
-                                                    unsigned Mask) {
-  auto CLVer = LO.OpenCLCPlusPlus ? 200 : LO.OpenCLVersion;
+// Check if OpenCL C version is contained in a given encoded OpenCL C version
+// mask.
+static inline bool isOpenCLVersionContainedInMask(const LangOptions &LO,
+                                                  unsigned Mask) {
+  auto CLVer = LO.getOpenCLCompatibleVersion();
   OpenCLVersionID Code = encodeOpenCLVersion(CLVer);
   return Mask & Code;
 }
+
 } // end anonymous namespace
 
 /// OpenCL supported extensions and optional core features
 class OpenCLOptions {
+
 public:
+  // OpenCL C v1.2 s6.5 - All program scope variables must be declared in the
+  // __constant address space.
+  // OpenCL C v2.0 s6.5.1 - Variables defined at program scope and static
+  // variables inside a function can also be declared in the global
+  // address space.
+  // OpenCL C v3.0 s6.7.1 - Variables at program scope or static or extern
+  // variables inside functions can be declared in global address space if
+  // the __opencl_c_program_scope_global_variables feature is supported
+  // C++ for OpenCL inherits rule from OpenCL C v2.0.
+  bool areProgramScopeVariablesSupported(const LangOptions &Opts) const {
+    return Opts.getOpenCLCompatibleVersion() == 200 ||
+           (Opts.getOpenCLCompatibleVersion() == 300 &&
+            isSupported("__opencl_c_program_scope_global_variables", Opts));
+  }
+
   struct OpenCLOptionInfo {
+    // Does this option have pragma.
+    bool WithPragma = false;
+
     // Option starts to be available in this OpenCL version
-    unsigned Avail;
+    unsigned Avail = 100U;
 
     // Option becomes core feature in this OpenCL versions
-    unsigned Core;
+    unsigned Core = 0U;
 
     // Option becomes optional core feature in this OpenCL versions
-    unsigned Opt;
+    unsigned Opt = 0U;
 
     // Is this option supported
     bool Supported = false;
@@ -80,8 +103,10 @@ public:
     // Is this option enabled
     bool Enabled = false;
 
-    OpenCLOptionInfo(unsigned A = 100, unsigned C = 0U, unsigned O = 0U)
-        : Avail(A), Core(C), Opt(O) {}
+    OpenCLOptionInfo() = default;
+    OpenCLOptionInfo(bool Pragma, unsigned AvailV, unsigned CoreV,
+                     unsigned OptV)
+        : WithPragma(Pragma), Avail(AvailV), Core(CoreV), Opt(OptV) {}
 
     bool isCore() const { return Core != 0U; }
 
@@ -90,24 +115,28 @@ public:
     // Is option available in OpenCL version \p LO.
     bool isAvailableIn(const LangOptions &LO) const {
       // In C++ mode all extensions should work at least as in v2.0.
-      auto CLVer = LO.OpenCLCPlusPlus ? 200 : LO.OpenCLVersion;
-      return CLVer >= Avail;
+      return LO.getOpenCLCompatibleVersion() >= Avail;
     }
 
     // Is core option in OpenCL version \p LO.
     bool isCoreIn(const LangOptions &LO) const {
-      return isAvailableIn(LO) && isOpenCLVersionIsContainedInMask(LO, Core);
+      return isAvailableIn(LO) && isOpenCLVersionContainedInMask(LO, Core);
     }
 
     // Is optional core option in OpenCL version \p LO.
     bool isOptionalCoreIn(const LangOptions &LO) const {
-      return isAvailableIn(LO) && isOpenCLVersionIsContainedInMask(LO, Opt);
+      return isAvailableIn(LO) && isOpenCLVersionContainedInMask(LO, Opt);
     }
   };
 
   bool isKnown(llvm::StringRef Ext) const;
 
-  bool isEnabled(llvm::StringRef Ext) const;
+  // For core or optional core feature check that it is supported
+  // by a target, for any other option (extension) check that it is
+  // enabled via pragma
+  bool isAvailableOption(llvm::StringRef Ext, const LangOptions &LO) const;
+
+  bool isWithPragma(llvm::StringRef Ext) const;
 
   // Is supported as either an extension or an (optional) core feature for
   // OpenCL version \p LO.
@@ -131,6 +160,11 @@ public:
   // For supported core or optional core feature, return false.
   bool isSupportedExtension(llvm::StringRef Ext, const LangOptions &LO) const;
 
+  // FIXME: Whether extension should accept pragma should not
+  // be reset dynamically. But it currently required when
+  // registering new extensions via pragmas.
+  void acceptsPragma(llvm::StringRef Ext, bool V = true);
+
   void enable(llvm::StringRef Ext, bool V = true);
 
   /// Enable or disable support for OpenCL extensions
@@ -139,7 +173,6 @@ public:
   void support(llvm::StringRef Ext, bool V = true);
 
   OpenCLOptions();
-  OpenCLOptions(const OpenCLOptions &) = default;
 
   // Set supported options based on target settings and language version
   void addSupport(const llvm::StringMap<bool> &FeaturesMap,
@@ -148,16 +181,46 @@ public:
   // Disable all extensions
   void disableAll();
 
-  // Enable supported core and optional core features
-  void enableSupportedCore(const LangOptions &LO);
-
   friend class ASTWriter;
   friend class ASTReader;
 
   using OpenCLOptionInfoMap = llvm::StringMap<OpenCLOptionInfo>;
 
+  template <typename... Args>
+  static bool isOpenCLOptionCoreIn(const LangOptions &LO, Args &&... args) {
+    return OpenCLOptionInfo(std::forward<Args>(args)...).isCoreIn(LO);
+  }
+
+  template <typename... Args>
+  static bool isOpenCLOptionAvailableIn(const LangOptions &LO,
+                                        Args &&... args) {
+    return OpenCLOptionInfo(std::forward<Args>(args)...).isAvailableIn(LO);
+  }
+
+  // Diagnose feature dependencies for OpenCL C 3.0. Return false if target
+  // doesn't follow these requirements.
+  static bool diagnoseUnsupportedFeatureDependencies(const TargetInfo &TI,
+                                                     DiagnosticsEngine &Diags);
+
+  // Diagnose that features and equivalent extension are set to same values.
+  // Return false if target doesn't follow these requirements.
+  static bool diagnoseFeatureExtensionDifferences(const TargetInfo &TI,
+                                                  DiagnosticsEngine &Diags);
+
 private:
+  // Option is enabled via pragma
+  bool isEnabled(llvm::StringRef Ext) const;
+
   OpenCLOptionInfoMap OptMap;
+
+  // First feature in a pair requires the second one to be supported.
+  using FeatureDepEntry = std::pair<llvm::StringRef, llvm::StringRef>;
+  using FeatureDepList = llvm::SmallVector<FeatureDepEntry, 8>;
+
+  static const FeatureDepList DependentFeaturesList;
+
+  // Extensions and equivalent feature pairs.
+  static const llvm::StringMap<llvm::StringRef> FeatureExtensionMap;
 };
 
 } // end namespace clang

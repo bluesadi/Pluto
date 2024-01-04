@@ -45,6 +45,7 @@ public:
   bool MCFatalWarnings : 1;
   bool MCNoWarn : 1;
   bool MCNoDeprecatedWarn : 1;
+  bool MCNoTypeCheck : 1;
   bool MCSaveTempLabels : 1;
   bool MCUseDwarfDirectory : 1;
   bool MCIncrementalLinkerCompatible : 1;
@@ -63,7 +64,7 @@ public:
   std::string SplitDwarfFile;
 
   const char *Argv0 = nullptr;
-  ArrayRef<const char *> CommandLineArgs;
+  ArrayRef<std::string> CommandLineArgs;
 
   /// Additional paths to search for `.include` directives when using the
   /// integrated assembler.

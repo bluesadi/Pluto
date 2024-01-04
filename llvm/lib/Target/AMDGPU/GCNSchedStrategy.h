@@ -50,6 +50,14 @@ class GCNMaxOccupancySchedStrategy final : public GenericScheduler {
 
   unsigned TargetOccupancy;
 
+  // schedule() have seen a clustered memory operation. Set it to false
+  // before a region scheduling to know if the region had such clusters.
+  bool HasClusteredNodes;
+
+  // schedule() have seen an excess register pressure and had to track
+  // register pressure for actual scheduling heuristics.
+  bool HasExcessPressure;
+
   MachineFunction *MF;
 
 public:
@@ -96,6 +104,12 @@ class GCNScheduleDAGMILive final : public ScheduleDAGMILive {
   // or we generally desire to reschedule it.
   BitVector RescheduleRegions;
 
+  // Record regions which use clustered loads/stores.
+  BitVector RegionsWithClusters;
+
+  // Record regions with high register pressure.
+  BitVector RegionsWithHighRP;
+
   // Region live-in cache.
   SmallVector<GCNRPTracker::LiveRegSet, 32> LiveIns;
 
@@ -126,4 +140,4 @@ public:
 
 } // End namespace llvm
 
-#endif // GCNSCHEDSTRATEGY_H
+#endif // LLVM_LIB_TARGET_AMDGPU_GCNSCHEDSTRATEGY_H

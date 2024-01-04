@@ -26,7 +26,6 @@ class AAResults;
 class DataLayout;
 class Loop;
 class LoopAccessInfo;
-class OptimizationRemarkEmitter;
 class raw_ostream;
 class SCEV;
 class SCEVUnionPredicate;
@@ -170,28 +169,15 @@ public:
   };
 
   MemoryDepChecker(PredicatedScalarEvolution &PSE, const Loop *L)
-      : PSE(PSE), InnermostLoop(L), AccessIdx(0), MaxSafeDepDistBytes(0),
-        MaxSafeVectorWidthInBits(-1U),
-        FoundNonConstantDistanceDependence(false),
-        Status(VectorizationSafetyStatus::Safe), RecordDependences(true) {}
+      : PSE(PSE), InnermostLoop(L) {}
 
   /// Register the location (instructions are given increasing numbers)
   /// of a write access.
-  void addAccess(StoreInst *SI) {
-    Value *Ptr = SI->getPointerOperand();
-    Accesses[MemAccessInfo(Ptr, true)].push_back(AccessIdx);
-    InstMap.push_back(SI);
-    ++AccessIdx;
-  }
+  void addAccess(StoreInst *SI);
 
   /// Register the location (instructions are given increasing numbers)
   /// of a write access.
-  void addAccess(LoadInst *LI) {
-    Value *Ptr = LI->getPointerOperand();
-    Accesses[MemAccessInfo(Ptr, false)].push_back(AccessIdx);
-    InstMap.push_back(LI);
-    ++AccessIdx;
-  }
+  void addAccess(LoadInst *LI);
 
   /// Check whether the dependencies between the accesses are safe.
   ///
@@ -275,30 +261,30 @@ private:
   SmallVector<Instruction *, 16> InstMap;
 
   /// The program order index to be used for the next instruction.
-  unsigned AccessIdx;
+  unsigned AccessIdx = 0;
 
   // We can access this many bytes in parallel safely.
-  uint64_t MaxSafeDepDistBytes;
+  uint64_t MaxSafeDepDistBytes = 0;
 
   /// Number of elements (from consecutive iterations) that are safe to
   /// operate on simultaneously, multiplied by the size of the element in bits.
   /// The size of the element is taken from the memory access that is most
   /// restrictive.
-  uint64_t MaxSafeVectorWidthInBits;
+  uint64_t MaxSafeVectorWidthInBits = -1U;
 
   /// If we see a non-constant dependence distance we can still try to
   /// vectorize this loop with runtime checks.
-  bool FoundNonConstantDistanceDependence;
+  bool FoundNonConstantDistanceDependence = false;
 
   /// Result of the dependence checks, indicating whether the checked
   /// dependences are safe for vectorization, require RT checks or are known to
   /// be unsafe.
-  VectorizationSafetyStatus Status;
+  VectorizationSafetyStatus Status = VectorizationSafetyStatus::Safe;
 
   //// True if Dependences reflects the dependences in the
   //// loop.  If false we exceeded MaxDependences and
   //// Dependences is invalid.
-  bool RecordDependences;
+  bool RecordDependences = true;
 
   /// Memory dependences collected during the analysis.  Only valid if
   /// RecordDependences is true.
@@ -341,17 +327,21 @@ struct RuntimeCheckingPtrGroup {
   /// pointer, with index \p Index in RtCheck.
   RuntimeCheckingPtrGroup(unsigned Index, RuntimePointerChecking &RtCheck);
 
+  RuntimeCheckingPtrGroup(unsigned Index, const SCEV *Start, const SCEV *End,
+                          unsigned AS)
+      : High(End), Low(Start), AddressSpace(AS) {
+    Members.push_back(Index);
+  }
+
   /// Tries to add the pointer recorded in RtCheck at index
   /// \p Index to this pointer checking group. We can only add a pointer
   /// to a checking group if we will still be able to get
   /// the upper and lower bounds of the check. Returns true in case
   /// of success, false otherwise.
-  bool addPointer(unsigned Index);
+  bool addPointer(unsigned Index, RuntimePointerChecking &RtCheck);
+  bool addPointer(unsigned Index, const SCEV *Start, const SCEV *End,
+                  unsigned AS, ScalarEvolution &SE);
 
-  /// Constitutes the context of this pointer checking group. For each
-  /// pointer that is a member of this group we will retain the index
-  /// at which it appears in RtCheck.
-  RuntimePointerChecking &RtCheck;
   /// The SCEV expression which represents the upper bound of all the
   /// pointers in this group.
   const SCEV *High;
@@ -360,6 +350,8 @@ struct RuntimeCheckingPtrGroup {
   const SCEV *Low;
   /// Indices of all the pointers that constitute this grouping.
   SmallVector<unsigned, 2> Members;
+  /// Address space of the involved pointers.
+  unsigned AddressSpace;
 };
 
 /// A memcheck which made up of a pair of grouped pointers.
@@ -400,7 +392,7 @@ public:
           AliasSetId(AliasSetId), Expr(Expr) {}
   };
 
-  RuntimePointerChecking(ScalarEvolution *SE) : Need(false), SE(SE) {}
+  RuntimePointerChecking(ScalarEvolution *SE) : SE(SE) {}
 
   /// Reset the state of the pointer runtime information.
   void reset() {
@@ -449,7 +441,7 @@ public:
                    unsigned Depth = 0) const;
 
   /// This flag indicates if we need to add the runtime check.
-  bool Need;
+  bool Need = false;
 
   /// Information about the pointers that may require checking.
   SmallVector<PointerInfo, 2> Pointers;
@@ -625,17 +617,17 @@ private:
 
   Loop *TheLoop;
 
-  unsigned NumLoads;
-  unsigned NumStores;
+  unsigned NumLoads = 0;
+  unsigned NumStores = 0;
 
-  uint64_t MaxSafeDepDistBytes;
+  uint64_t MaxSafeDepDistBytes = -1;
 
   /// Cache the result of analyzeLoop.
-  bool CanVecMem;
-  bool HasConvergentOp;
+  bool CanVecMem = false;
+  bool HasConvergentOp = false;
 
   /// Indicator that there are non vectorizable stores to a uniform address.
-  bool HasDependenceInvolvingLoopInvariantAddress;
+  bool HasDependenceInvolvingLoopInvariantAddress = false;
 
   /// The diagnostics report generated for the analysis.  E.g. why we
   /// couldn't analyze the loop.
@@ -658,15 +650,14 @@ Value *stripIntegerCast(Value *V);
 /// If necessary this method will version the stride of the pointer according
 /// to \p PtrToStride and therefore add further predicates to \p PSE.
 ///
-/// If \p OrigPtr is not null, use it to look up the stride value instead of \p
-/// Ptr.  \p PtrToStride provides the mapping between the pointer value and its
+/// \p PtrToStride provides the mapping between the pointer value and its
 /// stride as collected by LoopVectorizationLegality::collectStridedAccess.
 const SCEV *replaceSymbolicStrideSCEV(PredicatedScalarEvolution &PSE,
                                       const ValueToValueMap &PtrToStride,
-                                      Value *Ptr, Value *OrigPtr = nullptr);
+                                      Value *Ptr);
 
-/// If the pointer has a constant stride return it in units of its
-/// element size.  Otherwise return zero.
+/// If the pointer has a constant stride return it in units of the access type
+/// size.  Otherwise return zero.
 ///
 /// Ensure that it does not wrap in the address space, assuming the predicate
 /// associated with \p PSE is true.
@@ -675,9 +666,20 @@ const SCEV *replaceSymbolicStrideSCEV(PredicatedScalarEvolution &PSE,
 /// to \p PtrToStride and therefore add further predicates to \p PSE.
 /// The \p Assume parameter indicates if we are allowed to make additional
 /// run-time assumptions.
-int64_t getPtrStride(PredicatedScalarEvolution &PSE, Value *Ptr, const Loop *Lp,
+int64_t getPtrStride(PredicatedScalarEvolution &PSE, Type *AccessTy, Value *Ptr,
+                     const Loop *Lp,
                      const ValueToValueMap &StridesMap = ValueToValueMap(),
                      bool Assume = false, bool ShouldCheckWrap = true);
+
+/// Returns the distance between the pointers \p PtrA and \p PtrB iff they are
+/// compatible and it is possible to calculate the distance between them. This
+/// is a simple API that does not depend on the analysis pass.
+/// \param StrictCheck Ensure that the calculated distance matches the
+/// type-based one after all the bitcasts removal in the provided pointers.
+Optional<int> getPointersDiff(Type *ElemTyA, Value *PtrA, Type *ElemTyB,
+                              Value *PtrB, const DataLayout &DL,
+                              ScalarEvolution &SE, bool StrictCheck = false,
+                              bool CheckType = true);
 
 /// Attempt to sort the pointers in \p VL and return the sorted indices
 /// in \p SortedIndices, if reordering is required.
@@ -689,7 +691,7 @@ int64_t getPtrStride(PredicatedScalarEvolution &PSE, Value *Ptr, const Loop *Lp,
 /// sorted indices in \p SortedIndices as a[i+0], a[i+1], a[i+4], a[i+7] and
 /// saves the mask for actual memory accesses in program order in
 /// \p SortedIndices as <1,2,0,3>
-bool sortPtrAccesses(ArrayRef<Value *> VL, const DataLayout &DL,
+bool sortPtrAccesses(ArrayRef<Value *> VL, Type *ElemTy, const DataLayout &DL,
                      ScalarEvolution &SE,
                      SmallVectorImpl<unsigned> &SortedIndices);
 

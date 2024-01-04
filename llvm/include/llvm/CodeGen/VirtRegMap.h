@@ -39,10 +39,10 @@ class TargetInstrInfo;
     };
 
   private:
-    MachineRegisterInfo *MRI;
-    const TargetInstrInfo *TII;
-    const TargetRegisterInfo *TRI;
-    MachineFunction *MF;
+    MachineRegisterInfo *MRI = nullptr;
+    const TargetInstrInfo *TII = nullptr;
+    const TargetRegisterInfo *TRI = nullptr;
+    MachineFunction *MF = nullptr;
 
     /// Virt2PhysMap - This is a virtual to physical register
     /// mapping. Each virtual register is required to have an entry in
@@ -72,8 +72,7 @@ class TargetInstrInfo;
     static char ID;
 
     VirtRegMap()
-        : MachineFunctionPass(ID), MRI(nullptr), TII(nullptr), TRI(nullptr),
-          MF(nullptr), Virt2PhysMap(NO_PHYS_REG),
+        : MachineFunctionPass(ID), Virt2PhysMap(NO_PHYS_REG),
           Virt2StackSlotMap(NO_STACK_SLOT), Virt2SplitMap(0) {}
     VirtRegMap(const VirtRegMap &) = delete;
     VirtRegMap &operator=(const VirtRegMap &) = delete;
@@ -143,12 +142,12 @@ class TargetInstrInfo;
     }
 
     /// returns true if VirtReg is assigned to its preferred physreg.
-    bool hasPreferredPhys(Register VirtReg);
+    bool hasPreferredPhys(Register VirtReg) const;
 
     /// returns true if VirtReg has a known preferred register.
     /// This returns false if VirtReg has a preference that is a virtual
     /// register that hasn't been assigned yet.
-    bool hasKnownPreference(Register VirtReg);
+    bool hasKnownPreference(Register VirtReg) const;
 
     /// records virtReg is a split live interval from SReg.
     void setIsSplitFromReg(Register virtReg, Register SReg) {

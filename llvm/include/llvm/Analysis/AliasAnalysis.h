@@ -60,7 +60,7 @@ class CatchReturnInst;
 class DominatorTree;
 class FenceInst;
 class Function;
-class InvokeInst;
+class LoopInfo;
 class PreservedAnalyses;
 class TargetLibraryInfo;
 class Value;
@@ -78,20 +78,63 @@ class Value;
 ///
 /// See docs/AliasAnalysis.html for more information on the specific meanings
 /// of these values.
-enum AliasResult : uint8_t {
-  /// The two locations do not alias at all.
-  ///
-  /// This value is arranged to convert to false, while all other values
-  /// convert to true. This allows a boolean context to convert the result to
-  /// a binary flag indicating whether there is the possibility of aliasing.
-  NoAlias = 0,
-  /// The two locations may or may not alias. This is the least precise result.
-  MayAlias,
-  /// The two locations alias, but only due to a partial overlap.
-  PartialAlias,
-  /// The two locations precisely alias each other.
-  MustAlias,
+class AliasResult {
+private:
+  static const int OffsetBits = 23;
+  static const int AliasBits = 8;
+  static_assert(AliasBits + 1 + OffsetBits <= 32,
+                "AliasResult size is intended to be 4 bytes!");
+
+  unsigned int Alias : AliasBits;
+  unsigned int HasOffset : 1;
+  signed int Offset : OffsetBits;
+
+public:
+  enum Kind : uint8_t {
+    /// The two locations do not alias at all.
+    ///
+    /// This value is arranged to convert to false, while all other values
+    /// convert to true. This allows a boolean context to convert the result to
+    /// a binary flag indicating whether there is the possibility of aliasing.
+    NoAlias = 0,
+    /// The two locations may or may not alias. This is the least precise
+    /// result.
+    MayAlias,
+    /// The two locations alias, but only due to a partial overlap.
+    PartialAlias,
+    /// The two locations precisely alias each other.
+    MustAlias,
+  };
+  static_assert(MustAlias < (1 << AliasBits),
+                "Not enough bit field size for the enum!");
+
+  explicit AliasResult() = delete;
+  constexpr AliasResult(const Kind &Alias)
+      : Alias(Alias), HasOffset(false), Offset(0) {}
+
+  operator Kind() const { return static_cast<Kind>(Alias); }
+
+  constexpr bool hasOffset() const { return HasOffset; }
+  constexpr int32_t getOffset() const {
+    assert(HasOffset && "No offset!");
+    return Offset;
+  }
+  void setOffset(int32_t NewOffset) {
+    if (isInt<OffsetBits>(NewOffset)) {
+      HasOffset = true;
+      Offset = NewOffset;
+    }
+  }
+
+  /// Helper for processing AliasResult for swapped memory location pairs.
+  void swap(bool DoSwap = true) {
+    if (DoSwap && hasOffset())
+      setOffset(-getOffset());
+  }
 };
+
+static_assert(sizeof(AliasResult) == 4,
+              "AliasResult size is intended to be 4 bytes!");
 
 /// << operator for AliasResult.
 raw_ostream &operator<<(raw_ostream &OS, AliasResult AR);
@@ -335,6 +378,75 @@ createModRefInfo(const FunctionModRefBehavior FMRB) {
   return ModRefInfo(FMRB & static_cast<int>(ModRefInfo::ModRef));
 }
 
+/// Virtual base class for providers of capture information.
+struct CaptureInfo {
+  virtual ~CaptureInfo() = 0;
+  virtual bool isNotCapturedBeforeOrAt(const Value *Object,
+                                       const Instruction *I) = 0;
+};
+
+/// Context-free CaptureInfo provider, which computes and caches whether an
+/// object is captured in the function at all, but does not distinguish whether
+/// it was captured before or after the context instruction.
+class SimpleCaptureInfo final : public CaptureInfo {
+  SmallDenseMap<const Value *, bool, 8> IsCapturedCache;
+
+public:
+  bool isNotCapturedBeforeOrAt(const Value *Object,
+                               const Instruction *I) override;
+};
+
+/// Context-sensitive CaptureInfo provider, which computes and caches the
+/// earliest common dominator closure of all captures. It provides a good
+/// approximation to a precise "captures before" analysis.
+class EarliestEscapeInfo final : public CaptureInfo {
+  DominatorTree &DT;
+  const LoopInfo &LI;
+
+  /// Map from identified local object to an instruction before which it does
+  /// not escape, or nullptr if it never escapes. The "earliest" instruction
+  /// may be a conservative approximation, e.g. the first instruction in the
+  /// function is always a legal choice.
+  DenseMap<const Value *, Instruction *> EarliestEscapes;
+
+  /// Reverse map from instruction to the objects it is the earliest escape for.
+  /// This is used for cache invalidation purposes.
+  DenseMap<Instruction *, TinyPtrVector<const Value *>> Inst2Obj;
+
+public:
+  EarliestEscapeInfo(DominatorTree &DT, const LoopInfo &LI) : DT(DT), LI(LI) {}
+
+  bool isNotCapturedBeforeOrAt(const Value *Object,
+                               const Instruction *I) override;
+
+  void removeInstruction(Instruction *I);
+};
+
+/// Reduced version of MemoryLocation that only stores a pointer and size.
+/// Used for caching AATags independent BasicAA results.
+struct AACacheLoc {
+  const Value *Ptr;
+  LocationSize Size;
+};
+
+template <> struct DenseMapInfo<AACacheLoc> {
+  static inline AACacheLoc getEmptyKey() {
+    return {DenseMapInfo<const Value *>::getEmptyKey(),
+            DenseMapInfo<LocationSize>::getEmptyKey()};
+  }
+  static inline AACacheLoc getTombstoneKey() {
+    return {DenseMapInfo<const Value *>::getTombstoneKey(),
+            DenseMapInfo<LocationSize>::getTombstoneKey()};
+  }
+  static unsigned getHashValue(const AACacheLoc &Val) {
+    return DenseMapInfo<const Value *>::getHashValue(Val.Ptr) ^
+           DenseMapInfo<LocationSize>::getHashValue(Val.Size);
+  }
+  static bool isEqual(const AACacheLoc &LHS, const AACacheLoc &RHS) {
+    return LHS.Ptr == RHS.Ptr && LHS.Size == RHS.Size;
+  }
+};
+
 /// This class stores info we want to provide to or retain within an alias
 /// query. By default, the root query is stateless and starts with a freshly
 /// constructed info object. Specific alias analyses can use this query info to
@@ -345,7 +457,7 @@ createModRefInfo(const FunctionModRefBehavior FMRB) {
 /// caches used by BasicAA, but can further be extended to fit other AA needs.
 class AAQueryInfo {
 public:
-  using LocPair = std::pair<MemoryLocation, MemoryLocation>;
+  using LocPair = std::pair<AACacheLoc, AACacheLoc>;
   struct CacheEntry {
     AliasResult Result;
     /// Number of times a NoAlias assumption has been used.
@@ -357,8 +469,10 @@ public:
   using AliasCacheT = SmallDenseMap<LocPair, CacheEntry, 8>;
   AliasCacheT AliasCache;
 
-  using IsCapturedCacheT = SmallDenseMap<const Value *, bool, 8>;
-  IsCapturedCacheT IsCapturedCache;
+  CaptureInfo *CI;
+
+  /// Query depth used to distinguish recursive queries.
+  unsigned Depth = 0;
 
   /// How many active NoAlias assumption uses there are.
   int NumAssumptionUses = 0;
@@ -368,7 +482,24 @@ public:
   /// assumption is disproven.
   SmallVector<AAQueryInfo::LocPair, 4> AssumptionBasedResults;
 
-  AAQueryInfo() : AliasCache(), IsCapturedCache() {}
+  AAQueryInfo(CaptureInfo *CI) : CI(CI) {}
+
+  /// Create a new AAQueryInfo based on this one, but with the cache cleared.
+  /// This is used for recursive queries across phis, where cache results may
+  /// not be valid.
+  AAQueryInfo withEmptyCache() {
+    AAQueryInfo NewAAQI(CI);
+    NewAAQI.Depth = Depth;
+    return NewAAQI;
+  }
+};
+
+/// AAQueryInfo that uses SimpleCaptureInfo.
+class SimpleAAQueryInfo : public AAQueryInfo {
+  SimpleCaptureInfo CI;
+
+public:
+  SimpleAAQueryInfo() : AAQueryInfo(&CI) {}
 };
 
 class BatchAAResults;
@@ -428,7 +559,7 @@ public:
   /// A trivial helper function to check to see if the specified pointers are
   /// no-alias.
   bool isNoAlias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
-    return alias(LocA, LocB) == NoAlias;
+    return alias(LocA, LocB) == AliasResult::NoAlias;
   }
 
   /// A convenience wrapper around the \c isNoAlias helper interface.
@@ -446,13 +577,13 @@ public:
   /// A trivial helper function to check to see if the specified pointers are
   /// must-alias.
   bool isMustAlias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
-    return alias(LocA, LocB) == MustAlias;
+    return alias(LocA, LocB) == AliasResult::MustAlias;
   }
 
   /// A convenience wrapper around the \c isMustAlias helper interface.
   bool isMustAlias(const Value *V1, const Value *V2) {
     return alias(V1, LocationSize::precise(1), V2, LocationSize::precise(1)) ==
-           MustAlias;
+           AliasResult::MustAlias;
   }
 
   /// Checks whether the given location points to constant memory, or if
@@ -547,7 +678,7 @@ public:
 
   /// Checks if functions with the specified behavior are known to only write
   /// memory (or not access memory at all).
-  static bool doesNotReadMemory(FunctionModRefBehavior MRB) {
+  static bool onlyWritesMemory(FunctionModRefBehavior MRB) {
     return !isRefSet(createModRefInfo(MRB));
   }
 
@@ -690,7 +821,7 @@ public:
   /// helpers above.
   ModRefInfo getModRefInfo(const Instruction *I,
                            const Optional<MemoryLocation> &OptLoc) {
-    AAQueryInfo AAQIP;
+    SimpleAAQueryInfo AAQIP;
     return getModRefInfo(I, OptLoc, AAQIP);
   }
 
@@ -715,7 +846,11 @@ public:
   /// Early exits in callCapturesBefore may lead to ModRefInfo::Must not being
   /// set.
   ModRefInfo callCapturesBefore(const Instruction *I,
-                                const MemoryLocation &MemLoc, DominatorTree *DT);
+                                const MemoryLocation &MemLoc,
+                                DominatorTree *DT) {
+    SimpleAAQueryInfo AAQIP;
+    return callCapturesBefore(I, MemLoc, DT, AAQIP);
+  }
 
   /// A convenience wrapper to synthesize a memory location.
   ModRefInfo callCapturesBefore(const Instruction *I, const Value *P,
@@ -784,6 +919,9 @@ private:
   ModRefInfo getModRefInfo(const Instruction *I,
                            const Optional<MemoryLocation> &OptLoc,
                            AAQueryInfo &AAQIP);
+  ModRefInfo callCapturesBefore(const Instruction *I,
+                                const MemoryLocation &MemLoc, DominatorTree *DT,
+                                AAQueryInfo &AAQIP);
 
   class Concept;
 
@@ -797,9 +935,6 @@ private:
 
   std::vector<AnalysisKey *> AADeps;
 
-  /// Query depth used to distinguish recursive queries.
-  unsigned Depth = 0;
-
   friend class BatchAAResults;
 };
 
@@ -812,9 +947,12 @@ private:
 class BatchAAResults {
   AAResults &AA;
   AAQueryInfo AAQI;
+  SimpleCaptureInfo SimpleCI;
 
 public:
-  BatchAAResults(AAResults &AAR) : AA(AAR), AAQI() {}
+  BatchAAResults(AAResults &AAR) : AA(AAR), AAQI(&SimpleCI) {}
+  BatchAAResults(AAResults &AAR, CaptureInfo *CI) : AA(AAR), AAQI(CI) {}
+
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
     return AA.alias(LocA, LocB, AAQI);
   }
@@ -841,11 +979,17 @@ public:
     return AA.getModRefBehavior(Call);
   }
   bool isMustAlias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
-    return alias(LocA, LocB) == MustAlias;
+    return alias(LocA, LocB) == AliasResult::MustAlias;
   }
   bool isMustAlias(const Value *V1, const Value *V2) {
     return alias(MemoryLocation(V1, LocationSize::precise(1)),
-                 MemoryLocation(V2, LocationSize::precise(1))) == MustAlias;
+                 MemoryLocation(V2, LocationSize::precise(1))) ==
+           AliasResult::MustAlias;
+  }
+  ModRefInfo callCapturesBefore(const Instruction *I,
+                                const MemoryLocation &MemLoc,
+                                DominatorTree *DT) {
+    return AA.callCapturesBefore(I, MemLoc, DT, AAQI);
   }
 };
 
@@ -1073,7 +1217,7 @@ protected:
 public:
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
                     AAQueryInfo &AAQI) {
-    return MayAlias;
+    return AliasResult::MayAlias;
   }
 
   bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
@@ -1122,6 +1266,14 @@ bool isIdentifiedObject(const Value *V);
 /// arguments other than itself, which is not necessarily true for
 /// IdentifiedObjects.
 bool isIdentifiedFunctionLocal(const Value *V);
+
+/// Return true if Object memory is not visible after an unwind, in the sense
+/// that program semantics cannot depend on Object containing any particular
+/// value on unwind. If the RequiresNoCaptureBeforeUnwind out parameter is set
+/// to true, then the memory is only not visible if the object has not been
+/// captured prior to the unwind. Otherwise it is not visible even if captured.
+bool isNotVisibleOnUnwind(const Value *Object,
+                          bool &RequiresNoCaptureBeforeUnwind);
 
 /// A manager for alias analyses.
 ///

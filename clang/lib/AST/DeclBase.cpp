@@ -784,6 +784,7 @@ unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
 
     case Using:
     case UsingPack:
+    case UsingEnum:
       return IDNS_Using;
 
     case ObjCProtocol:
@@ -810,6 +811,9 @@ unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
     case TemplateTemplateParm:
     case TypeAliasTemplate:
       return IDNS_Ordinary | IDNS_Tag | IDNS_Type;
+
+    case UnresolvedUsingIfExists:
+      return IDNS_Type | IDNS_Ordinary;
 
     case OMPDeclareReduction:
       return IDNS_OMPReduction;
@@ -960,7 +964,7 @@ SourceLocation Decl::getBodyRBrace() const {
   return {};
 }
 
-bool Decl::AccessDeclContextSanity() const {
+bool Decl::AccessDeclContextCheck() const {
 #ifndef NDEBUG
   // Suppress this check if any of the following hold:
   // 1. this is the translation unit (and thus has no parent)
@@ -989,6 +993,15 @@ bool Decl::AccessDeclContextSanity() const {
          "Access specifier is AS_none inside a record decl");
 #endif
   return true;
+}
+
+bool Decl::isInExportDeclContext() const {
+  const DeclContext *DC = getLexicalDeclContext();
+
+  while (DC && !isa<ExportDecl>(DC))
+    DC = DC->getLexicalParent();
+
+  return DC && isa<ExportDecl>(DC);
 }
 
 static Decl::Kind getKind(const Decl *D) { return D->getKind(); }
@@ -1208,14 +1221,23 @@ bool DeclContext::Encloses(const DeclContext *DC) const {
     return getPrimaryContext()->Encloses(DC);
 
   for (; DC; DC = DC->getParent())
-    if (DC->getPrimaryContext() == this)
+    if (!isa<LinkageSpecDecl>(DC) && !isa<ExportDecl>(DC) &&
+        DC->getPrimaryContext() == this)
       return true;
   return false;
 }
 
+DeclContext *DeclContext::getNonTransparentContext() {
+  DeclContext *DC = this;
+  while (DC->isTransparentContext()) {
+    DC = DC->getParent();
+    assert(DC && "All transparent contexts should have a parent!");
+  }
+  return DC;
+}
+
 DeclContext *DeclContext::getPrimaryContext() {
   switch (getDeclKind()) {
-  case Decl::TranslationUnit:
   case Decl::ExternCContext:
   case Decl::LinkageSpec:
   case Decl::Export:
@@ -1227,6 +1249,8 @@ DeclContext *DeclContext::getPrimaryContext() {
     // There is only one DeclContext for these entities.
     return this;
 
+  case Decl::TranslationUnit:
+    return static_cast<TranslationUnitDecl *>(this)->getFirstDecl();
   case Decl::Namespace:
     // The original namespace is our primary context.
     return static_cast<NamespaceDecl *>(this)->getOriginalNamespace();
@@ -1281,21 +1305,25 @@ DeclContext *DeclContext::getPrimaryContext() {
   }
 }
 
-void
-DeclContext::collectAllContexts(SmallVectorImpl<DeclContext *> &Contexts){
-  Contexts.clear();
-
-  if (getDeclKind() != Decl::Namespace) {
-    Contexts.push_back(this);
-    return;
-  }
-
-  auto *Self = static_cast<NamespaceDecl *>(this);
-  for (NamespaceDecl *N = Self->getMostRecentDecl(); N;
-       N = N->getPreviousDecl())
-    Contexts.push_back(N);
+template <typename T>
+void collectAllContextsImpl(T *Self, SmallVectorImpl<DeclContext *> &Contexts) {
+  for (T *D = Self->getMostRecentDecl(); D; D = D->getPreviousDecl())
+    Contexts.push_back(D);
 
   std::reverse(Contexts.begin(), Contexts.end());
+}
+
+void DeclContext::collectAllContexts(SmallVectorImpl<DeclContext *> &Contexts) {
+  Contexts.clear();
+
+  Decl::Kind Kind = getDeclKind();
+
+  if (Kind == Decl::TranslationUnit)
+    collectAllContextsImpl(static_cast<TranslationUnitDecl *>(this), Contexts);
+  else if (Kind == Decl::Namespace)
+    collectAllContextsImpl(static_cast<NamespaceDecl *>(this), Contexts);
+  else
+    Contexts.push_back(this);
 }
 
 std::pair<Decl *, Decl *>
@@ -1394,39 +1422,7 @@ ExternalASTSource::SetExternalVisibleDeclsForName(const DeclContext *DC,
     DC->reconcileExternalVisibleStorage();
 
   StoredDeclsList &List = (*Map)[Name];
-
-  // Clear out any old external visible declarations, to avoid quadratic
-  // performance in the redeclaration checks below.
-  List.removeExternalDecls();
-
-  if (!List.isNull()) {
-    // We have both existing declarations and new declarations for this name.
-    // Some of the declarations may simply replace existing ones. Handle those
-    // first.
-    llvm::SmallVector<unsigned, 8> Skip;
-    for (unsigned I = 0, N = Decls.size(); I != N; ++I)
-      if (List.HandleRedeclaration(Decls[I], /*IsKnownNewer*/false))
-        Skip.push_back(I);
-    Skip.push_back(Decls.size());
-
-    // Add in any new declarations.
-    unsigned SkipPos = 0;
-    for (unsigned I = 0, N = Decls.size(); I != N; ++I) {
-      if (I == Skip[SkipPos])
-        ++SkipPos;
-      else
-        List.AddSubsequentDecl(Decls[I]);
-    }
-  } else {
-    // Convert the array to a StoredDeclsList.
-    for (auto *D : Decls) {
-      if (List.isNull())
-        List.setOnlyValue(D);
-      else
-        List.AddSubsequentDecl(D);
-    }
-  }
-
+  List.replaceExternalDecls(Decls);
   return List.getLookupResult();
 }
 
@@ -1538,10 +1534,7 @@ void DeclContext::removeDecl(Decl *D) {
       if (Map) {
         StoredDeclsMap::iterator Pos = Map->find(ND->getDeclName());
         assert(Pos != Map->end() && "no lookup entry for decl");
-        // Remove the decl only if it is contained.
-        StoredDeclsList::DeclsTy *Vec = Pos->second.getAsVector();
-        if ((Vec && is_contained(*Vec, ND)) || Pos->second.getAsDecl() == ND)
-          Pos->second.remove(ND);
+        Pos->second.remove(ND);
       }
     } while (DC->isTransparentContext() && (DC = DC->getParent()));
   }
@@ -1658,13 +1651,11 @@ void DeclContext::buildLookupImpl(DeclContext *DCtx, bool Internal) {
   }
 }
 
-NamedDecl *const DeclContextLookupResult::SingleElementDummyList = nullptr;
-
 DeclContext::lookup_result
 DeclContext::lookup(DeclarationName Name) const {
-  assert(getDeclKind() != Decl::LinkageSpec &&
-         getDeclKind() != Decl::Export &&
-         "should not perform lookups into transparent contexts");
+  // For transparent DeclContext, we should lookup in their enclosing context.
+  if (getDeclKind() == Decl::LinkageSpec || getDeclKind() == Decl::Export)
+    return getParent()->lookup(Name);
 
   const DeclContext *PrimaryContext = getPrimaryContext();
   if (PrimaryContext != this)
@@ -1935,23 +1926,11 @@ void DeclContext::makeDeclVisibleInContextImpl(NamedDecl *D, bool Internal) {
     // In this case, we never try to replace an existing declaration; we'll
     // handle that when we finalize the list of declarations for this name.
     DeclNameEntries.setHasExternalDecls();
-    DeclNameEntries.AddSubsequentDecl(D);
+    DeclNameEntries.prependDeclNoReplace(D);
     return;
   }
 
-  if (DeclNameEntries.isNull()) {
-    DeclNameEntries.setOnlyValue(D);
-    return;
-  }
-
-  if (DeclNameEntries.HandleRedeclaration(D, /*IsKnownNewer*/!Internal)) {
-    // This declaration has replaced an existing one for which
-    // declarationReplaces returns true.
-    return;
-  }
-
-  // Put this declaration into the appropriate slot.
-  DeclNameEntries.AddSubsequentDecl(D);
+  DeclNameEntries.addOrReplaceDecl(D);
 }
 
 UsingDirectiveDecl *DeclContext::udir_iterator::operator*() const {
@@ -1993,6 +1972,7 @@ void ASTContext::ReleaseDeclContextMaps() {
   // pointer because the subclass doesn't add anything that needs to
   // be deleted.
   StoredDeclsMap::DestroyAll(LastSDM.getPointer(), LastSDM.getInt());
+  LastSDM.setPointer(nullptr);
 }
 
 void StoredDeclsMap::DestroyAll(StoredDeclsMap *Map, bool Dependent) {

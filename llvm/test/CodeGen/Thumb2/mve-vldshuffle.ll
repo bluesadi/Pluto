@@ -25,15 +25,14 @@ define void @arm_cmplx_mag_squared_f16(half* nocapture readonly %pSrc, half* noc
 ; CHECK-NEXT:    add.w r12, r1, r4, lsl #1
 ; CHECK-NEXT:    add.w lr, r5, r3, lsr #3
 ; CHECK-NEXT:    add.w r3, r0, r4, lsl #2
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:    and r5, r2, #7
 ; CHECK-NEXT:  .LBB0_4: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vld20.16 {q0, q1}, [r0]
 ; CHECK-NEXT:    vld21.16 {q0, q1}, [r0]!
-; CHECK-NEXT:    vmul.f16 q2, q0, q0
-; CHECK-NEXT:    vfma.f16 q2, q1, q1
-; CHECK-NEXT:    vstrb.8 q2, [r1], #16
+; CHECK-NEXT:    vmul.f16 q0, q0, q0
+; CHECK-NEXT:    vfma.f16 q0, q1, q1
+; CHECK-NEXT:    vstrb.8 q0, [r1], #16
 ; CHECK-NEXT:    le lr, .LBB0_4
 ; CHECK-NEXT:  @ %bb.5: @ %middle.block
 ; CHECK-NEXT:    cmp r4, r2
@@ -155,15 +154,14 @@ define void @arm_cmplx_mag_squared_f32(float* nocapture readonly %pSrc, float* n
 ; CHECK-NEXT:    add.w r12, r1, r4, lsl #2
 ; CHECK-NEXT:    add.w lr, r5, r3, lsr #2
 ; CHECK-NEXT:    add.w r3, r0, r4, lsl #3
-; CHECK-NEXT:    dls lr, lr
 ; CHECK-NEXT:    and r5, r2, #3
 ; CHECK-NEXT:  .LBB1_4: @ %vector.body
 ; CHECK-NEXT:    @ =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    vld20.32 {q0, q1}, [r0]
 ; CHECK-NEXT:    vld21.32 {q0, q1}, [r0]!
-; CHECK-NEXT:    vmul.f32 q2, q0, q0
-; CHECK-NEXT:    vfma.f32 q2, q1, q1
-; CHECK-NEXT:    vstrb.8 q2, [r1], #16
+; CHECK-NEXT:    vmul.f32 q0, q0, q0
+; CHECK-NEXT:    vfma.f32 q0, q1, q1
+; CHECK-NEXT:    vstrb.8 q0, [r1], #16
 ; CHECK-NEXT:    le lr, .LBB1_4
 ; CHECK-NEXT:  @ %bb.5: @ %middle.block
 ; CHECK-NEXT:    cmp r4, r2
@@ -178,8 +176,7 @@ define void @arm_cmplx_mag_squared_f32(float* nocapture readonly %pSrc, float* n
 ; CHECK-NEXT:    adds r3, #8
 ; CHECK-NEXT:    vmul.f32 s0, s0, s0
 ; CHECK-NEXT:    vfma.f32 s0, s2, s2
-; CHECK-NEXT:    vstr s0, [r12]
-; CHECK-NEXT:    add.w r12, r12, #4
+; CHECK-NEXT:    vstmia r12!, {s0}
 ; CHECK-NEXT:    le lr, .LBB1_7
 ; CHECK-NEXT:  .LBB1_8: @ %while.end
 ; CHECK-NEXT:    pop {r4, r5, r7, pc}

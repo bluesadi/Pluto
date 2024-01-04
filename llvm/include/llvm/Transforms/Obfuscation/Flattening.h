@@ -1,25 +1,17 @@
-#ifndef LLVM_FLATTENING_H
-#define LLVM_FLATTENING_H
+#pragma once
 
-#include "llvm/IR/Function.h"
-#include "llvm/Pass.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/LowerSwitch.h"
 
-namespace llvm {
+using namespace llvm;
 
-class Flattening : public FunctionPass {
-public:
-    static char ID;
-    bool enable;
+namespace Pluto {
 
-    Flattening(bool enable) : FunctionPass(ID) { this->enable = enable; }
+struct Flattening : PassInfoMixin<Flattening> {
+    PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
-    void flatten(Function &F);
-
-    bool runOnFunction(Function &F);
+    static bool isRequired() { return true; }
 };
 
-FunctionPass *createFlatteningPass(bool enable);
-
-} // namespace llvm
-
-#endif // LLVM_FLATTENING_H
+}; // namespace Pluto

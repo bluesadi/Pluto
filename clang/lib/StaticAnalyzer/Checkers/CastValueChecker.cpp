@@ -20,6 +20,7 @@
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
 #include "clang/StaticAnalyzer/Core/Checker.h"
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/CallDescription.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/DynamicType.h"
@@ -107,7 +108,7 @@ static const NoteTag *getNoteTag(CheckerContext &C,
                                  bool CastSucceeds, bool IsKnownCast) {
   std::string CastToName =
       CastInfo ? CastInfo->to()->getAsCXXRecordDecl()->getNameAsString()
-               : CastToTy->getPointeeCXXRecordDecl()->getNameAsString();
+               : CastToTy.getAsString();
   Object = Object->IgnoreParenImpCasts();
 
   return C.getNoteTag(
@@ -162,9 +163,9 @@ static const NoteTag *getNoteTag(CheckerContext &C,
         bool First = true;
         for (QualType CastToTy: CastToTyVec) {
           std::string CastToName =
-            CastToTy->getAsCXXRecordDecl() ?
-            CastToTy->getAsCXXRecordDecl()->getNameAsString() :
-            CastToTy->getPointeeCXXRecordDecl()->getNameAsString();
+              CastToTy->getAsCXXRecordDecl()
+                  ? CastToTy->getAsCXXRecordDecl()->getNameAsString()
+                  : CastToTy.getAsString();
           Out << ' ' << ((CastToTyVec.size() == 1) ? "not" :
                          (First ? "neither" : "nor")) << " a '" << CastToName
               << '\'';

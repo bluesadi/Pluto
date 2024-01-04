@@ -20,6 +20,7 @@ add_clang_library(clangAnalysis
   ExprMutationAnalyzer.cpp
   IssueHash.cpp
   LiveVariables.cpp
+  MacroExpansionContext.cpp
   ObjCNoReturn.cpp
   PathDiagnostic.cpp
   PostOrderCFGView.cpp
@@ -43,3 +44,4 @@ add_clang_library(clangAnalysis
   )
 
 add_subdirectory(plugins)
+add_subdirectory(FlowSensitive)

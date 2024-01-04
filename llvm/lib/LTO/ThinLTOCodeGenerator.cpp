@@ -14,8 +14,10 @@
 #include "llvm/LTO/legacy/ThinLTOCodeGenerator.h"
 #include "llvm/Support/CommandLine.h"
 
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/ModuleSummaryAnalysis.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -36,7 +38,10 @@
 #include "llvm/LTO/LTO.h"
 #include "llvm/LTO/SummaryBasedOptimizations.h"
 #include "llvm/MC/SubtargetFeature.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Object/IRObjectFile.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Remarks/HotnessThresholdParser.h"
 #include "llvm/Support/CachePruning.h"
 #include "llvm/Support/Debug.h"
@@ -45,12 +50,12 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SHA1.h"
 #include "llvm/Support/SmallVectorMemoryBuffer.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/ThreadPool.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/FunctionImport.h"
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -262,6 +267,63 @@ static void optimizeModule(Module &TheModule, TargetMachine &TM,
   PM.run(TheModule);
 }
 
+static void optimizeModuleNewPM(Module &TheModule, TargetMachine &TM,
+                                unsigned OptLevel, bool Freestanding,
+                                bool DebugPassManager,
+                                ModuleSummaryIndex *Index) {
+  Optional<PGOOptions> PGOOpt;
+  LoopAnalysisManager LAM;
+  FunctionAnalysisManager FAM;
+  CGSCCAnalysisManager CGAM;
+  ModuleAnalysisManager MAM;
+
+  PassInstrumentationCallbacks PIC;
+  StandardInstrumentations SI(DebugPassManager);
+  SI.registerCallbacks(PIC, &FAM);
+  PipelineTuningOptions PTO;
+  PTO.LoopVectorization = true;
+  PTO.SLPVectorization = true;
+  PassBuilder PB(&TM, PTO, PGOOpt, &PIC);
+
+  std::unique_ptr<TargetLibraryInfoImpl> TLII(
+      new TargetLibraryInfoImpl(Triple(TM.getTargetTriple())));
+  if (Freestanding)
+    TLII->disableAllFunctions();
+  FAM.registerPass([&] { return TargetLibraryAnalysis(*TLII); });
+
+  // Register all the basic analyses with the managers.
+  PB.registerModuleAnalyses(MAM);
+  PB.registerCGSCCAnalyses(CGAM);
+  PB.registerFunctionAnalyses(FAM);
+  PB.registerLoopAnalyses(LAM);
+  PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+  ModulePassManager MPM;
+
+  OptimizationLevel OL;
+
+  switch (OptLevel) {
+  default:
+    llvm_unreachable("Invalid optimization level");
+  case 0:
+    OL = OptimizationLevel::O0;
+    break;
+  case 1:
+    OL = OptimizationLevel::O1;
+    break;
+  case 2:
+    OL = OptimizationLevel::O2;
+    break;
+  case 3:
+    OL = OptimizationLevel::O3;
+    break;
+  }
+
+  MPM.addPass(PB.buildThinLTODefaultPipeline(OL, Index));
+
+  MPM.run(TheModule, MAM);
+}
+
 static void
 addUsedSymbolToPreservedGUID(const lto::InputFile &File,
                              DenseSet<GlobalValue::GUID> &PreservedGUID) {
@@ -316,7 +378,8 @@ std::unique_ptr<MemoryBuffer> codegenModule(Module &TheModule,
     // Run codegen now. resulting binary is in OutputBuffer.
     PM.run(TheModule);
   }
-  return std::make_unique<SmallVectorMemoryBuffer>(std::move(OutputBuffer));
+  return std::make_unique<SmallVectorMemoryBuffer>(
+      std::move(OutputBuffer), /*RequiresNullTerminator=*/false);
 }
 
 /// Manage caching for a single Module.
@@ -421,7 +484,8 @@ ProcessThinLTOModule(Module &TheModule, ModuleSummaryIndex &Index,
                      const GVSummaryMapTy &DefinedGlobals,
                      const ThinLTOCodeGenerator::CachingOptions &CacheOptions,
                      bool DisableCodeGen, StringRef SaveTempsDir,
-                     bool Freestanding, unsigned OptLevel, unsigned count) {
+                     bool Freestanding, unsigned OptLevel, unsigned count,
+                     bool UseNewPM, bool DebugPassManager) {
 
   // "Benchmark"-like optimization: single-source case
   bool SingleModule = (ModuleMap.size() == 1);
@@ -437,7 +501,7 @@ ProcessThinLTOModule(Module &TheModule, ModuleSummaryIndex &Index,
     promoteModule(TheModule, Index, ClearDSOLocalOnDeclarations);
 
     // Apply summary-based prevailing-symbol resolution decisions.
-    thinLTOResolvePrevailingInModule(TheModule, DefinedGlobals);
+    thinLTOFinalizeInModule(TheModule, DefinedGlobals, /*PropagateAttrs=*/true);
 
     // Save temps: after promotion.
     saveTempBitcode(TheModule, SaveTempsDir, count, ".1.promoted.bc");
@@ -461,7 +525,11 @@ ProcessThinLTOModule(Module &TheModule, ModuleSummaryIndex &Index,
     saveTempBitcode(TheModule, SaveTempsDir, count, ".3.imported.bc");
   }
 
-  optimizeModule(TheModule, TM, OptLevel, Freestanding, &Index);
+  if (UseNewPM)
+    optimizeModuleNewPM(TheModule, TM, OptLevel, Freestanding, DebugPassManager,
+                        &Index);
+  else
+    optimizeModule(TheModule, TM, OptLevel, Freestanding, &Index);
 
   saveTempBitcode(TheModule, SaveTempsDir, count, ".4.opt.bc");
 
@@ -474,7 +542,8 @@ ProcessThinLTOModule(Module &TheModule, ModuleSummaryIndex &Index,
       auto Index = buildModuleSummaryIndex(TheModule, nullptr, &PSI);
       WriteBitcodeToFile(TheModule, OS, true, &Index);
     }
-    return std::make_unique<SmallVectorMemoryBuffer>(std::move(OutputBuffer));
+    return std::make_unique<SmallVectorMemoryBuffer>(
+        std::move(OutputBuffer), /*RequiresNullTerminator=*/false);
   }
 
   return codegenModule(TheModule, TM);
@@ -507,7 +576,9 @@ static void resolvePrevailingInIndex(
     ResolvedODR[ModuleIdentifier][GUID] = NewLinkage;
   };
 
-  thinLTOResolvePrevailingInIndex(Index, isPrevailing, recordNewLinkage,
+  // TODO Conf.VisibilityScheme can be lto::Config::ELF for ELF.
+  lto::Config Conf;
+  thinLTOResolvePrevailingInIndex(Conf, Index, isPrevailing, recordNewLinkage,
                                   GUIDPreservedSymbols);
 }
 
@@ -535,7 +606,7 @@ void ThinLTOCodeGenerator::addModule(StringRef Identifier, StringRef Data) {
 
   auto InputOrError = lto::InputFile::create(Buffer);
   if (!InputOrError)
-    report_fatal_error("ThinLTO cannot create input file: " +
+    report_fatal_error(Twine("ThinLTO cannot create input file: ") +
                        toString(InputOrError.takeError()));
 
   auto TripleStr = (*InputOrError)->getTargetTriple();
@@ -570,7 +641,7 @@ std::unique_ptr<TargetMachine> TargetMachineBuilder::create() const {
   const Target *TheTarget =
       TargetRegistry::lookupTarget(TheTriple.str(), ErrMsg);
   if (!TheTarget) {
-    report_fatal_error("Can't load target for this Triple: " + ErrMsg);
+    report_fatal_error(Twine("Can't load target for this Triple: ") + ErrMsg);
   }
 
   // Use MAttr as the default set of features.
@@ -690,8 +761,9 @@ void ThinLTOCodeGenerator::promote(Module &TheModule, ModuleSummaryIndex &Index,
   resolvePrevailingInIndex(Index, ResolvedODR, GUIDPreservedSymbols,
                            PrevailingCopy);
 
-  thinLTOResolvePrevailingInModule(
-      TheModule, ModuleToDefinedGVSummaries[ModuleIdentifier]);
+  thinLTOFinalizeInModule(TheModule,
+                          ModuleToDefinedGVSummaries[ModuleIdentifier],
+                          /*PropagateAttrs=*/false);
 
   // Promote the exported values in the index, so that they are promoted
   // in the module.
@@ -865,8 +937,9 @@ void ThinLTOCodeGenerator::internalize(Module &TheModule,
   promoteModule(TheModule, Index, /*ClearDSOLocalOnDeclarations=*/false);
 
   // Internalization
-  thinLTOResolvePrevailingInModule(
-      TheModule, ModuleToDefinedGVSummaries[ModuleIdentifier]);
+  thinLTOFinalizeInModule(TheModule,
+                          ModuleToDefinedGVSummaries[ModuleIdentifier],
+                          /*PropagateAttrs=*/false);
 
   thinLTOInternalizeModule(TheModule,
                            ModuleToDefinedGVSummaries[ModuleIdentifier]);
@@ -917,13 +990,18 @@ ThinLTOCodeGenerator::writeGeneratedObject(int count, StringRef CacheEntryPath,
   std::error_code Err;
   raw_fd_ostream OS(OutputPath, Err, sys::fs::OF_None);
   if (Err)
-    report_fatal_error("Can't open output '" + OutputPath + "'\n");
+    report_fatal_error(Twine("Can't open output '") + OutputPath + "'\n");
   OS << OutputBuffer.getBuffer();
   return std::string(OutputPath.str());
 }
 
 // Main entry point for the ThinLTO processing
 void ThinLTOCodeGenerator::run() {
+  timeTraceProfilerBegin("ThinLink", StringRef(""));
+  auto TimeTraceScopeExit = llvm::make_scope_exit([]() {
+    if (llvm::timeTraceProfilerEnabled())
+      llvm::timeTraceProfilerEnd();
+  });
   // Prepare the resulting object vector
   assert(ProducedBinaries.empty() && "The generator should not be reused");
   if (SavedObjectsDirectoryPath.empty())
@@ -933,7 +1011,7 @@ void ThinLTOCodeGenerator::run() {
     bool IsDir;
     sys::fs::is_directory(SavedObjectsDirectoryPath, IsDir);
     if (!IsDir)
-      report_fatal_error("Unexistent dir: '" + SavedObjectsDirectoryPath + "'");
+      report_fatal_error(Twine("Unexistent dir: '") + SavedObjectsDirectoryPath + "'");
     ProducedBinaryFiles.resize(Modules.size());
   }
 
@@ -974,7 +1052,7 @@ void ThinLTOCodeGenerator::run() {
     if (EC)
       report_fatal_error(Twine("Failed to open ") + SaveTempPath +
                          " to save optimized bitcode\n");
-    WriteIndexToFile(*Index, OS);
+    writeIndexToFile(*Index, OS);
   }
 
 
@@ -1007,7 +1085,10 @@ void ThinLTOCodeGenerator::run() {
   // linker option in the old LTO API, but this call allows it to be specified
   // via the internal option. Must be done before WPD below.
   updateVCallVisibilityInIndex(*Index,
-                               /* WholeProgramVisibilityEnabledInLTO */ false);
+                               /* WholeProgramVisibilityEnabledInLTO */ false,
+                               // FIXME: This needs linker information via a
+                               // TBD new interface.
+                               /* DynamicExportSymbols */ {});
 
   // Perform index-based WPD. This will return immediately if there are
   // no index entries in the typeIdMetadata map (e.g. if we are instead
@@ -1049,6 +1130,8 @@ void ThinLTOCodeGenerator::run() {
       *Index, IsExported(ExportLists, GUIDPreservedSymbols),
       IsPrevailing(PrevailingCopy));
 
+  thinLTOPropagateFunctionAttrs(*Index, IsPrevailing(PrevailingCopy));
+
   // Make sure that every module has an entry in the ExportLists, ImportList,
   // GVSummary and ResolvedODR maps to enable threaded access to these maps
   // below.
@@ -1065,6 +1148,11 @@ void ThinLTOCodeGenerator::run() {
   for (auto &Mod : Modules)
     ModulesVec.push_back(&Mod->getSingleBitcodeModule());
   std::vector<int> ModulesOrdering = lto::generateModulesOrdering(ModulesVec);
+
+  if (llvm::timeTraceProfilerEnabled())
+    llvm::timeTraceProfilerEnd();
+
+  TimeTraceScopeExit.release();
 
   // Parallel optimizer + codegen
   {
@@ -1127,7 +1215,8 @@ void ThinLTOCodeGenerator::run() {
             *TheModule, *Index, ModuleMap, *TMBuilder.create(), ImportList,
             ExportList, GUIDPreservedSymbols,
             ModuleToDefinedGVSummaries[ModuleIdentifier], CacheOptions,
-            DisableCodeGen, SaveTempsDir, Freestanding, OptLevel, count);
+            DisableCodeGen, SaveTempsDir, Freestanding, OptLevel, count,
+            UseNewPM, DebugPassManager);
 
         // Commit to the cache (if enabled)
         CacheEntry.write(*OutputBuffer);

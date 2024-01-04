@@ -25,6 +25,7 @@
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCInstrDesc.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -48,11 +49,8 @@ Thumb2InstrInfo::Thumb2InstrInfo(const ARMSubtarget &STI)
     : ARMBaseInstrInfo(STI) {}
 
 /// Return the noop instruction to use for a noop.
-void Thumb2InstrInfo::getNoop(MCInst &NopInst) const {
-  NopInst.setOpcode(ARM::tHINT);
-  NopInst.addOperand(MCOperand::createImm(0));
-  NopInst.addOperand(MCOperand::createImm(ARMCC::AL));
-  NopInst.addOperand(MCOperand::createReg(0));
+MCInst Thumb2InstrInfo::getNop() const {
+  return MCInstBuilder(ARM::tHINT).addImm(0).addImm(ARMCC::AL).addReg(0);
 }
 
 unsigned Thumb2InstrInfo::getUnindexedOpcode(unsigned Opc) const {
@@ -252,7 +250,19 @@ loadRegFromStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
 void Thumb2InstrInfo::expandLoadStackGuard(
     MachineBasicBlock::iterator MI) const {
   MachineFunction &MF = *MI->getParent()->getParent();
-  if (MF.getTarget().isPositionIndependent())
+  Module &M = *MF.getFunction().getParent();
+
+  if (M.getStackProtectorGuard() == "tls") {
+    expandLoadStackGuardBase(MI, ARM::t2MRC, ARM::t2LDRi12);
+    return;
+  }
+
+  const GlobalValue *GV =
+      cast<GlobalValue>((*MI->memoperands_begin())->getValue());
+
+  if (MF.getSubtarget<ARMSubtarget>().isGVInGOT(GV))
+    expandLoadStackGuardBase(MI, ARM::t2LDRLIT_ga_pcrel, ARM::t2LDRi12);
+  else if (MF.getTarget().isPositionIndependent())
     expandLoadStackGuardBase(MI, ARM::t2MOV_ga_pcrel, ARM::t2LDRi12);
   else
     expandLoadStackGuardBase(MI, ARM::t2MOVi32imm, ARM::t2LDRi12);
@@ -624,7 +634,8 @@ bool llvm::rewriteT2FrameIndex(MachineInstr &MI, unsigned FrameRegIdx,
 
     unsigned NumBits = 0;
     unsigned Scale = 1;
-    if (AddrMode == ARMII::AddrModeT2_i8 || AddrMode == ARMII::AddrModeT2_i12) {
+    if (AddrMode == ARMII::AddrModeT2_i8neg ||
+        AddrMode == ARMII::AddrModeT2_i12) {
       // i8 supports only negative, and i12 supports only positive, so
       // based on Offset sign convert Opcode to the appropriate
       // instruction
@@ -794,8 +805,12 @@ void llvm::recomputeVPTBlockMask(MachineInstr &Instr) {
   MachineBasicBlock::iterator Iter = ++Instr.getIterator(),
                               End = Instr.getParent()->end();
 
+  while (Iter != End && Iter->isDebugInstr())
+    ++Iter;
+
   // Verify that the instruction after the VPT/VPST is predicated (it should
   // be), and skip it.
+  assert(Iter != End && "Expected some instructions in any VPT block");
   assert(
       getVPTInstrPredicate(*Iter) == ARMVCC::Then &&
       "VPT/VPST should be followed by an instruction with a 'then' predicate!");
@@ -804,6 +819,10 @@ void llvm::recomputeVPTBlockMask(MachineInstr &Instr) {
   // Iterate over the predicated instructions, updating the BlockMask as we go.
   ARM::PredBlockMask BlockMask = ARM::PredBlockMask::T;
   while (Iter != End) {
+    if (Iter->isDebugInstr()) {
+      ++Iter;
+      continue;
+    }
     ARMVCC::VPTCodes Pred = getVPTInstrPredicate(*Iter);
     if (Pred == ARMVCC::None)
       break;

@@ -8,6 +8,7 @@ add_tablegen(llvm-tblgen LLVM
   AsmWriterInst.cpp
   Attributes.cpp
   CallingConvEmitter.cpp
+  CodeBeadsGen.cpp
   CodeEmitterGen.cpp
   CodeGenDAGPatterns.cpp
   CodeGenHwModes.cpp
@@ -39,7 +40,7 @@ add_tablegen(llvm-tblgen LLVM
   OptRSTEmitter.cpp
   PredicateExpander.cpp
   PseudoLoweringEmitter.cpp
-  RISCVCompressInstEmitter.cpp
+  CompressInstEmitter.cpp
   RegisterBankEmitter.cpp
   RegisterInfoEmitter.cpp
   SDNodeProperties.cpp

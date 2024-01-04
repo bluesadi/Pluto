@@ -14,7 +14,6 @@
 
 ; ModuleID = 't.c'
 source_filename = "t.c"
-target datalayout = "e-m:e-p:32:32-i64:64-n32:64-S128"
 target triple = "wasm32-unknown-unknown"
 
 %union.u = type { i32 }
@@ -103,14 +102,13 @@ attributes #1 = { nofree nosync nounwind readnone speculatable willreturn }
 ; CHECK-NEXT:     DW_AT_name    ("x")
 
 ; CHECK-LABEL:  DW_TAG_formal_parameter
-; CHECK-NEXT:     DW_AT_location        (DW_OP_WASM_location 0x0 0x1, DW_OP_stack_value)
+; CHECK-NEXT:     DW_AT_location        (DW_OP_WASM_location 0x0 0x1)
 ; CHECK-NEXT:     DW_AT_name    ("some_union")
 
 ; CHECK-LABEL:  DW_TAG_formal_parameter
-; CHECK-NEXT:     DW_AT_location        (DW_OP_WASM_location 0x0 0x2, DW_OP_stack_value)
+; CHECK-NEXT:     DW_AT_location        (DW_OP_WASM_location 0x0 0x2)
 ; CHECK-NEXT:     DW_AT_name    ("some_struct")
 
 ; CHECK-LABEL:  DW_TAG_formal_parameter
 ; CHECK-NEXT:     DW_AT_location        (DW_OP_fbreg +8)
 ; CHECK-NEXT:     DW_AT_name    ("a")
-

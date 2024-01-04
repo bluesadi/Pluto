@@ -14,19 +14,27 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Dominators.h"
-#include "llvm/ADT/DepthFirstIterator.h"
-#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/CFG.h"
-#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/PassRegistry.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/raw_ostream.h"
-#include <algorithm>
+
+#include <cassert>
+
+namespace llvm {
+class Argument;
+class Constant;
+class Value;
+} // namespace llvm
 using namespace llvm;
 
 bool llvm::VerifyDomInfo = false;
@@ -110,6 +118,16 @@ bool DominatorTree::invalidate(Function &F, const PreservedAnalyses &PA,
   auto PAC = PA.getChecker<DominatorTreeAnalysis>();
   return !(PAC.preserved() || PAC.preservedSet<AllAnalysesOn<Function>>() ||
            PAC.preservedSet<CFGAnalyses>());
+}
+
+bool DominatorTree::dominates(const BasicBlock *BB, const Use &U) const {
+  Instruction *UserInst = cast<Instruction>(U.getUser());
+  if (auto *PN = dyn_cast<PHINode>(UserInst))
+    // A phi use using a value from a block is dominated by the end of that
+    // block.  Note that the phi's parent block may not be.
+    return dominates(BB, PN->getIncomingBlock(U));
+  else
+    return properlyDominates(BB, UserInst->getParent());
 }
 
 // dominates - Return true if Def dominates a use in User. This performs
@@ -222,9 +240,7 @@ bool DominatorTree::dominates(const BasicBlockEdge &BBE,
   // other predecessors. Since the only way out of X is via NormalDest, X can
   // only properly dominate a node if NormalDest dominates that node too.
   int IsDuplicateEdge = 0;
-  for (const_pred_iterator PI = pred_begin(End), E = pred_end(End);
-       PI != E; ++PI) {
-    const BasicBlock *BB = *PI;
+  for (const BasicBlock *BB : predecessors(End)) {
     if (BB == Start) {
       // If there are multiple edges between Start and End, by definition they
       // can't dominate anything.

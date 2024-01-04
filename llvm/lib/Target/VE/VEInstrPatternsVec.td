@@ -15,8 +15,19 @@
 // Instruction format superclass
 //===----------------------------------------------------------------------===//
 
+// Sub-register replication for packed broadcast.
+def: Pat<(i64 (repl_f32 f32:$val)),
+            (ORrr
+              (SRLri (f2l $val), 32),
+              (zero_i32 (f2l $val)))>;
+def: Pat<(i64 (repl_i32 i32:$val)),
+            (ORrr
+              (zero_f32 (i2l $val)),
+              (SLLri (i2l $val), 32))>;
+
+
 multiclass vbrd_elem32<ValueType v32, ValueType s32, SDPatternOperator ImmOp,
-                       SDNodeXForm ImmCast, SDNodeXForm SuperRegCast> {
+                       SDNodeXForm ImmCast, OutPatFrag SuperRegCast> {
   // VBRDil
   def : Pat<(v32 (vec_broadcast (s32 ImmOp:$sy), i32:$vl)),
             (VBRDil (ImmCast $sy), i32:$vl)>;
@@ -38,8 +49,8 @@ multiclass vbrd_elem64<ValueType v64, ValueType s64,
 }
 
 multiclass extract_insert_elem32<ValueType v32, ValueType s32,
-                                 SDNodeXForm SubRegCast,
-                                 SDNodeXForm SuperRegCast> {
+                                 OutPatFrag SubRegCast,
+                                 OutPatFrag SuperRegCast> {
   // LVSvi
   def: Pat<(s32 (extractelt v32:$vec, uimm7:$idx)),
            (SubRegCast (LVSvi v32:$vec, (ULO7 $idx)))>;
@@ -73,7 +84,7 @@ multiclass extract_insert_elem64<ValueType v64, ValueType s64> {
 
 multiclass patterns_elem32<ValueType v32, ValueType s32,
                            SDPatternOperator ImmOp, SDNodeXForm ImmCast,
-                           SDNodeXForm SubRegCast, SDNodeXForm SuperRegCast> {
+                           OutPatFrag SubRegCast, OutPatFrag SuperRegCast> {
   defm : vbrd_elem32<v32, s32, ImmOp, ImmCast, SuperRegCast>;
   defm : extract_insert_elem32<v32, s32, SubRegCast, SuperRegCast>;
 }
@@ -89,3 +100,8 @@ defm : patterns_elem32<v256f32, f32, simm7fp, LO7FP, l2f, f2l>;
 
 defm : patterns_elem64<v256i64, i64, simm7, LO7>;
 defm : patterns_elem64<v256f64, f64, simm7fp, LO7FP>;
+
+defm : vbrd_elem64<v512i32, i64, simm7, LO7>;
+defm : vbrd_elem64<v512f32, i64, simm7, LO7>;
+defm : vbrd_elem64<v512i32, f64, simm7fp, LO7FP>;
+defm : vbrd_elem64<v512f32, f64, simm7fp, LO7FP>;

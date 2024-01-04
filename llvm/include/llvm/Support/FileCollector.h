@@ -6,10 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_SUPPORT_FILE_COLLECTOR_H
-#define LLVM_SUPPORT_FILE_COLLECTOR_H
+#ifndef LLVM_SUPPORT_FILECOLLECTOR_H
+#define LLVM_SUPPORT_FILECOLLECTOR_H
 
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/VirtualFileSystem.h"
@@ -144,4 +143,4 @@ protected:
 
 } // end namespace llvm
 
-#endif // LLVM_SUPPORT_FILE_COLLECTOR_H
+#endif // LLVM_SUPPORT_FILECOLLECTOR_H

@@ -1,3 +1,6 @@
+include(GNUInstallDirs)
+include(LLVMDistributionSupport)
+
 function(clang_tablegen)
   # Syntax:
   # clang_tablegen output-file [tablegen-arg ...] SOURCE source-file
@@ -112,20 +115,13 @@ macro(add_clang_library name)
       target_link_libraries(${lib} INTERFACE ${LLVM_COMMON_LIBS})
 
       if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY OR ARG_INSTALL_WITH_TOOLCHAIN)
-        set(export_to_clangtargets)
-        if(${lib} IN_LIST LLVM_DISTRIBUTION_COMPONENTS OR
-            "clang-libraries" IN_LIST LLVM_DISTRIBUTION_COMPONENTS OR
-            NOT LLVM_DISTRIBUTION_COMPONENTS)
-          set(export_to_clangtargets EXPORT ClangTargets)
-          set_property(GLOBAL PROPERTY CLANG_HAS_EXPORTS True)
-        endif()
-
+        get_target_export_arg(${name} Clang export_to_clangtargets UMBRELLA clang-libraries)
         install(TARGETS ${lib}
           COMPONENT ${lib}
           ${export_to_clangtargets}
           LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX}
           ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX}
-          RUNTIME DESTINATION bin)
+          RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
         if (NOT LLVM_ENABLE_IDE)
           add_llvm_install_targets(install-${lib}
@@ -161,16 +157,10 @@ macro(add_clang_tool name)
   add_dependencies(${name} clang-resource-headers)
 
   if (CLANG_BUILD_TOOLS)
-    set(export_to_clangtargets)
-    if(${name} IN_LIST LLVM_DISTRIBUTION_COMPONENTS OR
-        NOT LLVM_DISTRIBUTION_COMPONENTS)
-      set(export_to_clangtargets EXPORT ClangTargets)
-      set_property(GLOBAL PROPERTY CLANG_HAS_EXPORTS True)
-    endif()
-
+    get_target_export_arg(${name} Clang export_to_clangtargets)
     install(TARGETS ${name}
       ${export_to_clangtargets}
-      RUNTIME DESTINATION bin
+      RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
       COMPONENT ${name})
 
     if(NOT LLVM_ENABLE_IDE)

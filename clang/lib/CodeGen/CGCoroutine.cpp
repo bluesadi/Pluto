@@ -556,6 +556,8 @@ void CodeGenFunction::EmitCoroutineBody(const CoroutineBodyStmt &S) {
       {Builder.getInt32(NewAlign), NullPtr, NullPtr, NullPtr});
   createCoroData(*this, CurCoro, CoroId);
   CurCoro.Data->SuspendBB = RetBB;
+  assert(ShouldEmitLifetimeMarkers &&
+         "Must emit lifetime intrinsics for coroutines");
 
   // Backend is allowed to elide memory allocations, to help it, emit
   // auto mem = coro.alloc() ? 0 : ... allocation code ...;
@@ -595,14 +597,29 @@ void CodeGenFunction::EmitCoroutineBody(const CoroutineBodyStmt &S) {
       CGM.getIntrinsic(llvm::Intrinsic::coro_begin), {CoroId, Phi});
   CurCoro.Data->CoroBegin = CoroBegin;
 
+  // We need to emit `get_­return_­object` first. According to:
+  // [dcl.fct.def.coroutine]p7
+  // The call to get_­return_­object is sequenced before the call to
+  // initial_­suspend and is invoked at most once.
   GetReturnObjectManager GroManager(*this, S);
   GroManager.EmitGroAlloca();
 
   CurCoro.Data->CleanupJD = getJumpDestInCurrentScope(RetBB);
   {
+    CGDebugInfo *DI = getDebugInfo();
     ParamReferenceReplacerRAII ParamReplacer(LocalDeclMap);
     CodeGenFunction::RunCleanupsScope ResumeScope(*this);
     EHStack.pushCleanup<CallCoroDelete>(NormalAndEHCleanup, S.getDeallocate());
+
+    // Create mapping between parameters and copy-params for coroutine function.
+    auto ParamMoves = S.getParamMoves();
+    assert(
+        (ParamMoves.size() == 0 || (ParamMoves.size() == FnArgs.size())) &&
+        "ParamMoves and FnArgs should be the same size for coroutine function");
+    if (ParamMoves.size() == FnArgs.size() && DI)
+      for (const auto Pair : llvm::zip(FnArgs, ParamMoves))
+        DI->getCoroutineParameterMappings().insert(
+            {std::get<0>(Pair), std::get<1>(Pair)});
 
     // Create parameter copies. We do it before creating a promise, since an
     // evolution of coroutine TS may allow promise constructor to observe
@@ -690,6 +707,10 @@ void CodeGenFunction::EmitCoroutineBody(const CoroutineBodyStmt &S) {
 
   if (Stmt *Ret = S.getReturnStmt())
     EmitStmt(Ret);
+
+  // LLVM require the frontend to add the function attribute. See
+  // Coroutines.rst.
+  CurFn->addFnAttr("coroutine.presplit", "0");
 }
 
 // Emit coroutine intrinsic and patch up arguments of the token type.

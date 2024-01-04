@@ -8,9 +8,10 @@
 
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/AST/ASTConsumer.h"
+#include "clang/AST/Decl.h"
 #include "clang/Basic/FileManager.h"
-#include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/LangStandard.h"
+#include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/ASTConsumers.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
@@ -23,6 +24,7 @@
 #include "clang/Sema/TemplateInstCallback.h"
 #include "clang/Serialization/ASTReader.h"
 #include "clang/Serialization/ASTWriter.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
@@ -60,6 +62,27 @@ InitOnlyAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
 }
 
 void InitOnlyAction::ExecuteAction() {
+}
+
+// Basically PreprocessOnlyAction::ExecuteAction.
+void ReadPCHAndPreprocessAction::ExecuteAction() {
+  Preprocessor &PP = getCompilerInstance().getPreprocessor();
+
+  // Ignore unknown pragmas.
+  PP.IgnorePragmas();
+
+  Token Tok;
+  // Start parsing the specified input file.
+  PP.EnterMainSourceFile();
+  do {
+    PP.Lex(Tok);
+  } while (Tok.isNot(tok::eof));
+}
+
+std::unique_ptr<ASTConsumer>
+ReadPCHAndPreprocessAction::CreateASTConsumer(CompilerInstance &CI,
+                                              StringRef InFile) {
+  return std::make_unique<ASTConsumer>();
 }
 
 //===----------------------------------------------------------------------===//
@@ -218,7 +241,8 @@ GenerateModuleFromModuleMapAction::CreateOutputFile(CompilerInstance &CI,
   // Because this is exposed via libclang we must disable RemoveFileOnSignal.
   return CI.createDefaultOutputFile(/*Binary=*/true, InFile, /*Extension=*/"",
                                     /*RemoveFileOnSignal=*/false,
-                                    /*CreateMissingDirectories=*/true);
+                                    /*CreateMissingDirectories=*/true,
+                                    /*ForceUseTemporary=*/true);
 }
 
 bool GenerateModuleInterfaceAction::BeginSourceFileAction(
@@ -288,16 +312,16 @@ bool GenerateHeaderModuleAction::BeginSourceFileAction(
   auto &HS = CI.getPreprocessor().getHeaderSearchInfo();
   SmallVector<Module::Header, 16> Headers;
   for (StringRef Name : ModuleHeaders) {
-    const DirectoryLookup *CurDir = nullptr;
     Optional<FileEntryRef> FE = HS.LookupFile(
-        Name, SourceLocation(), /*Angled*/ false, nullptr, CurDir, None,
+        Name, SourceLocation(), /*Angled*/ false, nullptr, nullptr, None,
         nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     if (!FE) {
       CI.getDiagnostics().Report(diag::err_module_header_file_not_found)
         << Name;
       continue;
     }
-    Headers.push_back({std::string(Name), *FE});
+    Headers.push_back(
+        {std::string(Name), std::string(Name), &FE->getFileEntry()});
   }
   HS.getModuleMap().createHeaderModule(CI.getLangOpts().CurrentModule, Headers);
 
@@ -458,25 +482,92 @@ private:
     Out << "---" << YAML << "\n";
   }
 
+  static void printEntryName(const Sema &TheSema, const Decl *Entity,
+                             llvm::raw_string_ostream &OS) {
+    auto *NamedTemplate = cast<NamedDecl>(Entity);
+
+    PrintingPolicy Policy = TheSema.Context.getPrintingPolicy();
+    // FIXME: Also ask for FullyQualifiedNames?
+    Policy.SuppressDefaultTemplateArgs = false;
+    NamedTemplate->getNameForDiagnostic(OS, Policy, true);
+
+    if (!OS.str().empty())
+      return;
+
+    Decl *Ctx = Decl::castFromDeclContext(NamedTemplate->getDeclContext());
+    NamedDecl *NamedCtx = dyn_cast_or_null<NamedDecl>(Ctx);
+
+    if (const auto *Decl = dyn_cast<TagDecl>(NamedTemplate)) {
+      if (const auto *R = dyn_cast<RecordDecl>(Decl)) {
+        if (R->isLambda()) {
+          OS << "lambda at ";
+          Decl->getLocation().print(OS, TheSema.getSourceManager());
+          return;
+        }
+      }
+      OS << "unnamed " << Decl->getKindName();
+      return;
+    }
+
+    if (const auto *Decl = dyn_cast<ParmVarDecl>(NamedTemplate)) {
+      OS << "unnamed function parameter " << Decl->getFunctionScopeIndex()
+         << " ";
+      if (Decl->getFunctionScopeDepth() > 0)
+        OS << "(at depth " << Decl->getFunctionScopeDepth() << ") ";
+      OS << "of ";
+      NamedCtx->getNameForDiagnostic(OS, TheSema.getLangOpts(), true);
+      return;
+    }
+
+    if (const auto *Decl = dyn_cast<TemplateTypeParmDecl>(NamedTemplate)) {
+      if (const Type *Ty = Decl->getTypeForDecl()) {
+        if (const auto *TTPT = dyn_cast_or_null<TemplateTypeParmType>(Ty)) {
+          OS << "unnamed template type parameter " << TTPT->getIndex() << " ";
+          if (TTPT->getDepth() > 0)
+            OS << "(at depth " << TTPT->getDepth() << ") ";
+          OS << "of ";
+          NamedCtx->getNameForDiagnostic(OS, TheSema.getLangOpts(), true);
+          return;
+        }
+      }
+    }
+
+    if (const auto *Decl = dyn_cast<NonTypeTemplateParmDecl>(NamedTemplate)) {
+      OS << "unnamed template non-type parameter " << Decl->getIndex() << " ";
+      if (Decl->getDepth() > 0)
+        OS << "(at depth " << Decl->getDepth() << ") ";
+      OS << "of ";
+      NamedCtx->getNameForDiagnostic(OS, TheSema.getLangOpts(), true);
+      return;
+    }
+
+    if (const auto *Decl = dyn_cast<TemplateTemplateParmDecl>(NamedTemplate)) {
+      OS << "unnamed template template parameter " << Decl->getIndex() << " ";
+      if (Decl->getDepth() > 0)
+        OS << "(at depth " << Decl->getDepth() << ") ";
+      OS << "of ";
+      NamedCtx->getNameForDiagnostic(OS, TheSema.getLangOpts(), true);
+      return;
+    }
+
+    llvm_unreachable("Failed to retrieve a name for this entry!");
+    OS << "unnamed identifier";
+  }
+
   template <bool BeginInstantiation>
   static TemplightEntry getTemplightEntry(const Sema &TheSema,
                                           const CodeSynthesisContext &Inst) {
     TemplightEntry Entry;
     Entry.Kind = toString(Inst.Kind);
     Entry.Event = BeginInstantiation ? "Begin" : "End";
-    if (auto *NamedTemplate = dyn_cast_or_null<NamedDecl>(Inst.Entity)) {
-      llvm::raw_string_ostream OS(Entry.Name);
-      PrintingPolicy Policy = TheSema.Context.getPrintingPolicy();
-      // FIXME: Also ask for FullyQualifiedNames?
-      Policy.SuppressDefaultTemplateArgs = false;
-      NamedTemplate->getNameForDiagnostic(OS, Policy, true);
-      const PresumedLoc DefLoc =
+    llvm::raw_string_ostream OS(Entry.Name);
+    printEntryName(TheSema, Inst.Entity, OS);
+    const PresumedLoc DefLoc =
         TheSema.getSourceManager().getPresumedLoc(Inst.Entity->getLocation());
-      if(!DefLoc.isInvalid())
-        Entry.DefinitionLocation = std::string(DefLoc.getFilename()) + ":" +
-                                   std::to_string(DefLoc.getLine()) + ":" +
-                                   std::to_string(DefLoc.getColumn());
-    }
+    if (!DefLoc.isInvalid())
+      Entry.DefinitionLocation = std::string(DefLoc.getFilename()) + ":" +
+                                 std::to_string(DefLoc.getLine()) + ":" +
+                                 std::to_string(DefLoc.getColumn());
     const PresumedLoc PoiLoc =
         TheSema.getSourceManager().getPresumedLoc(Inst.PointOfInstantiation);
     if (!PoiLoc.isInvalid()) {
@@ -722,7 +813,7 @@ void DumpModuleInfoAction::ExecuteAction() {
   if (!OutputFileName.empty() && OutputFileName != "-") {
     std::error_code EC;
     OutFile.reset(new llvm::raw_fd_ostream(OutputFileName.str(), EC,
-                                           llvm::sys::fs::OF_Text));
+                                           llvm::sys::fs::OF_TextWithCRLF));
   }
   llvm::raw_ostream &Out = OutFile.get()? *OutFile.get() : llvm::outs();
 
@@ -795,7 +886,7 @@ void PreprocessOnlyAction::ExecuteAction() {
 void PrintPreprocessedAction::ExecuteAction() {
   CompilerInstance &CI = getCompilerInstance();
   // Output file may need to be set to 'Binary', to avoid converting Unix style
-  // line feeds (<LF>) to Microsoft style line feeds (<CR><LF>).
+  // line feeds (<LF>) to Microsoft style line feeds (<CR><LF>) on Windows.
   //
   // Look to see what type of line endings the file uses. If there's a
   // CRLF, then we won't open the file up in binary mode. If there is
@@ -807,30 +898,35 @@ void PrintPreprocessedAction::ExecuteAction() {
   // all of their source code on a single line. However, that is still a
   // concern, so if we scan for too long, we'll just assume the file should
   // be opened in binary mode.
-  bool BinaryMode = true;
-  const SourceManager& SM = CI.getSourceManager();
-  if (llvm::Optional<llvm::MemoryBufferRef> Buffer =
-          SM.getBufferOrNone(SM.getMainFileID())) {
-    const char *cur = Buffer->getBufferStart();
-    const char *end = Buffer->getBufferEnd();
-    const char *next = (cur != end) ? cur + 1 : end;
 
-    // Limit ourselves to only scanning 256 characters into the source
-    // file.  This is mostly a sanity check in case the file has no
-    // newlines whatsoever.
-    if (end - cur > 256) end = cur + 256;
+  bool BinaryMode = false;
+  if (llvm::Triple(LLVM_HOST_TRIPLE).isOSWindows()) {
+    BinaryMode = true;
+    const SourceManager &SM = CI.getSourceManager();
+    if (llvm::Optional<llvm::MemoryBufferRef> Buffer =
+            SM.getBufferOrNone(SM.getMainFileID())) {
+      const char *cur = Buffer->getBufferStart();
+      const char *end = Buffer->getBufferEnd();
+      const char *next = (cur != end) ? cur + 1 : end;
 
-    while (next < end) {
-      if (*cur == 0x0D) {  // CR
-        if (*next == 0x0A)  // CRLF
-          BinaryMode = false;
+      // Limit ourselves to only scanning 256 characters into the source
+      // file.  This is mostly a check in case the file has no
+      // newlines whatsoever.
+      if (end - cur > 256)
+        end = cur + 256;
 
-        break;
-      } else if (*cur == 0x0A)  // LF
-        break;
+      while (next < end) {
+        if (*cur == 0x0D) {  // CR
+          if (*next == 0x0A) // CRLF
+            BinaryMode = false;
 
-      ++cur;
-      ++next;
+          break;
+        } else if (*cur == 0x0A) // LF
+          break;
+
+        ++cur;
+        ++next;
+      }
     }
   }
 
@@ -862,6 +958,7 @@ void PrintPreambleAction::ExecuteAction() {
   case Language::ObjC:
   case Language::ObjCXX:
   case Language::OpenCL:
+  case Language::OpenCLCXX:
   case Language::CUDA:
   case Language::HIP:
     break;
@@ -963,4 +1060,18 @@ void PrintDependencyDirectivesSourceMinimizerAction::ExecuteAction() {
     return;
   }
   llvm::outs() << Output;
+}
+
+void GetDependenciesByModuleNameAction::ExecuteAction() {
+  CompilerInstance &CI = getCompilerInstance();
+  Preprocessor &PP = CI.getPreprocessor();
+  SourceManager &SM = PP.getSourceManager();
+  FileID MainFileID = SM.getMainFileID();
+  SourceLocation FileStart = SM.getLocForStartOfFile(MainFileID);
+  SmallVector<std::pair<IdentifierInfo *, SourceLocation>, 2> Path;
+  IdentifierInfo *ModuleID = PP.getIdentifierInfo(ModuleName);
+  Path.push_back(std::make_pair(ModuleID, FileStart));
+  auto ModResult = CI.loadModule(FileStart, Path, Module::Hidden, false);
+  PPCallbacks *CB = PP.getPPCallbacks();
+  CB->moduleImport(SourceLocation(), Path, ModResult);
 }

@@ -34,6 +34,7 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/ScopedPrinter.h"
 #include <cassert>
 #include <cstdint>
 #include <system_error>
@@ -96,6 +97,10 @@ public:
 
   std::vector<std::pair<Optional<DataRefImpl>, uint64_t>>
   getPltAddresses() const;
+
+  /// Returns a vector containing a symbol version for each dynamic symbol.
+  /// Returns an empty vector if version sections do not exist.
+  Expected<std::vector<VersionEntry>> readDynsymVersions() const;
 };
 
 class ELFSectionRef : public SectionRef {
@@ -289,7 +294,7 @@ protected:
   bool isSectionVirtual(DataRefImpl Sec) const override;
   bool isBerkeleyText(DataRefImpl Sec) const override;
   bool isBerkeleyData(DataRefImpl Sec) const override;
-  bool isDebugSection(StringRef SectionName) const override;
+  bool isDebugSection(DataRefImpl Sec) const override;
   relocation_iterator section_rel_begin(DataRefImpl Sec) const override;
   relocation_iterator section_rel_end(DataRefImpl Sec) const override;
   std::vector<SectionRef> dynamic_relocation_sections() const override;
@@ -407,7 +412,8 @@ public:
   const Elf_Shdr *getRelSection(DataRefImpl Rel) const {
     auto RelSecOrErr = EF.getSection(Rel.d.a);
     if (!RelSecOrErr)
-      report_fatal_error(errorToErrorCode(RelSecOrErr.takeError()).message());
+      report_fatal_error(
+          Twine(errorToErrorCode(RelSecOrErr.takeError()).message()));
     return *RelSecOrErr;
   }
 
@@ -670,8 +676,8 @@ ELFObjectFile<ELFT>::getSymbolType(DataRefImpl Symb) const {
     return SymbolRef::ST_Function;
   case ELF::STT_OBJECT:
   case ELF::STT_COMMON:
-  case ELF::STT_TLS:
     return SymbolRef::ST_Data;
+  case ELF::STT_TLS:
   default:
     return SymbolRef::ST_Other;
   }
@@ -716,10 +722,20 @@ Expected<uint32_t> ELFObjectFile<ELFT>::getSymbolFlags(DataRefImpl Sym) const {
     // TODO: Test this error.
     return SymbolsOrErr.takeError();
 
-  if (EF.getHeader().e_machine == ELF::EM_ARM) {
+  if (EF.getHeader().e_machine == ELF::EM_AARCH64) {
     if (Expected<StringRef> NameOrErr = getSymbolName(Sym)) {
       StringRef Name = *NameOrErr;
-      if (Name.startswith("$d") || Name.startswith("$t") ||
+      if (Name.startswith("$d") || Name.startswith("$x"))
+        Result |= SymbolRef::SF_FormatSpecific;
+    } else {
+      // TODO: Actually report errors helpfully.
+      consumeError(NameOrErr.takeError());
+    }
+  } else if (EF.getHeader().e_machine == ELF::EM_ARM) {
+    if (Expected<StringRef> NameOrErr = getSymbolName(Sym)) {
+      StringRef Name = *NameOrErr;
+      // TODO Investigate why empty name symbols need to be marked.
+      if (Name.empty() || Name.startswith("$d") || Name.startswith("$t") ||
           Name.startswith("$a"))
         Result |= SymbolRef::SF_FormatSpecific;
     } else {
@@ -728,6 +744,15 @@ Expected<uint32_t> ELFObjectFile<ELFT>::getSymbolFlags(DataRefImpl Sym) const {
     }
     if (ESym->getType() == ELF::STT_FUNC && (ESym->st_value & 1) == 1)
       Result |= SymbolRef::SF_Thumb;
+  } else if (EF.getHeader().e_machine == ELF::EM_RISCV) {
+    if (Expected<StringRef> NameOrErr = getSymbolName(Sym)) {
+      // Mark empty name symbols used for label differences.
+      if (NameOrErr->empty())
+        Result |= SymbolRef::SF_FormatSpecific;
+    } else {
+      // TODO: Actually report errors helpfully.
+      consumeError(NameOrErr.takeError());
+    }
   }
 
   if (ESym->st_shndx == ELF::SHN_UNDEF)
@@ -910,7 +935,14 @@ bool ELFObjectFile<ELFT>::isBerkeleyData(DataRefImpl Sec) const {
 }
 
 template <class ELFT>
-bool ELFObjectFile<ELFT>::isDebugSection(StringRef SectionName) const {
+bool ELFObjectFile<ELFT>::isDebugSection(DataRefImpl Sec) const {
+  Expected<StringRef> SectionNameOrErr = getSectionName(Sec);
+  if (!SectionNameOrErr) {
+    // TODO: Report the error message properly.
+    consumeError(SectionNameOrErr.takeError());
+    return false;
+  }
+  StringRef SectionName = SectionNameOrErr.get();
   return SectionName.startswith(".debug") ||
          SectionName.startswith(".zdebug") || SectionName == ".gdb_index";
 }
@@ -941,7 +973,8 @@ ELFObjectFile<ELFT>::section_rel_end(DataRefImpl Sec) const {
   // Error check sh_link here so that getRelocationSymbol can just use it.
   auto SymSecOrErr = EF.getSection(RelSec->sh_link);
   if (!SymSecOrErr)
-    report_fatal_error(errorToErrorCode(SymSecOrErr.takeError()).message());
+    report_fatal_error(
+        Twine(errorToErrorCode(SymSecOrErr.takeError()).message()));
 
   RelData.d.b += S->sh_size / S->sh_entsize;
   return relocation_iterator(RelocationRef(RelData, this));
@@ -950,9 +983,6 @@ ELFObjectFile<ELFT>::section_rel_end(DataRefImpl Sec) const {
 template <class ELFT>
 Expected<section_iterator>
 ELFObjectFile<ELFT>::getRelocatedSection(DataRefImpl Sec) const {
-  if (EF.getHeader().e_type != ELF::ET_REL)
-    return section_end();
-
   const Elf_Shdr *EShdr = getSection(Sec);
   uintX_t Type = EShdr->sh_type;
   if (Type != ELF::SHT_REL && Type != ELF::SHT_RELA)
@@ -1033,7 +1063,7 @@ ELFObjectFile<ELFT>::getRel(DataRefImpl Rel) const {
   assert(getRelSection(Rel)->sh_type == ELF::SHT_REL);
   auto Ret = EF.template getEntry<Elf_Rel>(Rel.d.a, Rel.d.b);
   if (!Ret)
-    report_fatal_error(errorToErrorCode(Ret.takeError()).message());
+    report_fatal_error(Twine(errorToErrorCode(Ret.takeError()).message()));
   return *Ret;
 }
 
@@ -1043,7 +1073,7 @@ ELFObjectFile<ELFT>::getRela(DataRefImpl Rela) const {
   assert(getRelSection(Rela)->sh_type == ELF::SHT_RELA);
   auto Ret = EF.template getEntry<Elf_Rela>(Rela.d.a, Rela.d.b);
   if (!Ret)
-    report_fatal_error(errorToErrorCode(Ret.takeError()).message());
+    report_fatal_error(Twine(errorToErrorCode(Ret.takeError()).message()));
   return *Ret;
 }
 
@@ -1141,6 +1171,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
   switch (EF.getHeader().e_ident[ELF::EI_CLASS]) {
   case ELF::ELFCLASS32:
     switch (EF.getHeader().e_machine) {
+    case ELF::EM_68K:
+      return "elf32-m68k";
     case ELF::EM_386:
       return "elf32-i386";
     case ELF::EM_IAMCU:
@@ -1209,6 +1241,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
 template <class ELFT> Triple::ArchType ELFObjectFile<ELFT>::getArch() const {
   bool IsLittleEndian = ELFT::TargetEndianness == support::little;
   switch (EF.getHeader().e_machine) {
+  case ELF::EM_68K:
+    return Triple::m68k;
   case ELF::EM_386:
   case ELF::EM_IAMCU:
     return Triple::x86;

@@ -25,6 +25,7 @@
 #include "llvm/CodeGen/GlobalISel/IRTranslator.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
 #include "llvm/CodeGen/GlobalISel/Legalizer.h"
+#include "llvm/CodeGen/GlobalISel/LoadStoreOpt.h"
 #include "llvm/CodeGen/GlobalISel/Localizer.h"
 #include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
 #include "llvm/CodeGen/MIRParser/MIParser.h"
@@ -36,10 +37,10 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCTargetOptions.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/CFGuard.h"
@@ -116,11 +117,6 @@ static cl::opt<bool>
                   cl::init(true), cl::Hidden);
 
 static cl::opt<bool>
-EnableA53Fix835769("aarch64-fix-cortex-a53-835769", cl::Hidden,
-                cl::desc("Work around Cortex-A53 erratum 835769"),
-                cl::init(false));
-
-static cl::opt<bool>
     EnableGEPOpt("aarch64-enable-gep-opt", cl::Hidden,
                  cl::desc("Enable optimizations on complex GEPs"),
                  cl::init(false));
@@ -158,8 +154,32 @@ static cl::opt<bool> EnableFalkorHWPFFix("aarch64-enable-falkor-hwpf-fix",
 
 static cl::opt<bool>
     EnableBranchTargets("aarch64-enable-branch-targets", cl::Hidden,
-                        cl::desc("Enable the AAcrh64 branch target pass"),
+                        cl::desc("Enable the AArch64 branch target pass"),
                         cl::init(true));
+
+static cl::opt<unsigned> SVEVectorBitsMaxOpt(
+    "aarch64-sve-vector-bits-max",
+    cl::desc("Assume SVE vector registers are at most this big, "
+             "with zero meaning no maximum size is assumed."),
+    cl::init(0), cl::Hidden);
+
+static cl::opt<unsigned> SVEVectorBitsMinOpt(
+    "aarch64-sve-vector-bits-min",
+    cl::desc("Assume SVE vector registers are at least this big, "
+             "with zero meaning no minimum size is assumed."),
+    cl::init(0), cl::Hidden);
+
+extern cl::opt<bool> EnableHomogeneousPrologEpilog;
+
+static cl::opt<bool> EnableGISelLoadStoreOptPreLegal(
+    "aarch64-enable-gisel-ldst-prelegal",
+    cl::desc("Enable GlobalISel's pre-legalizer load/store optimization pass"),
+    cl::init(true), cl::Hidden);
+
+static cl::opt<bool> EnableGISelLoadStoreOptPostLegal(
+    "aarch64-enable-gisel-ldst-postlegal",
+    cl::desc("Enable GlobalISel's post-legalizer load/store optimization pass"),
+    cl::init(false), cl::Hidden);
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeAArch64Target() {
   // Register the target.
@@ -181,7 +201,9 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeAArch64Target() {
   initializeAArch64DeadRegisterDefinitionsPass(*PR);
   initializeAArch64ExpandPseudoPass(*PR);
   initializeAArch64LoadStoreOptPass(*PR);
+  initializeAArch64MIPeepholeOptPass(*PR);
   initializeAArch64SIMDInstrOptPass(*PR);
+  initializeAArch64O0PreLegalizerCombinerPass(*PR);
   initializeAArch64PreLegalizerCombinerPass(*PR);
   initializeAArch64PostLegalizerCombinerPass(*PR);
   initializeAArch64PostLegalizerLoweringPass(*PR);
@@ -197,6 +219,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeAArch64Target() {
   initializeAArch64SLSHardeningPass(*PR);
   initializeAArch64StackTaggingPass(*PR);
   initializeAArch64StackTaggingPreRAPass(*PR);
+  initializeAArch64LowerHomogeneousPrologEpilogPass(*PR);
 }
 
 //===----------------------------------------------------------------------===//
@@ -338,21 +361,64 @@ AArch64TargetMachine::~AArch64TargetMachine() = default;
 const AArch64Subtarget *
 AArch64TargetMachine::getSubtargetImpl(const Function &F) const {
   Attribute CPUAttr = F.getFnAttribute("target-cpu");
+  Attribute TuneAttr = F.getFnAttribute("tune-cpu");
   Attribute FSAttr = F.getFnAttribute("target-features");
 
   std::string CPU =
       CPUAttr.isValid() ? CPUAttr.getValueAsString().str() : TargetCPU;
+  std::string TuneCPU =
+      TuneAttr.isValid() ? TuneAttr.getValueAsString().str() : CPU;
   std::string FS =
       FSAttr.isValid() ? FSAttr.getValueAsString().str() : TargetFS;
 
-  auto &I = SubtargetMap[CPU + FS];
+  SmallString<512> Key;
+
+  unsigned MinSVEVectorSize = 0;
+  unsigned MaxSVEVectorSize = 0;
+  Attribute VScaleRangeAttr = F.getFnAttribute(Attribute::VScaleRange);
+  if (VScaleRangeAttr.isValid()) {
+    Optional<unsigned> VScaleMax = VScaleRangeAttr.getVScaleRangeMax();
+    MinSVEVectorSize = VScaleRangeAttr.getVScaleRangeMin() * 128;
+    MaxSVEVectorSize = VScaleMax ? VScaleMax.getValue() * 128 : 0;
+  } else {
+    MinSVEVectorSize = SVEVectorBitsMinOpt;
+    MaxSVEVectorSize = SVEVectorBitsMaxOpt;
+  }
+
+  assert(MinSVEVectorSize % 128 == 0 &&
+         "SVE requires vector length in multiples of 128!");
+  assert(MaxSVEVectorSize % 128 == 0 &&
+         "SVE requires vector length in multiples of 128!");
+  assert((MaxSVEVectorSize >= MinSVEVectorSize || MaxSVEVectorSize == 0) &&
+         "Minimum SVE vector size should not be larger than its maximum!");
+
+  // Sanitize user input in case of no asserts
+  if (MaxSVEVectorSize == 0)
+    MinSVEVectorSize = (MinSVEVectorSize / 128) * 128;
+  else {
+    MinSVEVectorSize =
+        (std::min(MinSVEVectorSize, MaxSVEVectorSize) / 128) * 128;
+    MaxSVEVectorSize =
+        (std::max(MinSVEVectorSize, MaxSVEVectorSize) / 128) * 128;
+  }
+
+  Key += "SVEMin";
+  Key += std::to_string(MinSVEVectorSize);
+  Key += "SVEMax";
+  Key += std::to_string(MaxSVEVectorSize);
+  Key += CPU;
+  Key += TuneCPU;
+  Key += FS;
+
+  auto &I = SubtargetMap[Key];
   if (!I) {
     // This needs to be done before we create a new subtarget since any
     // creation will depend on the TM and the code generation flags on the
     // function that reside in TargetOptions.
     resetTargetOptions(F);
-    I = std::make_unique<AArch64Subtarget>(TargetTriple, CPU, FS, *this,
-                                            isLittle);
+    I = std::make_unique<AArch64Subtarget>(TargetTriple, CPU, TuneCPU, FS,
+                                           *this, isLittle, MinSVEVectorSize,
+                                           MaxSVEVectorSize);
   }
   return I.get();
 }
@@ -415,6 +481,7 @@ public:
 
   void addIRPasses()  override;
   bool addPreISel() override;
+  void addCodeGenPrepare() override;
   bool addInstSelector() override;
   bool addIRTranslator() override;
   void addPreLegalizeMachineIR() override;
@@ -423,11 +490,13 @@ public:
   bool addRegBankSelect() override;
   void addPreGlobalInstructionSelect() override;
   bool addGlobalInstructionSelect() override;
+  void addMachineSSAOptimization() override;
   bool addILPOpts() override;
   void addPreRegAlloc() override;
   void addPostRegAlloc() override;
   void addPreSched2() override;
   void addPreEmitPass() override;
+  void addPreEmitPass2() override;
 
   std::unique_ptr<CSEConfigBase> getCSEConfig() const override;
 };
@@ -462,6 +531,7 @@ void AArch64PassConfig::addIRPasses() {
   if (TM->getOptLevel() != CodeGenOpt::None && EnableAtomicTidy)
     addPass(createCFGSimplificationPass(SimplifyCFGOptions()
                                             .forwardSwitchCondToPhi(true)
+                                            .convertSwitchRangeToICmp(true)
                                             .convertSwitchToLookupTable(true)
                                             .needCanonicalLoops(false)
                                             .hoistCommonInsts(true)
@@ -540,6 +610,12 @@ bool AArch64PassConfig::addPreISel() {
   return false;
 }
 
+void AArch64PassConfig::addCodeGenPrepare() {
+  if (getOptLevel() != CodeGenOpt::None)
+    addPass(createTypePromotionPass());
+  TargetPassConfig::addCodeGenPrepare();
+}
+
 bool AArch64PassConfig::addInstSelector() {
   addPass(createAArch64ISelDag(getAArch64TargetMachine(), getOptLevel()));
 
@@ -558,8 +634,13 @@ bool AArch64PassConfig::addIRTranslator() {
 }
 
 void AArch64PassConfig::addPreLegalizeMachineIR() {
-  bool IsOptNone = getOptLevel() == CodeGenOpt::None;
-  addPass(createAArch64PreLegalizerCombiner(IsOptNone));
+  if (getOptLevel() == CodeGenOpt::None)
+    addPass(createAArch64O0PreLegalizerCombiner());
+  else {
+    addPass(createAArch64PreLegalizerCombiner());
+    if (EnableGISelLoadStoreOptPreLegal)
+      addPass(new LoadStoreOpt());
+  }
 }
 
 bool AArch64PassConfig::addLegalizeMachineIR() {
@@ -569,8 +650,11 @@ bool AArch64PassConfig::addLegalizeMachineIR() {
 
 void AArch64PassConfig::addPreRegBankSelect() {
   bool IsOptNone = getOptLevel() == CodeGenOpt::None;
-  if (!IsOptNone)
+  if (!IsOptNone) {
     addPass(createAArch64PostLegalizerCombiner(IsOptNone));
+    if (EnableGISelLoadStoreOptPostLegal)
+      addPass(new LoadStoreOpt());
+  }
   addPass(createAArch64PostLegalizerLowering());
 }
 
@@ -584,10 +668,18 @@ void AArch64PassConfig::addPreGlobalInstructionSelect() {
 }
 
 bool AArch64PassConfig::addGlobalInstructionSelect() {
-  addPass(new InstructionSelect());
+  addPass(new InstructionSelect(getOptLevel()));
   if (getOptLevel() != CodeGenOpt::None)
     addPass(createAArch64PostSelectOptimize());
   return false;
+}
+
+void AArch64PassConfig::addMachineSSAOptimization() {
+  // Run default MachineSSAOptimization first.
+  TargetPassConfig::addMachineSSAOptimization();
+
+  if (TM->getOptLevel() != CodeGenOpt::None)
+    addPass(createAArch64MIPeepholeOptPass());
 }
 
 bool AArch64PassConfig::addILPOpts() {
@@ -634,6 +726,9 @@ void AArch64PassConfig::addPostRegAlloc() {
 }
 
 void AArch64PassConfig::addPreSched2() {
+  // Lower homogeneous frame instructions
+  if (EnableHomogeneousPrologEpilog)
+    addPass(createAArch64LowerHomogeneousPrologEpilogPass());
   // Expand some pseudo instructions to allow proper scheduling.
   addPass(createAArch64ExpandPseudoPass());
   // Use load/store pair instructions when possible.
@@ -665,8 +760,7 @@ void AArch64PassConfig::addPreEmitPass() {
   if (TM->getOptLevel() >= CodeGenOpt::Aggressive && EnableLoadStoreOpt)
     addPass(createAArch64LoadStoreOptimizationPass());
 
-  if (EnableA53Fix835769)
-    addPass(createAArch64A53Fix835769());
+  addPass(createAArch64A53Fix835769());
 
   if (EnableBranchTargets)
     addPass(createAArch64BranchTargetsPass());
@@ -676,9 +770,12 @@ void AArch64PassConfig::addPreEmitPass() {
   if (BranchRelaxation)
     addPass(&BranchRelaxationPassID);
 
-  // Identify valid longjmp targets for Windows Control Flow Guard.
-  if (TM->getTargetTriple().isOSWindows())
+  if (TM->getTargetTriple().isOSWindows()) {
+    // Identify valid longjmp targets for Windows Control Flow Guard.
     addPass(createCFGuardLongjmpPass());
+    // Identify valid eh continuation targets for Windows EHCont Guard.
+    addPass(createEHContGuardCatchretPass());
+  }
 
   if (TM->getOptLevel() != CodeGenOpt::None && EnableCompressJumpTables)
     addPass(createAArch64CompressJumpTablesPass());
@@ -686,8 +783,11 @@ void AArch64PassConfig::addPreEmitPass() {
   if (TM->getOptLevel() != CodeGenOpt::None && EnableCollectLOH &&
       TM->getTargetTriple().isOSBinFormatMachO())
     addPass(createAArch64CollectLOHPass());
+}
 
-  // SVE bundles move prefixes with destructive operations.
+void AArch64PassConfig::addPreEmitPass2() {
+  // SVE bundles move prefixes with destructive operations. BLR_RVMARKER pseudo
+  // instructions are lowered to bundles as well.
   addPass(createUnpackMachineBundles(nullptr));
 }
 

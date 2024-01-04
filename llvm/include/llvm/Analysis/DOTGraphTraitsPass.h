@@ -97,7 +97,7 @@ public:
 
     errs() << "Writing '" << Filename << "'...";
 
-    raw_fd_ostream File(Filename, EC, sys::fs::OF_Text);
+    raw_fd_ostream File(Filename, EC, sys::fs::OF_TextWithCRLF);
     std::string GraphName = DOTGraphTraits<GraphT>::getGraphName(Graph);
     std::string Title = GraphName + " for '" + F.getName().str() + "' function";
 
@@ -160,7 +160,7 @@ public:
 
     errs() << "Writing '" << Filename << "'...";
 
-    raw_fd_ostream File(Filename, EC, sys::fs::OF_Text);
+    raw_fd_ostream File(Filename, EC, sys::fs::OF_TextWithCRLF);
     std::string Title = DOTGraphTraits<GraphT>::getGraphName(Graph);
 
     if (!EC)
@@ -180,6 +180,25 @@ public:
 private:
   std::string Name;
 };
+
+template <typename GraphT>
+void WriteDOTGraphToFile(Function &F, GraphT &&Graph,
+                         std::string FileNamePrefix, bool IsSimple) {
+  std::string Filename = FileNamePrefix + "." + F.getName().str() + ".dot";
+  std::error_code EC;
+
+  errs() << "Writing '" << Filename << "'...";
+
+  raw_fd_ostream File(Filename, EC, sys::fs::OF_TextWithCRLF);
+  std::string GraphName = DOTGraphTraits<GraphT>::getGraphName(Graph);
+  std::string Title = GraphName + " for '" + F.getName().str() + "' function";
+
+  if (!EC)
+    WriteGraph(File, Graph, IsSimple, Title);
+  else
+    errs() << "  error opening file for writing!";
+  errs() << "\n";
+}
 
 } // end namespace llvm
 

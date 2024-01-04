@@ -579,6 +579,98 @@ calling the ``ExecutionSession::createJITDylib`` method with a unique name:
 The JITDylib is owned by the ``ExecutionEngine`` instance and will be freed
 when it is destroyed.
 
+How to remove a JITDylib
+------------------------
+JITDylibs can be removed completely by calling  ``ExecutionSession::removeJITDylib``.
+Calling that function will close the give JITDylib and clear all the resources held for
+it. No code can be added to a closed JITDylib.
+
+Please note that closing a JITDylib won't update any pointers, you are responsible for
+ensuring that any code/data contained in the JITDylib is no longer in use.
+
+Also You can use a custom resource tracker to remove individual modules from a JITDylib.
+
+How to add the support for custom program representation
+--------------------------------------------------------
+In order to add the support for a custom program representation, a custom ``MaterializationUnit``
+for the program representation, and a custom ``Layer`` are needed. The Layer will have two
+operations: ``add`` and ``emit``. The ``add`` operation takes an instance of your program
+representation, builds one of your custom ``MaterializationUnits`` to hold it, then adds it
+to a ``JITDylib``. The emit operation takes a ``MaterializationResponsibility`` object and an
+instance of your program representation and materializes it, usually by compiling it and handing
+the resulting object off to an ``ObjectLinkingLayer``.
+
+Your custom ``MaterializationUnit`` will have two operations: ``materialize`` and ``discard``. The
+``materialize`` function will be called for you when any symbol provided by the unit is looked up,
+and it should just call the ``emit`` function on your layer, passing in the given
+``MaterializationResponsibility`` and the wrapped program representation. The ``discard`` function
+will be called if some weak symbol provided by your unit is not needed (because the JIT found an
+overriding definition). You can use this to drop your definition early, or just ignore it and let
+the linker drops the definition later.
+
+Here is an example of an ASTLayer:
+
+  .. code-block:: c++
+
+    // ... In you JIT class
+    AstLayer astLayer;
+    // ...
+
+
+    class AstMaterializationUnit : public orc::MaterializationUnit {
+    public:
+      AstMaterializationUnit(AstLayer &l, Ast &ast)
+      : llvm::orc::MaterializationUnit(l.getInterface(ast)), astLayer(l),
+      ast(ast) {};
+
+      llvm::StringRef getName() const override {
+        return "AstMaterializationUnit";
+      }
+
+      void materialize(std::unique_ptr<orc::MaterializationResponsibility> r) override {
+        astLayer.emit(std::move(r), ast);
+      };
+
+    private:
+      void discard(const llvm::orc::JITDylib &jd, const llvm::orc::SymbolStringPtr &sym) override {
+        llvm_unreachable("functions are not overridable");
+      }
+
+
+      AstLayer &astLayer;
+      Ast &ast;
+    };
+
+    class AstLayer {
+      llvhm::orc::IRLayer &baseLayer;
+      llvhm::orc::MangleAndInterner &mangler;
+
+    public:
+      AstLayer(llvm::orc::IRLayer &baseLayer, llvm::orc::MangleAndInterner &mangler)
+      : baseLayer(baseLayer), mangler(mangler){};
+
+      llvm::Error add(llvm::orc::ResourceTrackerSP &rt, Ast &ast) {
+        return rt->getJITDylib().define(std::make_unique<AstMaterializationUnit>(*this, ast), rt);
+      }
+
+      void emit(std::unique_ptr<orc::MaterializationResponsibility> mr, Ast &ast) {
+        // compileAst is just function that compiles the given AST and returns
+        // a `llvm::orc::ThreadSafeModule`
+        baseLayer.emit(std::move(mr), compileAst(ast));
+      }
+
+      llvm::orc::MaterializationUnit::Interface getInterface(Ast &ast) {
+          SymbolFlagsMap Symbols;
+          // Find all the symbols in the AST and for each of them
+          // add it to the Symbols map.
+          Symbols[mangler(someNameFromAST)] =
+            JITSymbolFlags(JITSymbolFlags::Exported | JITSymbolFlags::Callable);
+          return MaterializationUnit::Interface(std::move(Symbols), nullptr);
+      }
+    };
+
+Take look at the source code of `Building A JIT's Chapter 4 <tutorial/BuildingAJIT4.html>`_ for a complete example.
+
 How to use ThreadSafeModule and ThreadSafeContext
 -------------------------------------------------
 
@@ -730,8 +822,11 @@ For example, to load the whole interface of a runtime library:
     const DataLayout &DL = getDataLayout();
     auto &JD = ES.createJITDylib("main");
 
-    JD.setGenerator(DynamicLibrarySearchGenerator::Load("/path/to/lib"
-                                                        DL.getGlobalPrefix()));
+    if (auto DLSGOrErr = DynamicLibrarySearchGenerator::Load("/path/to/lib"
+                                                             DL.getGlobalPrefix()))
+      JD.addGenerator(std::move(*DLSGOrErr);
+    else
+      return DLSGOrErr.takeError();
 
     // IR added to JD can now link against all symbols exported by the library
     // at '/path/to/lib'.
@@ -753,10 +848,9 @@ Or, to expose an allowed set of symbols from the main process:
 
     // Use GetForCurrentProcess with a predicate function that checks the
     // allowed list.
-    JD.setGenerator(
-      DynamicLibrarySearchGenerator::GetForCurrentProcess(
-        DL.getGlobalPrefix(),
-        [&](const SymbolStringPtr &S) { return AllowList.count(S); }));
+    JD.addGenerator(cantFail(DynamicLibrarySearchGenerator::GetForCurrentProcess(
+          DL.getGlobalPrefix(),
+          [&](const SymbolStringPtr &S) { return AllowList.count(S); })));
 
     // IR added to JD can now link against any symbols exported by the process
     // and contained in the list.
@@ -797,10 +891,6 @@ Current Work
    ExecutionSession and leaving the JITDylib instance in a defunct state until
    all references to it have been released).
 
-4. **JITLink improvements**
-
-   TBD. We really need a separate JITLink design document.
-
 Near Future Work
 ----------------
 
@@ -833,7 +923,7 @@ Further Future Work
    *speculative* JIT compilation: compilation of code that is not needed yet,
    but which we have reason to believe will be needed in the future. This can be
    used to hide compile latency and improve JIT throughput. A proof-of-concept
-   exmaple of speculative compilation with ORC has already been developed (see
+   example of speculative compilation with ORC has already been developed (see
    ``llvm/examples/SpeculativeJIT``). Future work on this is likely to focus on
    re-using and improving existing profiling support (currently used by PGO) to
    feed speculation decisions, as well as built-in tools to simplify use of

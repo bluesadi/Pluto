@@ -44,7 +44,7 @@ static const enum raw_ostream::Colors savedColor =
 /// Add highlights to differences in template strings.
 static void applyTemplateHighlighting(raw_ostream &OS, StringRef Str,
                                       bool &Normal, bool Bold) {
-  while (1) {
+  while (true) {
     size_t Pos = Str.find(ToggleHighlight);
     OS << Str.slice(0, Pos);
     if (Pos == StringRef::npos)
@@ -684,8 +684,7 @@ void TextDiagnostic::emitDiagnosticMessage(
     OS.resetColor();
 
   if (DiagOpts->ShowLevel)
-    printDiagnosticLevel(OS, Level, DiagOpts->ShowColors,
-                         DiagOpts->CLFallbackMode);
+    printDiagnosticLevel(OS, Level, DiagOpts->ShowColors);
   printDiagnosticMessage(OS,
                          /*IsSupplemental*/ Level == DiagnosticsEngine::Note,
                          Message, OS.tell() - StartOfLocationInfo,
@@ -695,8 +694,7 @@ void TextDiagnostic::emitDiagnosticMessage(
 /*static*/ void
 TextDiagnostic::printDiagnosticLevel(raw_ostream &OS,
                                      DiagnosticsEngine::Level Level,
-                                     bool ShowColors,
-                                     bool CLFallbackMode) {
+                                     bool ShowColors) {
   if (ShowColors) {
     // Print diagnostic category in bold and color
     switch (Level) {
@@ -713,21 +711,12 @@ TextDiagnostic::printDiagnosticLevel(raw_ostream &OS,
   switch (Level) {
   case DiagnosticsEngine::Ignored:
     llvm_unreachable("Invalid diagnostic type");
-  case DiagnosticsEngine::Note:    OS << "note"; break;
-  case DiagnosticsEngine::Remark:  OS << "remark"; break;
-  case DiagnosticsEngine::Warning: OS << "warning"; break;
-  case DiagnosticsEngine::Error:   OS << "error"; break;
-  case DiagnosticsEngine::Fatal:   OS << "fatal error"; break;
+  case DiagnosticsEngine::Note:    OS << "note: "; break;
+  case DiagnosticsEngine::Remark:  OS << "remark: "; break;
+  case DiagnosticsEngine::Warning: OS << "warning: "; break;
+  case DiagnosticsEngine::Error:   OS << "error: "; break;
+  case DiagnosticsEngine::Fatal:   OS << "fatal error: "; break;
   }
-
-  // In clang-cl /fallback mode, print diagnostics as "error(clang):". This
-  // makes it more clear whether a message is coming from clang or cl.exe,
-  // and it prevents MSBuild from concluding that the build failed just because
-  // there is an "error:" in the output.
-  if (CLFallbackMode)
-    OS << "(clang)";
-
-  OS << ": ";
 
   if (ShowColors)
     OS.resetColor();

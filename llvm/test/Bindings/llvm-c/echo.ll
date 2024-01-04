@@ -23,17 +23,20 @@ module asm "classical GAS"
 @align = global i32 31, align 4
 @nullptr = global i32* null
 
+@const_gep = global i32* getelementptr (i32, i32* @var, i64 2)
+@const_inbounds_gep = global i32* getelementptr inbounds (i32, i32* @var, i64 1)
+
 @aliased1 = alias i32, i32* @var
 @aliased2 = internal alias i32, i32* @var
 @aliased3 = external alias i32, i32* @var
 @aliased4 = weak alias i32, i32* @var
 @aliased5 = weak_odr alias i32, i32* @var
 
-@ifunc = ifunc i32 (i32), i64 ()* @ifunc_resolver
+@ifunc = ifunc i32 (i32), i32 (i32)* ()* @ifunc_resolver
 
-define i64 @ifunc_resolver() {
+define i32 (i32)* @ifunc_resolver() {
 entry:
-  ret i64 0
+  ret i32 (i32)* null
 }
 
 define { i64, %S* } @unpackrepack(%S %s) {
@@ -148,11 +151,11 @@ define void @memops(i8* %ptr) {
   store volatile i8 0, i8* %ptr
   store i8 0, i8* %ptr, align 8
   store atomic i8 0, i8* %ptr release, align 32
-  %e = atomicrmw add i8* %ptr, i8 0 monotonic
-  %f = atomicrmw volatile xchg i8* %ptr, i8 0 acq_rel
-  %g = cmpxchg i8* %ptr, i8 1, i8 2 seq_cst acquire
-  %h = cmpxchg weak i8* %ptr, i8 1, i8 2 seq_cst acquire
-  %i = cmpxchg volatile i8* %ptr, i8 1, i8 2 monotonic monotonic
+  %e = atomicrmw add i8* %ptr, i8 0 monotonic, align 1
+  %f = atomicrmw volatile xchg i8* %ptr, i8 0 acq_rel, align 8
+  %g = cmpxchg i8* %ptr, i8 1, i8 2 seq_cst acquire, align 1
+  %h = cmpxchg weak i8* %ptr, i8 1, i8 2 seq_cst acquire, align 8
+  %i = cmpxchg volatile i8* %ptr, i8 1, i8 2 monotonic monotonic, align 16
   ret void
 }
 
