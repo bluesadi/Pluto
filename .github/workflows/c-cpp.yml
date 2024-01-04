@@ -2,9 +2,9 @@ name: C/C++ CI
 
 on:
   push:
-    branches: [ "llvm-14.0.6" ]
+    branches: [ "llvm-14.0.6", "main" ]
   pull_request:
-    branches: [ "llvm-14.0.6" ]
+    branches: [ "llvm-14.0.6", "main" ]
 
 jobs:
   Ubuntu:
