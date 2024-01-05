@@ -2,9 +2,9 @@ name: C/C++ CI
 
 on:
   push:
-    branches: [ "llvm-14.0.6", "main" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "llvm-14.0.6", "main" ]
+    branches: [ "main" ]
 
 jobs:
   Ubuntu:
@@ -17,8 +17,6 @@ jobs:
       run: sudo apt install ninja-build -y
     - name: Install z3
       run: sudo apt install libz3-dev -y
-    - name: Install lld
-      run: sudo apt install lld -y
     - name: git submodule update --init
       run: git submodule update --init
     - name: ./build.sh
