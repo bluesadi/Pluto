@@ -13,12 +13,6 @@ Install z3 (required by MBAObfuscation):
 ```
 $ sudo apt install libz3-dev 
 ```
-(Optional) Install lld:
-```
-// This is an optional depencency to speed up the linking stage when building LLVM.
-// If you don't want to install this dependency, remove the line `set(LLVM_ENABLE_LLD ON)` in CMakeLists.txt
-$ sudo apt install lld
-```
 Install Ninja and other dependencies:
 ```
 $ sudo apt install ninja-build cmake python3 gcc g++
