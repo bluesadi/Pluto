@@ -23,6 +23,17 @@ bool Flattening::runOnFunction(Function &F) {
     return false;
 }
 
+bool has_unsupported_ir(Function &F){
+    for (BasicBlock &BB : F) {
+        for (Instruction &I : BB) {
+            if (isa<LandingPadInst>(&I) || isa<PHINode>(&I))
+                return true;
+        }
+    }
+    return false;
+}
+
+
 void Flattening::flatten(Function &F) {
     // 基本块数量不超过1则无需平坦化
     if (F.size() <= 1) {
@@ -34,9 +45,21 @@ void Flattening::flatten(Function &F) {
     // 将除入口块（第一个基本块）以外的基本块保存到一个 vector
     // 容器中，便于后续处理 首先保存所有基本块
     vector<BasicBlock *> origBB;
+
+    int use_flat = 1;
+
     for (BasicBlock &BB : F) {
         origBB.push_back(&BB);
     }
+
+    if(has_unsupported_ir(F)){
+        use_flat = 0;
+    }
+
+    if(!use_flat){
+        return;
+    }
+
     // 从vector中去除第一个基本块
     origBB.erase(origBB.begin());
     BasicBlock &entryBB = F.getEntryBlock();
