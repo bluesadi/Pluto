@@ -67,6 +67,7 @@ bool GlobalsEncryption::runOnModule(Module &M) {
             GV->setConstant(false);
             insertArrayDecryption(M, {GV, key, eleNum});
             } else if (intData) {
+                continue;  // TODO: fix the bug
             uint64_t key = cryptoutils->get_uint64_t();
             ConstantInt *enc =
                 CONST(intData->getType(), key ^ intData->getZExtValue());
