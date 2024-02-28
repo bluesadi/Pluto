@@ -50,6 +50,12 @@ void Flattening::flatten(Function &F) {
 
     for (BasicBlock &BB : F) {
         origBB.push_back(&BB);
+
+        unsigned int op = BB.getTerminator()->getOpcode();
+        if(op != Instruction::Br && op != Instruction::Ret){
+            use_flat = 0;
+            break;
+        }
     }
 
     if(has_unsupported_ir(F)){
