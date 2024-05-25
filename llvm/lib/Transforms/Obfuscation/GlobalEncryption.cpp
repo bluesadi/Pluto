@@ -11,6 +11,12 @@
 namespace Pluto {
 
 bool shouldSkip(GlobalVariable &GV) {
+    outs() << "M: " << GV.getParent()->getName() << "\n";
+    if (GV.hasAvailableExternallyLinkage()) {
+        outs() << "Content: " << GV.getParent() << "\n";
+        outs() << *(GV.getParent());
+    }
+    outs() << "GV name: " << GV.getName() << ", GV linkage: " << GV.getLinkage() << "\n";
     // Do not encrypt LLVM-generated GV like llvm.global_ctors
     if (GV.getName().startswith("llvm.")) {
         return true;
@@ -46,6 +52,9 @@ PreservedAnalyses GlobalEncryption::run(Module &M, ModuleAnalysisManager &AM) {
         if (!shouldSkip(GV)) {
             GVs.push_back(&GV);
         }
+    }
+    for (auto &GV : M.getFunctionList()) {
+        outs() << "F name: " << GV.getName() << ", F linkage: " << GV.getLinkage() << "\n";
     }
     for (auto &GV : GVs) {
         if (ConstantDataArray *dataArray = dyn_cast<ConstantDataArray>(GV->getInitializer())) {
