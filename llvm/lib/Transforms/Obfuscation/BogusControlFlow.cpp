@@ -46,13 +46,14 @@ Value *createBogusCmp(BasicBlock *insertAfter) {
     IRBuilder<> builder(context);
     builder.SetInsertPoint(insertAfter);
     LoadInst *x = builder.CreateLoad(Type::getInt32Ty(context), xptr);
-    LoadInst *y = builder.CreateLoad(Type::getInt32Ty(context), yptr);
-    Value *cond1 = builder.CreateICmpSLT(y, ConstantInt::get(Type::getInt32Ty(context), 10));
-    Value *op1 = builder.CreateAdd(x, ConstantInt::get(Type::getInt32Ty(context), 1));
-    Value *op2 = builder.CreateMul(op1, x);
-    Value *op3 = builder.CreateURem(op2, ConstantInt::get(Type::getInt32Ty(context), 2));
-    Value *cond2 = builder.CreateICmpEQ(op3, ConstantInt::get(Type::getInt32Ty(context), 0));
-    return BinaryOperator::CreateOr(cond1, cond2, "", insertAfter);
+    // LoadInst *y = builder.CreateLoad(Type::getInt32Ty(context), yptr);
+    // Value *cond1 = builder.CreateICmpSLT(y, ConstantInt::get(Type::getInt32Ty(context), 10));
+    // Value *op1 = builder.CreateAdd(x, ConstantInt::get(Type::getInt32Ty(context), 1));
+    // Value *op2 = builder.CreateMul(op1, x);
+    // Value *op3 = builder.CreateURem(op2, ConstantInt::get(Type::getInt32Ty(context), 2));
+    // Value *cond2 = builder.CreateICmpEQ(op3, ConstantInt::get(Type::getInt32Ty(context), 0));
+    // return BinaryOperator::CreateOr(cond1, cond2, "", insertAfter);
+    return builder.CreateICmpSGE(x, ConstantInt::get(Type::getInt32Ty(context), 0));
 }
 
 PreservedAnalyses Pluto::BogusControlFlow::run(Function &F, FunctionAnalysisManager &AM) {
