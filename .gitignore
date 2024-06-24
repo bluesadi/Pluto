@@ -1,3 +1,7 @@
 build
 install
 .vscode
+examples/example
+examples/example.obfu
+examples/hello
+examples/hello.obfu
