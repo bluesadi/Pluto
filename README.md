@@ -8,6 +8,10 @@ Download source code:
 ```
 $ git clone https://github.com/bluesadi/Pluto.git
 ```
+Switch to `hs-intern` branch:
+```
+$ git checkout hs-intern
+```
 ### Ubuntu
 Install z3 (required by MBAObfuscation):
 ```
@@ -19,6 +23,7 @@ $ sudo apt install ninja-build cmake python3 gcc g++
 ```
 Build and install Pluto to `./install` directory:
 ```
+$ cd Pluto
 $ mkdir -p build
 $ cmake -G Ninja -S . -B build \
         -DCMAKE_C_COMPILER="gcc" \
@@ -26,10 +31,6 @@ $ cmake -G Ninja -S . -B build \
         -DCMAKE_INSTALL_PREFIX="install" \
         -DCMAKE_BUILD_TYPE=Release
 $ ninja -j`nproc` -C build install
-```
-Or:
-```
-$ ./build.sh
 ```
 
 ## Usage
