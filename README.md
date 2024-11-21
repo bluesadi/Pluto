@@ -3,6 +3,8 @@
 
 Pluto is a code obfuscator built on top of LLVM 14.0.6 (more in the future...). In summary, Pluto converts the source code into a functionally equivalent but much more complicated form at compile-time, protecting your software from being cracked.
 
+**This project is no longer under maintenance. Please switch to the actively maintained repository:[Polaris-Obfuscator](https://github.com/za233/Polaris-Obfuscator)**
+
 ## Installation
 Download source code:
 ```
