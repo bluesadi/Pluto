@@ -30,7 +30,7 @@ namespace{
             bool runOnFunction(Function &F);
 
             // 对单个指令 BI 进行替换
-            void substitute(BinaryOperator *BI);
+            bool substitute(BinaryOperator *BI);
 
             // 线性替换：val -> ax + by + c
             // 其中 val 为原常量 a, b 为随机常量 x, y 为随机全局变量 c = val - (ax + by)
@@ -44,6 +44,7 @@ namespace{
 
 bool ConstantSubstitution::runOnFunction(Function &F){
     INIT_CONTEXT(F);
+    bool modified = false;
     for(int i = 0;i < obfuTimes;i ++){
         for(BasicBlock &BB : F){
             vector<Instruction*> origInst;
@@ -55,12 +56,15 @@ bool ConstantSubstitution::runOnFunction(Function &F){
                 if(BinaryOperator *BI = dyn_cast<BinaryOperator>(I)){
                     // 仅对整数进行替换
                     if(BI->getType()->isIntegerTy(32)){
-                        substitute(BI);
+                        if (substitute(BI))
+                            modified = true;
                     }
                 }
             }
         }
     }
+
+    return modified;
 }
 
 void ConstantSubstitution::linearSubstitute(BinaryOperator *BI, int i){
@@ -116,10 +120,12 @@ void ConstantSubstitution::bitwiseSubstitute(BinaryOperator *BI, int i){
     BI->setOperand(i, op4);
 }
 
-void ConstantSubstitution::substitute(BinaryOperator *BI){
+bool ConstantSubstitution::substitute(BinaryOperator *BI){
     int operandNum = BI->getNumOperands();
+    bool modified = false;
     for(int i = 0;i < operandNum;i ++){
         if(isa<ConstantInt>(BI->getOperand(i))){
+            modified = true;
             int choice = rand() % NUMBER_CONST_SUBST;
             switch (choice) {
                 case 0:
@@ -133,6 +139,8 @@ void ConstantSubstitution::substitute(BinaryOperator *BI){
             }
         }
     }
+
+    return modified;
 }
 
 char ConstantSubstitution::ID = 0;
